@@ -1,0 +1,586 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.active == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidScore(val) {
+      return val is int && val >= 0 && val <= 100;
+    }
+
+    function isBoundedStringList(arr, maxLen) {
+      return arr is list &&
+             arr.size() <= maxLen &&
+             (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 500)) &&
+             (arr.size() <= 1 || (arr[1] is string && arr[1].size() <= 500)) &&
+             (arr.size() <= 2 || (arr[2] is string && arr[2].size() <= 500));
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             data.communicationLevel in ['Beginner', 'Intermediate', 'Upper-Intermediate', 'Advanced'] &&
+             data.onboardingCompleted is bool &&
+             (!('primaryGoal' in data) || (data.primaryGoal is string && data.primaryGoal.size() <= 200)) &&
+             (!('dailyGoalMinutes' in data) || (data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 5 && data.dailyGoalMinutes <= 240)) &&
+             (!('streakDays' in data) || (data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500)) &&
+             (!('lastPracticeDate' in data) || (data.lastPracticeDate is string && data.lastPracticeDate.size() <= 20)) &&
+             (!('totalPracticeMinutes' in data) || (data.totalPracticeMinutes is int && data.totalPracticeMinutes >= 0)) &&
+             (!('wordsLearnedCount' in data) || (data.wordsLearnedCount is int && data.wordsLearnedCount >= 0)) &&
+             (!('recordingsCount' in data) || (data.recordingsCount is int && data.recordingsCount >= 0)) &&
+             (!('completedExercisesCount' in data) || (data.completedExercisesCount is int && data.completedExercisesCount >= 0)) &&
+             (!('fluencyScore' in data) || isValidScore(data.fluencyScore)) &&
+             (!('pronunciationScore' in data) || isValidScore(data.pronunciationScore)) &&
+             (!('vocabularyScore' in data) || isValidScore(data.vocabularyScore)) &&
+             (!('grammarScore' in data) || isValidScore(data.grammarScore)) &&
+             (!('articulationScore' in data) || isValidScore(data.articulationScore)) &&
+             (!('listeningScore' in data) || isValidScore(data.listeningScore)) &&
+             (!('confidenceSelfRating' in data) || isValidScore(data.confidenceSelfRating));
+    }
+
+    function isValidEnrollment(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.programId is string && data.programId.size() >= 1 && data.programId.size() <= 100 &&
+             data.programTitle is string && data.programTitle.size() >= 1 && data.programTitle.size() <= 200 &&
+             data.currentDay is int && data.currentDay >= 1 && data.currentDay <= 180 &&
+             data.completedDays is list && data.completedDays.size() <= 180 &&
+             (data.completedDays.size() == 0 || data.completedDays[0] is int) &&
+             data.active is bool;
+    }
+
+    function isValidDailyActivity(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.dateKey is string && data.dateKey.size() >= 8 && data.dateKey.size() <= 20 &&
+             isBoundedStringList(data.completedStepIds, 20) &&
+             (!('reflectionText' in data) || (data.reflectionText is string && data.reflectionText.size() <= 2000)) &&
+             (!('confidenceRating' in data) || (data.confidenceRating is int && data.confidenceRating >= 1 && data.confidenceRating <= 10)) &&
+             data.minutesSpent is int && data.minutesSpent >= 0 && data.minutesSpent <= 600;
+    }
+
+    function isValidLearningProgress(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.lessonId is string && data.lessonId.size() >= 1 && data.lessonId.size() <= 120 &&
+             data.moduleSlug is string && data.moduleSlug.size() >= 1 && data.moduleSlug.size() <= 100 &&
+             data.completed is bool &&
+             (!('attemptsCount' in data) || (data.attemptsCount is int && data.attemptsCount >= 0 && data.attemptsCount <= 10000)) &&
+             (!('lastScore' in data) || isValidScore(data.lastScore)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000));
+    }
+
+    function isValidVocabularyEntry(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.word is string && data.word.size() >= 1 && data.word.size() <= 80 &&
+             (!('phonetic' in data) || (data.phonetic is string && data.phonetic.size() <= 120)) &&
+             data.meaning is string && data.meaning.size() >= 1 && data.meaning.size() <= 600 &&
+             data.level in ['Beginner', 'Intermediate', 'Advanced'] &&
+             (!('synonyms' in data) || isBoundedStringList(data.synonyms, 15)) &&
+             (!('antonyms' in data) || isBoundedStringList(data.antonyms, 15)) &&
+             (!('exampleSentence' in data) || (data.exampleSentence is string && data.exampleSentence.size() <= 600)) &&
+             (!('conversationExample' in data) || (data.conversationExample is string && data.conversationExample.size() <= 800)) &&
+             (!('collocations' in data) || isBoundedStringList(data.collocations, 15)) &&
+             (!('personalNote' in data) || (data.personalNote is string && data.personalNote.size() <= 1000)) &&
+             data.masteryLevel is int && data.masteryLevel >= 0 && data.masteryLevel <= 5 &&
+             data.repetitions is int && data.repetitions >= 0 && data.repetitions <= 1000 &&
+             data.nextReviewEpochDay is int && data.nextReviewEpochDay >= 0 &&
+             data.usageAssessed is bool;
+    }
+
+    function isValidSpeakingSession(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.moduleType in ['SPEAKING_LAB', 'DAILY_CHALLENGE', 'PRONUNCIATION', 'SHADOWING', 'GRAMMAR_SPEAKING', 'PRESENTATION', 'LESSON_PRACTICE'] &&
+             data.promptTitle is string && data.promptTitle.size() >= 1 && data.promptTitle.size() <= 300 &&
+             data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 3600 &&
+             (!('localMediaPath' in data) || (data.localMediaPath is string && data.localMediaPath.size() <= 600)) &&
+             (!('mediaType' in data) || (data.mediaType is string && data.mediaType.size() <= 64)) &&
+             (!('feedbackId' in data) || (data.feedbackId is string && data.feedbackId.size() <= 128)) &&
+             (!('transcript' in data) || (data.transcript is string && data.transcript.size() <= 15000)) &&
+             data.overallAssessment is string && data.overallAssessment.size() >= 1 && data.overallAssessment.size() <= 3000 &&
+             (!('strengths' in data) || isBoundedStringList(data.strengths, 15)) &&
+             (!('mistakes' in data) || isBoundedStringList(data.mistakes, 20)) &&
+             (!('pronunciationNotes' in data) || isBoundedStringList(data.pronunciationNotes, 20)) &&
+             (!('betterAlternatives' in data) || isBoundedStringList(data.betterAlternatives, 15)) &&
+             (!('fillerWordsDetected' in data) || isBoundedStringList(data.fillerWordsDetected, 25)) &&
+             (!('repeatedExpressions' in data) || isBoundedStringList(data.repeatedExpressions, 20)) &&
+             (!('improvementSuggestions' in data) || isBoundedStringList(data.improvementSuggestions, 15)) &&
+             (!('recommendedExercises' in data) || isBoundedStringList(data.recommendedExercises, 15)) &&
+             (!('pronunciationAssessable' in data) || data.pronunciationAssessable is bool) &&
+             (!('articulationClarity' in data) || (data.articulationClarity is string && data.articulationClarity.size() <= 800)) &&
+             (!('thoughtOrganization' in data) || (data.thoughtOrganization is string && data.thoughtOrganization.size() <= 800)) &&
+             (!('nextRecommendedActivity' in data) || (data.nextRecommendedActivity is string && data.nextRecommendedActivity.size() <= 400)) &&
+             data.confidenceLevel in ['High', 'Medium', 'Low'] &&
+             (!('audioQualityNote' in data) || (data.audioQualityNote is string && data.audioQualityNote.size() <= 500)) &&
+             isValidScore(data.fluencyScore) &&
+             isValidScore(data.pronunciationScore) &&
+             isValidScore(data.vocabularyScore) &&
+             isValidScore(data.grammarScore) &&
+             isValidScore(data.articulationScore) &&
+             (!('wordsPerMinute' in data) || (data.wordsPerMinute is int && data.wordsPerMinute >= 0 && data.wordsPerMinute <= 400)) &&
+             (!('sourceVideoUrl' in data) || (data.sourceVideoUrl is string && data.sourceVideoUrl.size() <= 500));
+    }
+
+    function isValidSpeechFeedback(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 128 &&
+             data.pronunciationAssessable is bool &&
+             (!('transcript' in data) || (data.transcript is string && data.transcript.size() <= 15000)) &&
+             (!('strengths' in data) || isBoundedStringList(data.strengths, 15)) &&
+             (!('mistakes' in data) || isBoundedStringList(data.mistakes, 20)) &&
+             (!('recordingExamples' in data) || isBoundedStringList(data.recordingExamples, 15)) &&
+             (!('betterAlternatives' in data) || isBoundedStringList(data.betterAlternatives, 15)) &&
+             (!('fillerWords' in data) || isBoundedStringList(data.fillerWords, 25)) &&
+             (!('repeatedExpressions' in data) || isBoundedStringList(data.repeatedExpressions, 20)) &&
+             (!('specificExercises' in data) || isBoundedStringList(data.specificExercises, 15)) &&
+             (!('pronunciationNote' in data) || (data.pronunciationNote is string && data.pronunciationNote.size() <= 800)) &&
+             (!('articulationClarity' in data) || (data.articulationClarity is string && data.articulationClarity.size() <= 800)) &&
+             (!('thoughtOrganization' in data) || (data.thoughtOrganization is string && data.thoughtOrganization.size() <= 800)) &&
+             (!('nextRecommendedActivity' in data) || (data.nextRecommendedActivity is string && data.nextRecommendedActivity.size() <= 400));
+    }
+
+    function isValidConversationSession(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.scenario is string && data.scenario.size() >= 1 && data.scenario.size() <= 120 &&
+             data.difficultyLevel is string && data.difficultyLevel.size() >= 1 && data.difficultyLevel.size() <= 60 &&
+             data.turnCount is int && data.turnCount >= 0 && data.turnCount <= 500 &&
+             (!('summaryFeedback' in data) || (data.summaryFeedback is string && data.summaryFeedback.size() <= 4000)) &&
+             (!('transcriptPreview' in data) || (data.transcriptPreview is string && data.transcriptPreview.size() <= 4000));
+    }
+
+    function isValidYouTubeSource(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.videoId is string && data.videoId.size() >= 1 && data.videoId.size() <= 64 &&
+             (!('channelHandle' in data) || (data.channelHandle is string && data.channelHandle.size() <= 100)) &&
+             (!('playlistTitle' in data) || (data.playlistTitle is string && data.playlistTitle.size() <= 200)) &&
+             (!('publishedDate' in data) || (data.publishedDate is string && data.publishedDate.size() <= 40)) &&
+             (!('durationSeconds' in data) || (data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 86400)) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+             data.videoUrl is string && data.videoUrl.size() >= 1 && data.videoUrl.size() <= 500 &&
+             (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 500)) &&
+             (!('mainTopic' in data) || (data.mainTopic is string && data.mainTopic.size() <= 300)) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+             data.difficulty in ['Beginner', 'Intermediate', 'Advanced'] &&
+             data.extractionStatus in ['EXTRACTED', 'NO_CAPTIONS', 'INACCESSIBLE', 'PENDING'] &&
+             (!('statusDetail' in data) || (data.statusDetail is string && data.statusDetail.size() <= 500)) &&
+             data.transcriptAvailable is bool;
+    }
+
+    function isValidExtractedTechnique(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 250 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+             data.difficulty in ['Beginner', 'Intermediate', 'Advanced'] &&
+             data.creatorAdvice is string && data.creatorAdvice.size() >= 1 && data.creatorAdvice.size() <= 2000 &&
+             (!('aiExplanation' in data) || (data.aiExplanation is string && data.aiExplanation.size() <= 2000)) &&
+             (!('originalContext' in data) || (data.originalContext is string && data.originalContext.size() <= 1000)) &&
+             (!('instructions' in data) || (data.instructions is string && data.instructions.size() <= 2500)) &&
+             data.practicalExercise is string && data.practicalExercise.size() >= 1 && data.practicalExercise.size() <= 2000 &&
+             (!('expectedOutcome' in data) || (data.expectedOutcome is string && data.expectedOutcome.size() <= 800)) &&
+             (!('suggestedDurationMinutes' in data) || (data.suggestedDurationMinutes is int && data.suggestedDurationMinutes >= 1 && data.suggestedDurationMinutes <= 180)) &&
+             (!('commonMistake' in data) || (data.commonMistake is string && data.commonMistake.size() <= 1000)) &&
+             (!('correction' in data) || (data.correction is string && data.correction.size() <= 1000)) &&
+             data.sourceVideoTitle is string && data.sourceVideoTitle.size() >= 1 && data.sourceVideoTitle.size() <= 300 &&
+             data.sourceVideoUrl is string && data.sourceVideoUrl.size() >= 1 && data.sourceVideoUrl.size() <= 500 &&
+             (!('timestampLabel' in data) || (data.timestampLabel is string && data.timestampLabel.size() <= 40)) &&
+             (!('isCreatorDerived' in data) || data.isCreatorDerived is bool) &&
+             (!('moderationStatus' in data) || data.moderationStatus in ['PENDING_REVIEW', 'APPROVED', 'PUBLISHED', 'REJECTED']);
+    }
+
+    function isValidRealWorldTask(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.taskTitle is string && data.taskTitle.size() >= 1 && data.taskTitle.size() <= 300 &&
+             (!('sourceVideoUrl' in data) || (data.sourceVideoUrl is string && data.sourceVideoUrl.size() <= 500)) &&
+             data.completed is bool &&
+             (!('reflection' in data) || (data.reflection is string && data.reflection.size() <= 2000)) &&
+             (!('linkedSessionId' in data) || (data.linkedSessionId is string && data.linkedSessionId.size() <= 128));
+    }
+
+    function isValidRelease(data) {
+      return data.versionName is string && data.versionName.matches('^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$') &&
+             data.versionCode is int && data.versionCode >= 1 &&
+             data.channel in ['stable', 'beta'] &&
+             data.releaseDate is string && data.releaseDate.size() >= 8 && data.releaseDate.size() <= 40 &&
+             data.releaseNotes is string && data.releaseNotes.size() >= 1 && data.releaseNotes.size() <= 4000 &&
+             data.downloadUrl is string && data.downloadUrl.matches('^https://.*') && data.downloadUrl.size() <= 600 &&
+             data.sha256Checksum is string && data.sha256Checksum.matches('^[a-fA-F0-9]{64}$') &&
+             data.minSupportedVersion is string && data.minSupportedVersion.matches('^[0-9]+\\.[0-9]+\\.[0-9]+$') &&
+             data.mandatory is bool &&
+             data.enabled is bool &&
+             (!('fileSizeBytes' in data) || (data.fileSizeBytes is int && data.fileSizeBytes >= 0)) &&
+             (!('minSdk' in data) || (data.minSdk is int && data.minSdk >= 21 && data.minSdk <= 40)) &&
+             (!('signingCertSha256' in data) || (data.signingCertSha256 is string && data.signingCertSha256.size() <= 128)) &&
+             (!('features' in data) || isBoundedStringList(data.features, 30)) &&
+             (!('bugFixes' in data) || isBoundedStringList(data.bugFixes, 30)) &&
+             (!('securityImprovements' in data) || isBoundedStringList(data.securityImprovements, 30));
+    }
+
+    function isValidUpdateEvent(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.fromVersion is string && data.fromVersion.size() >= 1 && data.fromVersion.size() <= 32 &&
+             data.toVersion is string && data.toVersion.size() >= 1 && data.toVersion.size() <= 32 &&
+             data.status in ['CHECKED', 'DOWNLOADED', 'VERIFIED', 'INSTALL_LAUNCHED', 'INSTALLED', 'FAILED', 'ROLLED_BACK'] &&
+             (!('channel' in data) || (data.channel is string && data.channel.size() <= 20)) &&
+             (!('detail' in data) || (data.detail is string && data.detail.size() <= 500));
+    }
+
+    // ==================== USER-SCOPED COLLECTIONS ====================
+    match /users/{userId} {
+      allow get: if (isOwner(userId) && isValidId(userId)) || isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'communicationLevel', 'onboardingCompleted', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'communicationLevel', 'primaryGoal', 'onboardingCompleted',
+                         'dailyGoalMinutes', 'streakDays', 'lastPracticeDate', 'totalPracticeMinutes',
+                         'wordsLearnedCount', 'recordingsCount', 'completedExercisesCount',
+                         'fluencyScore', 'pronunciationScore', 'vocabularyScore', 'grammarScore',
+                         'articulationScore', 'listeningScore', 'confidenceSelfRating', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'communicationLevel', 'primaryGoal', 'onboardingCompleted',
+                         'dailyGoalMinutes', 'streakDays', 'lastPracticeDate', 'totalPracticeMinutes',
+                         'wordsLearnedCount', 'recordingsCount', 'completedExercisesCount',
+                         'fluencyScore', 'pronunciationScore', 'vocabularyScore', 'grammarScore',
+                         'articulationScore', 'listeningScore', 'confidenceSelfRating', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /enrollments/{programId} {
+        allow get: if isOwner(userId) && isValidId(programId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(programId) &&
+                         incoming().keys().hasAll(['userId', 'programId', 'programTitle', 'currentDay', 'completedDays', 'active', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'programId', 'programTitle', 'currentDay', 'completedDays', 'active', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidEnrollment(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(programId) &&
+                         isValidEnrollment(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().programId == existing().programId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['currentDay', 'completedDays', 'active', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(programId);
+      }
+
+      match /dailyActivities/{dateId} {
+        allow get: if isOwner(userId) && isValidId(dateId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(dateId) &&
+                         incoming().keys().hasAll(['userId', 'dateKey', 'completedStepIds', 'minutesSpent', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'dateKey', 'completedStepIds', 'reflectionText', 'confidenceRating', 'minutesSpent', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidDailyActivity(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(dateId) &&
+                         isValidDailyActivity(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['completedStepIds', 'reflectionText', 'confidenceRating', 'minutesSpent', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(dateId);
+      }
+
+      match /learningProgress/{progressId} {
+        allow get: if isOwner(userId) && isValidId(progressId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(progressId) &&
+                         incoming().keys().hasAll(['userId', 'lessonId', 'moduleSlug', 'completed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'lessonId', 'moduleSlug', 'completed', 'attemptsCount', 'lastScore', 'notes', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidLearningProgress(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(progressId) &&
+                         isValidLearningProgress(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().lessonId == existing().lessonId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'attemptsCount', 'lastScore', 'notes', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(progressId);
+      }
+
+      match /vocabulary/{wordId} {
+        allow get: if isOwner(userId) && isValidId(wordId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(wordId) &&
+                         incoming().keys().hasAll(['userId', 'word', 'meaning', 'level', 'masteryLevel', 'repetitions', 'nextReviewEpochDay', 'usageAssessed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'word', 'phonetic', 'meaning', 'level', 'synonyms', 'antonyms', 'exampleSentence', 'conversationExample', 'collocations', 'personalNote', 'masteryLevel', 'repetitions', 'nextReviewEpochDay', 'usageAssessed', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidVocabularyEntry(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(wordId) &&
+                         isValidVocabularyEntry(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['personalNote', 'masteryLevel', 'repetitions', 'nextReviewEpochDay', 'usageAssessed', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(wordId);
+      }
+
+      match /speakingSessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(sessionId) &&
+                         incoming().keys().hasAll(['userId', 'moduleType', 'promptTitle', 'durationSeconds', 'overallAssessment', 'confidenceLevel', 'fluencyScore', 'pronunciationScore', 'vocabularyScore', 'grammarScore', 'articulationScore', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'moduleType', 'promptTitle', 'durationSeconds', 'localMediaPath', 'mediaType', 'feedbackId', 'transcript',
+                           'overallAssessment', 'strengths', 'mistakes', 'pronunciationNotes',
+                           'betterAlternatives', 'fillerWordsDetected', 'repeatedExpressions', 'improvementSuggestions',
+                           'recommendedExercises', 'pronunciationAssessable', 'articulationClarity', 'thoughtOrganization', 'nextRecommendedActivity',
+                           'confidenceLevel', 'audioQualityNote',
+                           'fluencyScore', 'pronunciationScore', 'vocabularyScore', 'grammarScore',
+                           'articulationScore', 'wordsPerMinute', 'sourceVideoUrl', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidSpeakingSession(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      match /speechFeedback/{feedbackId} {
+        allow get: if isOwner(userId) && isValidId(feedbackId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(feedbackId) &&
+                         incoming().keys().hasAll(['userId', 'sessionId', 'pronunciationAssessable', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'sessionId', 'transcript', 'strengths', 'mistakes', 'recordingExamples',
+                           'betterAlternatives', 'fillerWords', 'repeatedExpressions', 'specificExercises',
+                           'pronunciationAssessable', 'pronunciationNote', 'articulationClarity', 'thoughtOrganization',
+                           'nextRecommendedActivity', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidSpeechFeedback(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(feedbackId);
+      }
+
+      match /conversationSessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(sessionId) &&
+                         incoming().keys().hasAll(['userId', 'scenario', 'difficultyLevel', 'turnCount', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'scenario', 'difficultyLevel', 'turnCount', 'summaryFeedback', 'transcriptPreview', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidConversationSession(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(sessionId) &&
+                         isValidConversationSession(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['turnCount', 'summaryFeedback', 'transcriptPreview', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      match /youtubeSources/{sourceId} {
+        allow get: if isOwner(userId) && isValidId(sourceId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(sourceId) &&
+                         incoming().keys().hasAll(['userId', 'videoId', 'title', 'videoUrl', 'category', 'difficulty', 'extractionStatus', 'transcriptAvailable', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'videoId', 'channelHandle', 'playlistTitle', 'publishedDate', 'durationSeconds',
+                           'title', 'videoUrl', 'thumbnailUrl', 'mainTopic', 'category', 'difficulty',
+                           'extractionStatus', 'statusDetail', 'transcriptAvailable', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidYouTubeSource(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(sourceId) &&
+                         isValidYouTubeSource(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().videoId == existing().videoId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['extractionStatus', 'statusDetail', 'transcriptAvailable', 'mainTopic', 'category', 'difficulty', 'playlistTitle', 'publishedDate', 'durationSeconds', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(sourceId);
+      }
+
+      match /extractedTechniques/{techniqueId} {
+        allow get: if isOwner(userId) && isValidId(techniqueId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(techniqueId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'category', 'difficulty', 'creatorAdvice', 'practicalExercise', 'sourceVideoTitle', 'sourceVideoUrl', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'videoId', 'title', 'category', 'difficulty', 'creatorAdvice', 'aiExplanation',
+                           'originalContext', 'instructions', 'practicalExercise', 'expectedOutcome', 'suggestedDurationMinutes',
+                           'commonMistake', 'correction', 'sourceVideoTitle', 'sourceVideoUrl', 'timestampLabel',
+                           'isCreatorDerived', 'moderationStatus', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().userId == userId &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidExtractedTechnique(incoming());
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(techniqueId);
+      }
+
+      match /realWorldTasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(taskId) &&
+                         incoming().keys().hasAll(['userId', 'taskTitle', 'completed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'taskTitle', 'sourceVideoUrl', 'completed', 'reflection', 'linkedSessionId', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRealWorldTask(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(taskId) &&
+                         isValidRealWorldTask(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'reflection', 'linkedSessionId', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+    }
+
+    // ==================== ADMIN & SHARED CURATED COLLECTIONS ====================
+    match /adminUsers/{userId} {
+      allow get: if (isOwner(userId) && isValidId(userId)) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /youtubeChannels/{channelId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(channelId);
+    }
+
+    match /youtubeVideos/{videoId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(videoId);
+    }
+
+    match /videoTranscripts/{videoId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(videoId);
+    }
+
+    match /extractedTechniques/{techniqueId} {
+      allow get, list: if isSignedIn() && (existing().moderationStatus == 'PUBLISHED' || isAdmin());
+      allow create: if isAdmin() && isValidId(techniqueId) &&
+                       incoming().keys().hasAll(['title', 'category', 'difficulty', 'creatorAdvice', 'practicalExercise', 'sourceVideoTitle', 'sourceVideoUrl', 'moderationStatus', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidExtractedTechnique(incoming());
+      allow update: if isAdmin() && isValidId(techniqueId) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidExtractedTechnique(incoming());
+      allow delete: if isAdmin() && isValidId(techniqueId);
+    }
+
+    match /learningModules/{moduleId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(moduleId);
+    }
+
+    match /lessons/{lessonId} {
+      allow get, list: if isSignedIn() && (existing().status == 'PUBLISHED' || isAdmin());
+      allow create, update, delete: if isAdmin() && isValidId(lessonId);
+    }
+
+    match /communicationExercises/{exerciseId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(exerciseId);
+    }
+
+    match /learningChallenges/{challengeId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(challengeId);
+    }
+
+    match /applicationReleases/{releaseId} {
+      allow get, list: if isSignedIn() && (existing().enabled == true || isAdmin());
+      allow create: if isAdmin() && isValidId(releaseId) &&
+                       incoming().keys().hasAll(['versionName', 'versionCode', 'channel', 'releaseDate', 'releaseNotes', 'downloadUrl', 'sha256Checksum', 'minSupportedVersion', 'mandatory', 'enabled', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRelease(incoming());
+      allow update: if isAdmin() && isValidId(releaseId) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRelease(incoming());
+      allow delete: if isAdmin() && isValidId(releaseId);
+    }
+
+    match /applicationUpdateEvents/{eventId} {
+      allow get, list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(eventId) &&
+                       incoming().keys().hasAll(['userId', 'fromVersion', 'toVersion', 'status', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'fromVersion', 'toVersion', 'channel', 'status', 'detail', 'createdAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidUpdateEvent(incoming(), request.auth.uid);
+      allow update, delete: if false;
+    }
+  }
+}

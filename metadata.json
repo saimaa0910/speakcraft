@@ -1,0 +1,6 @@
+{
+  "name": "SpeakCraft",
+  "description": "AI-powered English communication and speaking coach built from @askvinh YouTube lessons with speech analysis, pronunciation lab, conversation practice, and progress analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

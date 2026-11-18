@@ -1,0 +1,547 @@
+package com.example.ui.screens
+
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.media.TtsAndSpeechHelper
+import com.example.data.model.CurriculumCatalog
+import com.example.data.model.Lesson
+import com.example.data.model.LessonDefinition
+import com.example.data.model.SpeakingSession
+import com.example.data.model.UiState
+import com.example.data.model.UserLearningProgress
+import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.ErrorRecoveryCard
+import com.example.ui.components.FeedbackReportCard
+import com.example.ui.components.LessonAttributionBadge
+import com.example.ui.components.LiveWaveformVisualizer
+import com.example.ui.components.SectionHeader
+import com.example.ui.components.ShimmerSkeletonCard
+import com.example.ui.theme.AcousticTeal
+import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.viewmodel.SpeakingAndLabsViewModel
+import kotlin.math.roundToInt
+
+@Composable
+fun ModuleLessonsScreen(
+    moduleSlug: String,
+    sharedLessons: List<Lesson>,
+    learningProgress: List<UserLearningProgress>,
+    onOpenLesson: (String) -> Unit,
+    onOpenYouTubeLibrary: () -> Unit
+) {
+    val moduleMeta = CurriculumCatalog.contentModules.firstOrNull { it.slug == moduleSlug }
+    val localLessons = remember(moduleSlug, sharedLessons) {
+        val builtIn = CurriculumCatalog.lessons.filter { it.moduleSlug == moduleSlug }
+        val fromCloud = sharedLessons.filter { it.moduleSlug == moduleSlug }.map { l ->
+            LessonDefinition(
+                id = l.id,
+                moduleSlug = l.moduleSlug,
+                title = l.title,
+                objective = l.objective,
+                sourceVideoTitle = "@askvinh Curated Lesson",
+                sourceVideoUrl = l.sourceVideoUrl,
+                timestampLabel = l.timestampLabel,
+                explanation = l.explanation,
+                instructions = l.instructions,
+                example = l.example,
+                practicePrompt = l.practicePrompt,
+                nextLessonId = l.nextLessonId.ifBlank { null },
+                isCreatorDerived = l.isCreatorDerived,
+                sourceVerified = true
+            )
+        }
+        (builtIn + fromCloud).distinctBy { it.id }
+    }
+    val pendingSeeds = remember(moduleSlug) {
+        CurriculumCatalog.askVinhKnowledgeBase.filter {
+            it.moduleSlug == moduleSlug && it.verificationStatus == "PENDING_TRANSCRIPT"
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                SectionHeader(
+                    title = moduleMeta?.title ?: "Module Lessons",
+                    subtitle = moduleMeta?.subtitle ?: "Source-grounded @askvinh communication curriculum"
+                )
+            }
+
+            if (localLessons.isEmpty() && pendingSeeds.isEmpty()) {
+                item {
+                    EmptyStateCard(
+                        title = "No lessons published in this module yet",
+                        message = "Inspect @askvinh videos in YouTube Intelligence to extract verified lessons into this module.",
+                        ctaLabel = "Open YouTube Library",
+                        onCta = onOpenYouTubeLibrary
+                    )
+                }
+            }
+
+            items(localLessons, key = { it.id }) { lesson ->
+                val prog = learningProgress.firstOrNull { it.lessonId == lesson.id }
+                val done = prog?.completed == true
+                Card(
+                    onClick = { onOpenLesson(lesson.id) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, if (done) EmeraldSuccess else MaterialTheme.colorScheme.outline),
+                    modifier = Modifier.testTag("lesson_card_${lesson.id}")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LessonAttributionBadge(lesson.isCreatorDerived, lesson.sourceVerified)
+                            Icon(
+                                if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = if (done) "Completed" else "Not completed",
+                                tint = if (done) EmeraldSuccess else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(lesson.title, style = MaterialTheme.typography.titleLarge)
+                        Text(lesson.objective, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Source: ${lesson.sourceVideoTitle} • ${lesson.timestampLabel}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AcousticTeal
+                        )
+                    }
+                }
+            }
+
+            if (pendingSeeds.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        title = "Queued Frameworks (Transcript Verification Required)",
+                        subtitle = "SpeakCraft never invents creator bullet points offline"
+                    )
+                }
+                items(pendingSeeds, key = { it.id }) { seed ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            LessonAttributionBadge(isCreatorDerived = false, sourceVerified = false)
+                            Text(seed.title, style = MaterialTheme.typography.titleMedium)
+                            Text(seed.creatorAdvice, style = MaterialTheme.typography.bodySmall)
+                            OutlinedButton(onClick = onOpenYouTubeLibrary) {
+                                Text("Fetch Live Captions in YouTube Library")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LessonDetailScreen(
+    lessonId: String,
+    sharedLessons: List<Lesson>,
+    learningProgress: List<UserLearningProgress>,
+    speakingVm: SpeakingAndLabsViewModel,
+    pastSessions: List<SpeakingSession>,
+    onToggleCompleted: (lessonId: String, moduleSlug: String, completed: Boolean, notes: String) -> Unit,
+    onNavigateToLesson: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+
+    val lesson = remember(lessonId, sharedLessons) {
+        CurriculumCatalog.lessons.firstOrNull { it.id == lessonId }
+            ?: sharedLessons.firstOrNull { it.id == lessonId }?.let { l ->
+                LessonDefinition(
+                    id = l.id,
+                    moduleSlug = l.moduleSlug,
+                    title = l.title,
+                    objective = l.objective,
+                    sourceVideoTitle = "@askvinh Lesson",
+                    sourceVideoUrl = l.sourceVideoUrl,
+                    timestampLabel = l.timestampLabel,
+                    explanation = l.explanation,
+                    instructions = l.instructions,
+                    example = l.example,
+                    practicePrompt = l.practicePrompt,
+                    nextLessonId = l.nextLessonId.ifBlank { null },
+                    isCreatorDerived = l.isCreatorDerived,
+                    sourceVerified = true
+                )
+            }
+    }
+
+    if (lesson == null) {
+        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+            EmptyStateCard("Lesson not found", "Select another lesson from the module directory.")
+        }
+        return
+    }
+
+    val progressRecord = learningProgress.firstOrNull { it.lessonId == lesson.id }
+    val isCompleted = progressRecord?.completed == true
+    var notesDraft by remember(progressRecord?.notes) { mutableStateOf(progressRecord?.notes.orEmpty()) }
+
+    val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
+    val isPaused by speakingVm.audioManager.isPaused.collectAsStateWithLifecycle()
+    val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
+    val elapsed by speakingVm.audioManager.elapsedSeconds.collectAsStateWithLifecycle()
+    val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
+    val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
+
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) speakingVm.startRecording(null)
+    }
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LessonAttributionBadge(lesson.isCreatorDerived, lesson.sourceVerified)
+                    Text(lesson.title, style = MaterialTheme.typography.headlineMedium)
+                    Text("Objective: ${lesson.objective}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedButton(onClick = { uriHandler.openUri(lesson.sourceVideoUrl) }) {
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Watch source video")
+                        Spacer(Modifier.width(6.dp))
+                        Text("${lesson.sourceVideoTitle} • ${lesson.timestampLabel}")
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Technique Breakdown", style = MaterialTheme.typography.titleMedium)
+                        Text(lesson.explanation, style = MaterialTheme.typography.bodyMedium)
+                        Text("Step-by-Step Instructions", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                        lesson.instructions.forEach { step ->
+                            Text("• $step", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                text = lesson.example,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.fillMaxWidth().padding(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Inline Record & AI Practice inside Lesson Detail
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Practice Prompt", style = MaterialTheme.typography.titleMedium)
+                        Text(lesson.practicePrompt, style = MaterialTheme.typography.bodyLarge)
+                        LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording, isPaused = isPaused)
+                        Text("Captured: ${elapsed}s", style = MaterialTheme.typography.labelMedium)
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    if (isRecording) {
+                                        speakingVm.stopRecording()
+                                    } else {
+                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                        if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                },
+                                colors = if (isRecording) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors(),
+                                modifier = Modifier.weight(1f).testTag("lesson_record_button")
+                            ) {
+                                Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (isRecording) "Stop" else "Record")
+                            }
+                            if (isRecording) {
+                                OutlinedButton(
+                                    onClick = { if (isPaused) speakingVm.resumeRecording() else speakingVm.pauseRecording() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(if (isPaused) "Resume" else "Pause")
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = {
+                                        speakingVm.submitForAiAnalysis(
+                                            moduleType = "LESSON_PRACTICE",
+                                            promptTitle = lesson.title,
+                                            previousSession = pastSessions.firstOrNull(),
+                                            extraInstructions = "Evaluate specifically against lesson objective: ${lesson.objective}. Prompt: ${lesson.practicePrompt}"
+                                        )
+                                    },
+                                    enabled = recordedPath != null,
+                                    modifier = Modifier.weight(1f).testTag("lesson_analyze_button")
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Get AI Feedback")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (activeModule == "LESSON_PRACTICE") {
+                item {
+                    when (val st = analysisState) {
+                        is UiState.Loading -> ShimmerSkeletonCard(150)
+                        is UiState.Error -> ErrorRecoveryCard(st.message)
+                        is UiState.Success -> FeedbackReportCard(st.data, pastSessions.firstOrNull())
+                        null -> Unit
+                    }
+                }
+            }
+
+            // Completion tracking & Next Lesson navigation
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Completion & Takeaways", style = MaterialTheme.typography.titleMedium)
+                        OutlinedTextField(
+                            value = notesDraft,
+                            onValueChange = { notesDraft = it },
+                            label = { Text("Your key takeaway from practicing this lesson") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = {
+                                    onToggleCompleted(lesson.id, lesson.moduleSlug, !isCompleted, notesDraft)
+                                },
+                                modifier = Modifier.weight(1f).testTag("lesson_complete_toggle")
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (isCompleted) "Completed ✓" else "Mark Complete")
+                            }
+                            if (!lesson.nextLessonId.isNullOrBlank()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        speakingVm.clearAnalysis()
+                                        onNavigateToLesson(lesson.nextLessonId)
+                                    },
+                                    modifier = Modifier.weight(1f).testTag("next_lesson_button")
+                                ) {
+                                    Text("Next Lesson")
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VoiceTrainingLabScreen(
+    speakingVm: SpeakingAndLabsViewModel,
+    ttsHelper: TtsAndSpeechHelper,
+    pastSessions: List<SpeakingSession>
+) {
+    val context = LocalContext.current
+    var targetWpm by remember { mutableFloatStateOf(130f) }
+    var pauseBeats by remember { mutableFloatStateOf(2f) }
+    var activeLever by remember { mutableStateOf("Rate & Intentional Pauses") }
+
+    val leverScripts = remember {
+        mapOf(
+            "Rate & Intentional Pauses" to "Speed builds urgency when listing ideas — then slow down completely before delivering your main takeaway. [PAUSE 1s] That contrast makes people listen.",
+            "Melody & Pitch Range" to "Instead of locking every sentence into one flat note, lift slightly on curious questions and drop downward cleanly on decisive recommendations.",
+            "Volume & Projection" to "Breathe deep into your lower ribs, drop your shoulders, and project toward the back row without straining your throat.",
+            "Character & Warmth" to "Deliver data clearly, then shift into warm conversational empathy when describing how a decision impacts the people around you."
+        )
+    }
+    val script = leverScripts[activeLever].orEmpty()
+
+    val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
+    val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
+    val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
+    val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
+
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) speakingVm.startRecording(null)
+    }
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                SectionHeader(
+                    title = "Voice Training Lab",
+                    subtitle = "@askvinh 5 Vocal Foundations: Rate, Pause, Melody, Volume & Character"
+                )
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Vocal Lever Focus: $activeLever", style = MaterialTheme.typography.titleMedium, color = AcousticTeal)
+                        Text(script, style = MaterialTheme.typography.bodyLarge)
+
+                        Text("Target Pace: ${targetWpm.roundToInt()} WPM • Pause Hold: ${pauseBeats.roundToInt()}s", style = MaterialTheme.typography.labelMedium)
+                        Slider(value = targetWpm, onValueChange = { targetWpm = it }, valueRange = 100f..175f)
+                        Slider(value = pauseBeats, onValueChange = { pauseBeats = it }, valueRange = 1f..4f, steps = 2)
+
+                        LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { ttsHelper.speak(script, (targetWpm / 140f).coerceIn(0.75f, 1.25f)) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Hear Reference")
+                            }
+                            Button(
+                                onClick = {
+                                    if (isRecording) speakingVm.stopRecording()
+                                    else {
+                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                        if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (isRecording) "Stop" else "Practice Drill")
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                speakingVm.submitForAiAnalysis(
+                                    moduleType = "SPEAKING_LAB",
+                                    promptTitle = "Voice Training: $activeLever",
+                                    previousSession = pastSessions.firstOrNull(),
+                                    extraInstructions = "Evaluate vocal contrast against target pace ${targetWpm.roundToInt()} WPM and deliberate pause habits for $activeLever."
+                                )
+                            },
+                            enabled = !isRecording && recordedPath != null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Evaluate Vocal Foundations With AI")
+                        }
+                    }
+                }
+            }
+
+            if (activeModule == "SPEAKING_LAB") {
+                item {
+                    when (val s = analysisState) {
+                        is UiState.Loading -> ShimmerSkeletonCard(140)
+                        is UiState.Error -> ErrorRecoveryCard(s.message)
+                        is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                        null -> Unit
+                    }
+                }
+            }
+
+            items(leverScripts.keys.toList()) { lever ->
+                Card(
+                    onClick = { activeLever = lever; speakingVm.clearAnalysis() },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (lever == activeLever) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(lever, style = MaterialTheme.typography.titleMedium)
+                        Text(leverScripts[lever].orEmpty(), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+}
