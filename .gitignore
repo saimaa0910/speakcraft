@@ -16,4 +16,9 @@
 local.properties
 .env
 debug.keystore
+*.jks
 *-debug.log
+build-release-artifacts/
+release_notes.md
+scripts/node_modules/
+
