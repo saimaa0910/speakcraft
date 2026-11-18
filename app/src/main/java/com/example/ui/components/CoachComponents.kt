@@ -194,34 +194,65 @@ fun MetricTile(
     value: String,
     delta: String? = null,
     accentColor: Color = MaterialTheme.colorScheme.primary,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null
 ) {
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        shadowElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(24.dp)
+                        .height(3.5.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(accentColor)
+                )
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             if (!delta.isNullOrBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = delta,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = accentColor
-                )
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = accentColor.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = delta,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accentColor,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
     }
@@ -235,6 +266,7 @@ fun LiveWaveformVisualizer(
     modifier: Modifier = Modifier
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
+    val ext = MaterialTheme.speakCraftColors
     var phase by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(isRecording, isPaused, reducedMotion) {
         if (isRecording && !isPaused && !reducedMotion) {
@@ -242,7 +274,7 @@ fun LiveWaveformVisualizer(
             while (true) {
                 withFrameMillis { frameMs ->
                     if (lastMs != 0L) {
-                        phase += ((frameMs - lastMs) / 1000f) * 5.2f
+                        phase += ((frameMs - lastMs) / 1000f) * 5.6f
                     }
                     lastMs = frameMs
                 }
@@ -253,42 +285,100 @@ fun LiveWaveformVisualizer(
     val barColor = when {
         isRecording && isPaused -> MaterialTheme.colorScheme.secondary
         isRecording -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.outline
+        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     }
     val secondaryColor = MaterialTheme.colorScheme.secondary
+    val glowColor = if (isRecording && !isPaused) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent
     val a11yDescription = when {
         isRecording && isPaused -> "Audio recorder waveform paused"
         isRecording -> "Live microphone waveform active"
         else -> "Audio recorder waveform idle"
     }
 
-    Canvas(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(68.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .height(78.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+                    )
+                )
+            )
             .semantics { contentDescription = a11yDescription }
     ) {
-        val barCount = 30
-        val spacing = size.width / barCount
-        val barWidth = (spacing * 0.52f).coerceAtLeast(4f)
-        val centerY = size.height / 2f
-        for (i in 0 until barCount) {
-            val waveShape = kotlin.math.sin((i * 0.42f) + phase)
-            val ampFactor = when {
-                isRecording && !isPaused -> ((amplitude * 0.85f) + (kotlin.math.abs(waveShape) * 0.35f)).coerceIn(0.14f, 1f)
-                isRecording && isPaused -> 0.22f
-                else -> 0.14f
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+        ) {
+            val centerY = size.height / 2f
+            if (isRecording && !isPaused) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(glowColor, Color.Transparent),
+                        center = Offset(size.width / 2f, centerY),
+                        radius = size.width * 0.48f
+                    ),
+                    radius = size.width * 0.48f,
+                    center = Offset(size.width / 2f, centerY)
+                )
             }
-            val barHeight = (size.height * ampFactor).coerceAtLeast(8f)
-            val x = i * spacing + (spacing - barWidth) / 2f
-            drawRoundRect(
-                color = if (i % 3 == 0 && isRecording && !isPaused) secondaryColor else barColor,
-                topLeft = Offset(x, centerY - barHeight / 2f),
-                size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
+            drawLine(
+                color = barColor.copy(alpha = 0.22f),
+                start = Offset(0f, centerY),
+                end = Offset(size.width, centerY),
+                strokeWidth = 2f
+            )
+            val barCount = 34
+            val spacing = size.width / barCount
+            val barWidth = (spacing * 0.50f).coerceAtLeast(4f)
+            for (i in 0 until barCount) {
+                val edgeEnvelope = 1f - (kotlin.math.abs((i - barCount / 2f) / (barCount / 2f)) * 0.35f)
+                val waveShape = kotlin.math.sin((i * 0.45f) + phase)
+                val ampFactor = when {
+                    isRecording && !isPaused -> (((amplitude * 0.88f) + (kotlin.math.abs(waveShape) * 0.38f)) * edgeEnvelope).coerceIn(0.14f, 1f)
+                    isRecording && isPaused -> (0.24f * edgeEnvelope).coerceAtLeast(0.14f)
+                    else -> (0.14f + kotlin.math.abs(kotlin.math.sin(i * 0.5f)) * 0.14f) * edgeEnvelope
+                }
+                val barHeight = (size.height * ampFactor).coerceAtLeast(8f)
+                val x = i * spacing + (spacing - barWidth) / 2f
+                drawRoundRect(
+                    color = if (i % 3 == 0 && isRecording && !isPaused) secondaryColor else barColor,
+                    topLeft = Offset(x, centerY - barHeight / 2f),
+                    size = Size(barWidth, barHeight),
+                    cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
+                )
+            }
+        }
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = when {
+                isRecording && !isPaused -> ext.recordingPulse.copy(alpha = 0.22f)
+                isRecording && isPaused -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+            }
+        ) {
+            Text(
+                text = when {
+                    isRecording && isPaused -> "PAUSED"
+                    isRecording -> "LIVE"
+                    else -> "STUDIO"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = when {
+                    isRecording && !isPaused -> MaterialTheme.colorScheme.error
+                    isRecording && isPaused -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
             )
         }
     }
@@ -302,35 +392,58 @@ fun ScoreTrendSparkline(
 ) {
     val safeScores = if (scores.size >= 2) scores else listOf(scores.firstOrNull() ?: 60, scores.firstOrNull() ?: 62)
     val pointCenterColor = MaterialTheme.speakCraftColors.sparklinePointCenter
+    val guideColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
     val summaryText = "Score trend across ${scores.size.coerceAtLeast(1)} sessions, latest ${safeScores.last()} out of 100"
 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(110.dp)
+            .height(118.dp)
             .semantics { contentDescription = summaryText }
     ) {
         val minVal = (safeScores.minOrNull() ?: 0).coerceAtMost(40).toFloat()
         val maxVal = (safeScores.maxOrNull() ?: 100).coerceAtLeast(95).toFloat()
         val range = (maxVal - minVal).coerceAtLeast(10f)
-        val stepX = size.width / (safeScores.size - 1).coerceAtLeast(1)
+        val topPad = 14f
+        val bottomPad = 12f
+        val usableHeight = (size.height - topPad - bottomPad).coerceAtLeast(24f)
+        val horizontalPad = 8f
+        val usableWidth = (size.width - horizontalPad * 2f).coerceAtLeast(20f)
+        val stepX = usableWidth / (safeScores.size - 1).coerceAtLeast(1)
+
+        // Subtle editorial baseline guides
+        listOf(0.25f, 0.6f, 0.9f).forEach { frac ->
+            val gy = topPad + usableHeight * frac
+            drawLine(
+                color = guideColor,
+                start = Offset(horizontalPad, gy),
+                end = Offset(size.width - horizontalPad, gy),
+                strokeWidth = 1.5f
+            )
+        }
 
         val points = safeScores.mapIndexed { idx, score ->
-            val x = idx * stepX
+            val x = horizontalPad + idx * stepX
             val normalizedY = ((score - minVal) / range).coerceIn(0f, 1f)
-            val y = size.height - (normalizedY * (size.height - 20f)) - 10f
+            val y = size.height - bottomPad - (normalizedY * usableHeight)
             Offset(x, y)
         }
 
         val linePath = Path().apply {
             points.forEachIndexed { idx, pt ->
-                if (idx == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                if (idx == 0) {
+                    moveTo(pt.x, pt.y)
+                } else {
+                    val prev = points[idx - 1]
+                    val midX = (prev.x + pt.x) / 2f
+                    cubicTo(midX, prev.y, midX, pt.y, pt.x, pt.y)
+                }
             }
         }
         val fillPath = Path().apply {
             addPath(linePath)
-            lineTo(points.last().x, size.height)
-            lineTo(points.first().x, size.height)
+            lineTo(points.last().x, size.height - bottomPad)
+            lineTo(points.first().x, size.height - bottomPad)
             close()
         }
 
@@ -345,9 +458,13 @@ fun ScoreTrendSparkline(
             color = accentColor,
             style = Stroke(width = 5f, cap = StrokeCap.Round)
         )
-        points.forEach { pt ->
-            drawCircle(color = accentColor, radius = 6f, center = pt)
-            drawCircle(color = pointCenterColor, radius = 3f, center = pt)
+        points.forEachIndexed { idx, pt ->
+            val isLatest = idx == points.lastIndex
+            if (isLatest) {
+                drawCircle(color = accentColor.copy(alpha = 0.22f), radius = 14f, center = pt)
+            }
+            drawCircle(color = accentColor, radius = if (isLatest) 7.5f else 5.5f, center = pt)
+            drawCircle(color = pointCenterColor, radius = if (isLatest) 3.5f else 2.5f, center = pt)
         }
     }
 }
@@ -580,25 +697,48 @@ fun SkillBreakdownBars(
     metrics: List<Pair<String, Int>>,
     modifier: Modifier = Modifier
 ) {
-    val successColor = MaterialTheme.speakCraftColors.success
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val ext = MaterialTheme.speakCraftColors
+    val reducedMotion = rememberReducedMotionEnabled()
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         metrics.forEach { (name, score) ->
+            val target = (score / 100f).coerceIn(0f, 1f)
+            val animatedFraction by animateFloatAsState(
+                targetValue = target,
+                animationSpec = if (reducedMotion) tween(0) else tween(360),
+                label = "skill_bar_$name"
+            )
+            val barColor = when {
+                score >= 80 -> ext.success
+                score >= 65 -> MaterialTheme.colorScheme.primary
+                else -> ext.info
+            }
             Column {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Text("$score / 100", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = barColor.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            "$score / 100",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = barColor,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 LinearProgressIndicator(
-                    progress = { (score / 100f).coerceIn(0f, 1f) },
+                    progress = { animatedFraction },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
                         .clip(RoundedCornerShape(4.dp)),
-                    color = if (score >= 75) successColor else MaterialTheme.colorScheme.primary,
+                    color = barColor,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
@@ -712,25 +852,94 @@ fun EmptyStateCard(
     title: String,
     message: String,
     ctaLabel: String? = null,
-    onCta: (() -> Unit)? = null
+    onCta: (() -> Unit)? = null,
+    icon: ImageVector = Icons.Default.AutoAwesome
 ) {
     Card(
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
             if (ctaLabel != null && onCta != null) {
                 OutlinedButton(
                     onClick = onCta,
                     modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                 ) { Text(ctaLabel) }
             }
+        }
+    }
+}
+
+@Composable
+fun AnimatedThinkingDots(
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    val reducedMotion = rememberReducedMotionEnabled()
+    val transition = rememberInfiniteTransition(label = "thinking_dots")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(animation = tween(900), repeatMode = RepeatMode.Restart),
+        label = "thinking_phase"
+    )
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(3) { idx ->
+                    val alpha = if (reducedMotion) {
+                        0.75f
+                    } else {
+                        val dist = kotlin.math.abs(phase - idx).coerceAtMost(1.5f)
+                        (1f - dist * 0.5f).coerceIn(0.3f, 1f)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+                    )
+                }
+            }
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

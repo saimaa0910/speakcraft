@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,10 +21,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -43,6 +47,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -80,6 +86,11 @@ import com.example.ui.components.VideoReviewPlayerCard
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
+
+private fun formatStudioDuration(seconds: Int): String {
+    val safe = seconds.coerceAtLeast(0)
+    return String.format("%02d:%02d", safe / 60, safe % 60)
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -107,7 +118,16 @@ fun SpeakingLabScreen(
     val remainingCountdown by speakingVm.challengeRemainingSeconds.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
 
-    var customTopic by remember { mutableStateOf("Introduce yourself and explain one communication strength using the 3Vs") }
+    val quickTopicPresets = remember {
+        listOf(
+            "Elevator Pitch" to "Introduce yourself and explain one communication strength using the 3Vs",
+            "STAR Interview" to "Describe a challenging project conflict and how you resolved it clearly using STAR",
+            "Team Update" to "Deliver a concise 45-second executive status update with a clear headline and next step",
+            "Story Hook" to "Tell a memorable 60-second personal story with purposeful pauses and vocal contrast"
+        )
+    }
+
+    var customTopic by remember { mutableStateOf(quickTopicPresets.first().second) }
     var selectedAuditStage by remember { mutableStateOf("Stage 2: Vocal (Eyes Closed)") }
     var showCameraDialog by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf<String?>(null) }
@@ -179,14 +199,34 @@ fun SpeakingLabScreen(
 
         val captureCardContent: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs),
+                        verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
+                    ) {
+                        quickTopicPresets.forEachIndexed { idx, (label, promptText) ->
+                            FilterChip(
+                                selected = customTopic == promptText,
+                                onClick = { customTopic = promptText },
+                                label = { Text(label) },
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("speaking_preset_chip_$idx")
+                            )
+                        }
+                    }
+
                     OutlinedTextField(
                         value = customTopic,
                         onValueChange = { customTopic = it },
                         label = { Text("Speaking Prompt or Topic") },
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth().testTag("speaking_prompt_input")
                     )
 
@@ -203,9 +243,47 @@ fun SpeakingLabScreen(
                             isRecording -> "Recording: ${elapsed}s"
                             else -> "Recorded: ${elapsed}s"
                         }
-                        Text(timerText, style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (isRecording && !isPaused) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.error)
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isRecording) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f) else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = formatStudioDuration(remainingCountdown ?: elapsed),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                            Text(
+                                timerText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         if (uploadedLabel != null) {
-                            Text(uploadedLabel.orEmpty(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    uploadedLabel.orEmpty(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
                         }
                     }
 
@@ -348,7 +426,7 @@ fun SpeakingLabScreen(
                         enabled = !isRecording && (recordedPath != null || uploadedLabel != null),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 50.dp)
+                            .defaultMinSize(minHeight = 52.dp)
                             .testTag("analyze_speech_button")
                     ) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null)
@@ -365,10 +443,11 @@ fun SpeakingLabScreen(
             val playingThis = isPlaying && playingPath == sess.localMediaPath && sess.localMediaPath.isNotBlank()
 
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -404,27 +483,49 @@ fun SpeakingLabScreen(
                             Icon(Icons.Default.DeleteOutline, contentDescription = "Delete recording", tint = MaterialTheme.colorScheme.error)
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Fluency ${sess.fluencyScore} • ${if (sess.pronunciationAssessable) "Pron ${sess.pronunciationScore}" else "Pron N/A"} • Articulation ${sess.articulationScore} • ${sess.wordsPerMinute} WPM",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val pills = listOf(
+                            "Fluency ${sess.fluencyScore}",
+                            if (sess.pronunciationAssessable) "Pron ${sess.pronunciationScore}" else "Pron N/A",
+                            "Articulation ${sess.articulationScore}",
+                            "${sess.wordsPerMinute} WPM"
                         )
+                        pills.forEach { badge ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                            ) {
+                                Text(
+                                    text = badge,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
                     if (priorForCompare != null) {
                         val deltaFlu = sess.fluencyScore - priorForCompare.fluencyScore
                         Surface(
                             color = (if (deltaFlu >= 0) ext.success else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
-                            shape = MaterialTheme.shapes.small
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
                                 text = "Compared with prior: Fluency ${if (deltaFlu >= 0) "+$deltaFlu" else "$deltaFlu"}, WPM ${sess.wordsPerMinute - priorForCompare.wordsPerMinute}",
                                 style = MaterialTheme.typography.labelSmall,
+                                color = if (deltaFlu >= 0) ext.success else MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
-                    Text(sess.overallAssessment, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        sess.overallAssessment,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -494,7 +595,8 @@ fun SpeakingLabScreen(
                             if (pastSessions.isEmpty()) {
                                 EmptyStateCard(
                                     title = "No saved recordings yet",
-                                    message = "Record your first 30–60 second response to unlock AI speech diagnostics and progress tracking."
+                                    message = "Record your first 30–60 second response to unlock AI speech diagnostics and progress tracking.",
+                                    icon = Icons.Default.Mic
                                 )
                             } else {
                                 pastSessions.take(10).forEach { sess ->
@@ -537,7 +639,8 @@ fun SpeakingLabScreen(
                     item {
                         EmptyStateCard(
                             title = "No saved recordings yet",
-                            message = "Record your first 30–60 second response above to unlock AI speech diagnostics and progress tracking."
+                            message = "Record your first 30–60 second response above to unlock AI speech diagnostics and progress tracking.",
+                            icon = Icons.Default.Mic
                         )
                     }
                 } else {
@@ -558,6 +661,7 @@ fun ChallengesScreen(
     pastSessions: List<SpeakingSession>
 ) {
     val context = LocalContext.current
+    val ext = MaterialTheme.speakCraftColors
     val challenges = remember(sharedChallenges) {
         val mergedShared = sharedChallenges.filter { it.active }.map { ch ->
             SpeakingChallengeItem(
@@ -597,21 +701,77 @@ fun ChallengesScreen(
 
         val activeChallengeCard: @Composable () -> Unit = {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
             ) {
-                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Timer, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("${selectedChallenge.title} (${selectedChallenge.durationSeconds}s)", style = MaterialTheme.typography.titleLarge)
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text("${selectedChallenge.title} (${selectedChallenge.durationSeconds}s)", style = MaterialTheme.typography.titleLarge)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = ext.warningContainer
+                        ) {
+                            Text(
+                                selectedChallenge.challengeType,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ext.warning,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
+
                     Text(selectedChallenge.prompt, style = MaterialTheme.typography.bodyLarge)
-                    Text("Framework Tip: ${selectedChallenge.frameworkHint}", style = MaterialTheme.typography.bodySmall)
-                    Text("Source: ${selectedChallenge.sourceReference}", style = MaterialTheme.typography.labelSmall)
+
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Framework Tip: ${selectedChallenge.frameworkHint}", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "Source: ${selectedChallenge.sourceReference}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording, isPaused = isPaused)
                     if (countdown != null) {
-                        Text("Time Left: ${countdown}s", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                        val total = selectedChallenge.durationSeconds.coerceAtLeast(1)
+                        val fraction = (countdown!!.toFloat() / total).coerceIn(0f, 1f)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Time Left: ${countdown}s", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)),
+                                color = if (countdown!! <= 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        }
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -625,6 +785,7 @@ fun ChallengesScreen(
                                     else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
                             },
+                            colors = if (isRecording) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors(),
                             modifier = Modifier
                                 .weight(1f)
                                 .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
@@ -655,6 +816,29 @@ fun ChallengesScreen(
                             ) { Text("Submit AI Check") }
                         }
                     }
+                }
+            }
+        }
+
+        val challengeRowItem: @Composable (SpeakingChallengeItem) -> Unit = { chal ->
+            val selected = chal.id == selectedChallenge.id
+            Card(
+                onClick = {
+                    selectedChallenge = chal
+                    speakingVm.clearAnalysis()
+                },
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(
+                    width = if (selected) 1.5.dp else 1.dp,
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("${chal.challengeType} • ${chal.title} (${chal.durationSeconds}s)", style = MaterialTheme.typography.titleMedium)
+                    Text(chal.prompt, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -716,22 +900,7 @@ fun ChallengesScreen(
                             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
                         ) {
                             filteredChallenges.forEach { chal ->
-                                val selected = chal.id == selectedChallenge.id
-                                Card(
-                                    onClick = {
-                                        selectedChallenge = chal
-                                        speakingVm.clearAnalysis()
-                                    },
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                                ) {
-                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text("${chal.challengeType} • ${chal.title} (${chal.durationSeconds}s)", style = MaterialTheme.typography.titleMedium)
-                                        Text(chal.prompt, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
+                                challengeRowItem(chal)
                             }
                         }
                     }
@@ -760,22 +929,7 @@ fun ChallengesScreen(
                 }
 
                 items(filteredChallenges, key = { it.id }) { chal ->
-                    val selected = chal.id == selectedChallenge.id
-                    Card(
-                        onClick = {
-                            selectedChallenge = chal
-                            speakingVm.clearAnalysis()
-                        },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("${chal.challengeType} • ${chal.title} (${chal.durationSeconds}s)", style = MaterialTheme.typography.titleMedium)
-                            Text(chal.prompt, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+                    challengeRowItem(chal)
                 }
             }
         }

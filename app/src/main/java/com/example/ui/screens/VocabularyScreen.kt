@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
@@ -36,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -93,7 +95,10 @@ fun VocabularyScreen(
         val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
 
         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            TabRow(selectedTabIndex = selectedTab) {
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.background
+            ) {
                 listOf("Words", "Flashcards", "AI Quiz", "Notebook").forEachIndexed { idx, label ->
                     Tab(
                         selected = selectedTab == idx,
@@ -140,6 +145,7 @@ fun VocabularyScreen(
                                             }
                                         },
                                         singleLine = true,
+                                        shape = MaterialTheme.shapes.medium,
                                         modifier = Modifier.fillMaxWidth().testTag("vocab_search_input")
                                     )
                                     Spacer(Modifier.height(SpeakCraftSpacing.sm))
@@ -201,205 +207,227 @@ fun VocabularyScreen(
                             }
                         }
 
-                    1 -> {
-                        var cardIndex by remember { mutableIntStateOf(0) }
-                        var flipped by remember { mutableStateOf(false) }
-                        val dueCards = remember(entries, todayEpochDay) {
-                            bank.filter { seed ->
-                                val existing = entries.firstOrNull { it.word.equals(seed.word, ignoreCase = true) }
-                                existing == null || existing.nextReviewEpochDay <= todayEpochDay
-                            }.ifEmpty { bank }
-                        }
-                        val safePosition = cardIndex % dueCards.size
-                        val currentCard = dueCards[safePosition]
-                        val existing = entries.firstOrNull { it.word.equals(currentCard.word, ignoreCase = true) }
+                        1 -> {
+                            var cardIndex by remember { mutableIntStateOf(0) }
+                            var flipped by remember { mutableStateOf(false) }
+                            val dueCards = remember(entries, todayEpochDay) {
+                                bank.filter { seed ->
+                                    val existing = entries.firstOrNull { it.word.equals(seed.word, ignoreCase = true) }
+                                    existing == null || existing.nextReviewEpochDay <= todayEpochDay
+                                }.ifEmpty { bank }
+                            }
+                            val safePosition = cardIndex % dueCards.size
+                            val currentCard = dueCards[safePosition]
+                            val existing = entries.firstOrNull { it.word.equals(currentCard.word, ignoreCase = true) }
 
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(SpeakCraftSpacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
-                        ) {
-                            SectionHeader(
-                                "Spaced Repetition Deck",
-                                "Card ${safePosition + 1} of ${dueCards.size} due today • Tap card to reveal"
-                            )
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(260.dp)
-                                    .clickable { flipped = !flipped }
-                                    .testTag("vocab_flashcard"),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(SpeakCraftSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
                             ) {
-                                AnimatedContent(targetState = Pair(currentCard.id, flipped), label = "flashcard_reveal") { (_, isFlipped) ->
-                                    Column(
-                                        modifier = Modifier.fillMaxSize().padding(22.dp),
-                                        verticalArrangement = Arrangement.Center,
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(currentCard.word, style = MaterialTheme.typography.displayLarge)
-                                        Text(currentCard.phonetic, style = MaterialTheme.typography.labelSmall, color = ext.info)
-                                        Spacer(Modifier.height(12.dp))
-                                        if (isFlipped) {
-                                            Text(currentCard.meaning, style = MaterialTheme.typography.bodyLarge)
-                                            Spacer(Modifier.height(8.dp))
-                                            Text("\"${currentCard.exampleSentence}\"", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        } else {
-                                            Text("Tap to reveal meaning & example", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(
-                                    onClick = {
-                                        onReviewCard(currentCard, existing, false)
-                                        flipped = false
-                                        cardIndex = (cardIndex + 1) % dueCards.size
-                                    },
-                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                ) { Text("Review Again (1d)") }
-                                Button(
-                                    onClick = {
-                                        onReviewCard(currentCard, existing, true)
-                                        flipped = false
-                                        cardIndex = (cardIndex + 1) % dueCards.size
-                                    },
-                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                ) { Text("Mastered Next") }
-                            }
-                        }
-                    }
-
-                    2 -> {
-                        var targetIdx by remember { mutableIntStateOf(0) }
-                        val target = bank[targetIdx % bank.size]
-                        val existing = entries.firstOrNull { it.word.equals(target.word, ignoreCase = true) }
-                        var sentenceInput by remember { mutableStateOf("") }
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
-                        ) {
-                            item {
-                                SectionHeader("Contextual Usage Assessment", "Use the word naturally in a real conversation—not rote memorization")
-                            }
-                            item {
+                                SectionHeader(
+                                    "Spaced Repetition Deck",
+                                    "Card ${safePosition + 1} of ${dueCards.size} due today • Tap card to reveal"
+                                )
                                 Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(270.dp)
+                                        .clickable { flipped = !flipped }
+                                        .testTag("vocab_flashcard"),
+                                    shape = MaterialTheme.shapes.large,
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.65f))
                                 ) {
-                                    Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Target Word: ${target.word}", style = MaterialTheme.typography.titleLarge)
-                                            OutlinedButton(
-                                                onClick = {
-                                                    targetIdx = (targetIdx + 1) % bank.size
-                                                    sentenceInput = ""
-                                                    onClearEval()
-                                                },
-                                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                            ) { Text("Next Word") }
-                                        }
-                                        Text(target.meaning, style = MaterialTheme.typography.bodyMedium)
-                                        OutlinedTextField(
-                                            value = sentenceInput,
-                                            onValueChange = { sentenceInput = it },
-                                            label = { Text("Write a realistic workplace or daily sentence using '${target.word}'") },
-                                            minLines = 2,
-                                            modifier = Modifier.fillMaxWidth().testTag("vocab_quiz_input")
-                                        )
-                                        Button(
-                                            onClick = { onEvaluateUsage(target, existing, sentenceInput) },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                                .testTag("vocab_quiz_submit")
-                                        ) { Text("Evaluate Conversational Usage") }
-                                    }
-                                }
-                            }
-                            item {
-                                when (vocabEvalState) {
-                                    is UiState.Loading -> CircularProgressIndicator()
-                                    is UiState.Error -> Text(vocabEvalState.message, color = MaterialTheme.colorScheme.error)
-                                    is UiState.Success -> {
-                                        val r = vocabEvalState.data
-                                        Card(
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (r.usedCorrectly) ext.successContainer else MaterialTheme.colorScheme.errorContainer
-                                            )
+                                    AnimatedContent(targetState = Pair(currentCard.id, flipped), label = "flashcard_reveal") { (_, isFlipped) ->
+                                        Column(
+                                            modifier = Modifier.fillMaxSize().padding(22.dp),
+                                            verticalArrangement = Arrangement.Center,
+                                            horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(currentCard.word, style = MaterialTheme.typography.displayLarge)
+                                            Spacer(Modifier.height(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = ext.infoContainer
+                                            ) {
                                                 Text(
-                                                    text = if (r.usedCorrectly) "Natural Usage (${r.naturalnessScore}/100)" else "Needs Adjustment (${r.naturalnessScore}/100)",
-                                                    style = MaterialTheme.typography.titleMedium
+                                                    currentCard.phonetic,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = ext.info,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                                 )
-                                                Text(r.feedback, style = MaterialTheme.typography.bodyMedium)
-                                                Text("Polished Example: \"${r.improvedExample}\"", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            Spacer(Modifier.height(14.dp))
+                                            if (isFlipped) {
+                                                Text(currentCard.meaning, style = MaterialTheme.typography.bodyLarge)
+                                                Spacer(Modifier.height(8.dp))
+                                                Text("\"${currentCard.exampleSentence}\"", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            } else {
+                                                Text("Tap to reveal meaning & example", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
                                     }
-                                    null -> Unit
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            onReviewCard(currentCard, existing, false)
+                                            flipped = false
+                                            cardIndex = (cardIndex + 1) % dueCards.size
+                                        },
+                                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    ) { Text("Review Again (1d)") }
+                                    Button(
+                                        onClick = {
+                                            onReviewCard(currentCard, existing, true)
+                                            flipped = false
+                                            cardIndex = (cardIndex + 1) % dueCards.size
+                                        },
+                                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    ) { Text("Mastered Next") }
                                 }
                             }
                         }
-                    }
 
-                    else -> {
-                        var customWord by remember { mutableStateOf("") }
-                        var customMeaning by remember { mutableStateOf("") }
-                        var customExample by remember { mutableStateOf("") }
-                        var customNote by remember { mutableStateOf("") }
+                        2 -> {
+                            var targetIdx by remember { mutableIntStateOf(0) }
+                            val target = bank[targetIdx % bank.size]
+                            val existing = entries.firstOrNull { it.word.equals(target.word, ignoreCase = true) }
+                            var sentenceInput by remember { mutableStateOf("") }
 
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
-                        ) {
-                            item {
-                                SectionHeader("Personal Vocabulary Notebook", "${entries.size} saved entries")
-                                Spacer(Modifier.height(SpeakCraftSpacing.sm))
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                                ) {
-                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(value = customWord, onValueChange = { customWord = it }, label = { Text("Word or Phrase") }, modifier = Modifier.fillMaxWidth())
-                                        OutlinedTextField(value = customMeaning, onValueChange = { customMeaning = it }, label = { Text("Meaning") }, modifier = Modifier.fillMaxWidth())
-                                        OutlinedTextField(value = customExample, onValueChange = { customExample = it }, label = { Text("Example Sentence") }, modifier = Modifier.fillMaxWidth())
-                                        OutlinedTextField(value = customNote, onValueChange = { customNote = it }, label = { Text("Personal Usage Note") }, modifier = Modifier.fillMaxWidth())
-                                        Button(
-                                            onClick = {
-                                                onSaveCustomWord(customWord, customMeaning, "Intermediate", customExample, customNote)
-                                                customWord = ""; customMeaning = ""; customExample = ""; customNote = ""
-                                            },
-                                            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                        ) {
-                                            Icon(Icons.Default.Add, contentDescription = null)
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Add to Personal Notebook")
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                            ) {
+                                item {
+                                    SectionHeader("Contextual Usage Assessment", "Use the word naturally in a real conversation—not rote memorization")
+                                }
+                                item {
+                                    Card(
+                                        shape = MaterialTheme.shapes.large,
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+                                    ) {
+                                        Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Target Word: ${target.word}", style = MaterialTheme.typography.titleLarge)
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        targetIdx = (targetIdx + 1) % bank.size
+                                                        sentenceInput = ""
+                                                        onClearEval()
+                                                    },
+                                                    modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                                ) { Text("Next Word") }
+                                            }
+                                            Text(target.meaning, style = MaterialTheme.typography.bodyMedium)
+                                            OutlinedTextField(
+                                                value = sentenceInput,
+                                                onValueChange = { sentenceInput = it },
+                                                label = { Text("Write a realistic workplace or daily sentence using '${target.word}'") },
+                                                minLines = 2,
+                                                shape = MaterialTheme.shapes.medium,
+                                                modifier = Modifier.fillMaxWidth().testTag("vocab_quiz_input")
+                                            )
+                                            Button(
+                                                onClick = { onEvaluateUsage(target, existing, sentenceInput) },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                                    .testTag("vocab_quiz_submit")
+                                            ) { Text("Evaluate Conversational Usage") }
                                         }
+                                    }
+                                }
+                                item {
+                                    when (vocabEvalState) {
+                                        is UiState.Loading -> CircularProgressIndicator()
+                                        is UiState.Error -> Text(vocabEvalState.message, color = MaterialTheme.colorScheme.error)
+                                        is UiState.Success -> {
+                                            val r = vocabEvalState.data
+                                            Card(
+                                                shape = MaterialTheme.shapes.large,
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (r.usedCorrectly) ext.successContainer else MaterialTheme.colorScheme.errorContainer
+                                                )
+                                            ) {
+                                                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Text(
+                                                        text = if (r.usedCorrectly) "Natural Usage (${r.naturalnessScore}/100)" else "Needs Adjustment (${r.naturalnessScore}/100)",
+                                                        style = MaterialTheme.typography.titleMedium
+                                                    )
+                                                    Text(r.feedback, style = MaterialTheme.typography.bodyMedium)
+                                                    Text("Polished Example: \"${r.improvedExample}\"", style = MaterialTheme.typography.bodySmall)
+                                                }
+                                            }
+                                        }
+                                        null -> Unit
                                     }
                                 }
                             }
-                            if (tier.isExpandedTablet) {
-                                items(entries.chunked(2), key = { row -> row.joinToString("_") { it.id.ifBlank { it.word } } }) { pair ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md),
-                                        verticalAlignment = Alignment.Top
+                        }
+
+                        else -> {
+                            var customWord by remember { mutableStateOf("") }
+                            var customMeaning by remember { mutableStateOf("") }
+                            var customExample by remember { mutableStateOf("") }
+                            var customNote by remember { mutableStateOf("") }
+
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                            ) {
+                                item {
+                                    SectionHeader("Personal Vocabulary Notebook", "${entries.size} saved entries")
+                                    Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                                    Card(
+                                        shape = MaterialTheme.shapes.large,
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
                                     ) {
-                                        pair.forEach { item ->
-                                            NotebookEntryCard(item = item, modifier = Modifier.weight(1f))
+                                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedTextField(value = customWord, onValueChange = { customWord = it }, label = { Text("Word or Phrase") }, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+                                            OutlinedTextField(value = customMeaning, onValueChange = { customMeaning = it }, label = { Text("Meaning") }, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+                                            OutlinedTextField(value = customExample, onValueChange = { customExample = it }, label = { Text("Example Sentence") }, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+                                            OutlinedTextField(value = customNote, onValueChange = { customNote = it }, label = { Text("Personal Usage Note") }, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+                                            Button(
+                                                onClick = {
+                                                    onSaveCustomWord(customWord, customMeaning, "Intermediate", customExample, customNote)
+                                                    customWord = ""; customMeaning = ""; customExample = ""; customNote = ""
+                                                },
+                                                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                            ) {
+                                                Icon(Icons.Default.Add, contentDescription = null)
+                                                Spacer(Modifier.width(6.dp))
+                                                Text("Add to Personal Notebook")
+                                            }
                                         }
-                                        if (pair.size == 1) Spacer(Modifier.weight(1f))
                                     }
                                 }
-                            } else {
-                                items(entries, key = { it.id.ifBlank { it.word } }) { item ->
-                                    NotebookEntryCard(item = item, modifier = Modifier.fillMaxWidth())
+                                if (tier.isExpandedTablet) {
+                                    items(entries.chunked(2), key = { row -> row.joinToString("_") { it.id.ifBlank { it.word } } }) { pair ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            pair.forEach { item ->
+                                                NotebookEntryCard(item = item, modifier = Modifier.weight(1f))
+                                            }
+                                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                        }
+                                    }
+                                } else {
+                                    items(entries, key = { it.id.ifBlank { it.word } }) { item ->
+                                        NotebookEntryCard(item = item, modifier = Modifier.fillMaxWidth())
+                                    }
                                 }
                             }
                         }
@@ -407,7 +435,6 @@ fun VocabularyScreen(
                 }
             }
         }
-    }
     }
 }
 
@@ -421,18 +448,29 @@ private fun VocabSeedCard(
     val ext = MaterialTheme.speakCraftColors
     Card(
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
     ) {
-        Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${seed.word}  •  ${seed.level}", style = MaterialTheme.typography.titleLarge)
-                    Text(seed.phonetic, style = MaterialTheme.typography.labelSmall, color = ext.info)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = ext.infoContainer
+                    ) {
+                        Text(
+                            seed.phonetic,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = ext.info,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
                 IconButton(
                     onClick = { onSpeakWord("${seed.word}. ${seed.exampleSentence}") },
@@ -441,7 +479,7 @@ private fun VocabSeedCard(
                         minHeight = SpeakCraftSpacing.minTouchTarget
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Pronounce ${seed.word}")
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Pronounce ${seed.word}", tint = MaterialTheme.colorScheme.primary)
                 }
             }
             Text(seed.meaning, style = MaterialTheme.typography.bodyLarge)
@@ -450,7 +488,17 @@ private fun VocabSeedCard(
             Text("Example: \"${seed.exampleSentence}\"", style = MaterialTheme.typography.bodyMedium)
             Text("Conversation: ${seed.conversationExample}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (saved != null) {
-                Text("Mastery: ${saved.masteryLevel}/5 • Reps: ${saved.repetitions}", style = MaterialTheme.typography.labelSmall, color = ext.success)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = ext.successContainer
+                ) {
+                    Text(
+                        "Mastery: ${saved.masteryLevel}/5 • Reps: ${saved.repetitions}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ext.success,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
     }
@@ -464,16 +512,31 @@ private fun NotebookEntryCard(
     val ext = MaterialTheme.speakCraftColors
     Card(
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(item.word, style = MaterialTheme.typography.titleMedium)
-                Text("Mastery ${item.masteryLevel}/5", style = MaterialTheme.typography.labelSmall, color = ext.success)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = ext.successContainer
+                ) {
+                    Text(
+                        "Mastery ${item.masteryLevel}/5",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ext.success,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
             }
             Text(item.meaning, style = MaterialTheme.typography.bodyMedium)
-            if (item.exampleSentence.isNotBlank()) Text("\"${item.exampleSentence}\"", style = MaterialTheme.typography.bodySmall)
+            if (item.exampleSentence.isNotBlank()) Text("\"${item.exampleSentence}\"", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -115,8 +115,10 @@ fun PronunciationLabScreen(
 
         val activeDrillCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                     Text(
@@ -250,10 +252,14 @@ fun PronunciationLabScreen(
                                 val isSelected = drill.id == activeDrill.id
                                 Card(
                                     onClick = { activeDrill = drill; speakingVm.clearAnalysis() },
+                                    shape = MaterialTheme.shapes.large,
                                     colors = CardDefaults.cardColors(
                                         containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                                     ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                                    )
                                 ) {
                                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                                         Text("${drill.category}: ${drill.title}", style = MaterialTheme.typography.titleMedium)
@@ -273,10 +279,14 @@ fun PronunciationLabScreen(
                     val isSelected = drill.id == activeDrill.id
                     Card(
                         onClick = { activeDrill = drill; speakingVm.clearAnalysis() },
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                         ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        border = BorderStroke(
+                            if (isSelected) 1.5.dp else 1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                        )
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text("${drill.category}: ${drill.title}", style = MaterialTheme.typography.titleMedium)
@@ -317,8 +327,10 @@ fun ListeningShadowingScreen(
 
         val shadowCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(activeSegment.title, style = MaterialTheme.typography.titleLarge)
@@ -416,12 +428,17 @@ fun ListeningShadowingScreen(
                         ) {
                             Text("Shadowing Segments", style = MaterialTheme.typography.titleMedium)
                             segments.forEach { seg ->
+                                val isSelected = seg.id == activeSegment.id
                                 Card(
                                     onClick = { activeSegment = seg; speakingVm.clearAnalysis() },
+                                    shape = MaterialTheme.shapes.large,
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (seg.id == activeSegment.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                                     ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                                    )
                                 ) {
                                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                                         Text(seg.title, style = MaterialTheme.typography.titleMedium)
@@ -438,10 +455,17 @@ fun ListeningShadowingScreen(
                     item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
                 }
                 items(segments, key = { it.id }) { seg ->
+                    val isSelected = seg.id == activeSegment.id
                     Card(
                         onClick = { activeSegment = seg; speakingVm.clearAnalysis() },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(
+                            if (isSelected) 1.5.dp else 1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                        )
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(seg.title, style = MaterialTheme.typography.titleMedium)
@@ -480,8 +504,10 @@ fun GrammarSpeakingScreen(
 
         val grammarCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                     Text(activeLesson.topic, style = MaterialTheme.typography.titleLarge)
@@ -564,12 +590,17 @@ fun GrammarSpeakingScreen(
                         ) {
                             Text("Thinking & Grammar Frameworks", style = MaterialTheme.typography.titleMedium)
                             lessons.forEach { lesson ->
+                                val isSelected = lesson.id == activeLesson.id
                                 Card(
                                     onClick = { activeLesson = lesson; speakingVm.clearAnalysis() },
+                                    shape = MaterialTheme.shapes.large,
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (lesson.id == activeLesson.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                                     ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                                    )
                                 ) {
                                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                                         Text(lesson.topic, style = MaterialTheme.typography.titleMedium)
@@ -586,10 +617,17 @@ fun GrammarSpeakingScreen(
                     item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
                 }
                 items(lessons, key = { it.id }) { lesson ->
+                    val isSelected = lesson.id == activeLesson.id
                     Card(
                         onClick = { activeLesson = lesson; speakingVm.clearAnalysis() },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(
+                            if (isSelected) 1.5.dp else 1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                        )
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(lesson.topic, style = MaterialTheme.typography.titleMedium)
@@ -628,8 +666,10 @@ fun PublicSpeakingScreen(
 
         val rehearsalCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                     Text(activeModule.title, style = MaterialTheme.typography.titleLarge)
@@ -711,12 +751,17 @@ fun PublicSpeakingScreen(
                         ) {
                             Text("Presentation Modules", style = MaterialTheme.typography.titleMedium)
                             modules.forEach { mod ->
+                                val isSelected = mod.id == activeModule.id
                                 Card(
                                     onClick = { activeModule = mod; speakingVm.clearAnalysis() },
+                                    shape = MaterialTheme.shapes.large,
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (mod.id == activeModule.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                                     ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                                    )
                                 ) {
                                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                                         Text(mod.title, style = MaterialTheme.typography.titleMedium)
@@ -733,10 +778,17 @@ fun PublicSpeakingScreen(
                     item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
                 }
                 items(modules, key = { it.id }) { mod ->
+                    val isSelected = mod.id == activeModule.id
                     Card(
                         onClick = { activeModule = mod; speakingVm.clearAnalysis() },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(
+                            if (isSelected) 1.5.dp else 1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                        )
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(mod.title, style = MaterialTheme.typography.titleMedium)
@@ -823,8 +875,15 @@ private fun RealWorldTaskCard(
 
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = if (completed) ext.success.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            if (completed) 1.5.dp else 1.dp,
+            if (completed) ext.success.copy(alpha = 0.65f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -844,6 +903,7 @@ private fun RealWorldTaskCard(
                 value = reflection,
                 onValueChange = { reflection = it },
                 label = { Text("What happened? What would you refine next time?") },
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedButton(

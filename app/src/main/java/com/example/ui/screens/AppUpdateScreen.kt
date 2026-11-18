@@ -22,11 +22,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -139,6 +141,7 @@ fun AppUpdateScreen(
                         value = "v${evaluation.currentVersionName}",
                         delta = "Build ${evaluation.currentVersionCode}",
                         accentColor = ext.info,
+                        icon = Icons.Default.Verified,
                         modifier = Modifier.weight(1f)
                     )
                     MetricTile(
@@ -146,6 +149,7 @@ fun AppUpdateScreen(
                         value = prefs.updateChannel.replaceFirstChar { it.uppercase() },
                         delta = "Checked: $lastCheckText",
                         accentColor = ext.success,
+                        icon = Icons.Default.CloudSync,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -255,11 +259,16 @@ private fun UpdateChannelCard(
 ) {
     var repoDraft by remember(prefs.githubReleaseRepo) { mutableStateOf(prefs.githubReleaseRepo) }
     Card(
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Release Channel & Check for Updates", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text("Release Channel & Check for Updates", style = MaterialTheme.typography.titleMedium)
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                 listOf("stable", "beta").forEach { channel ->
                     FilterChip(
@@ -301,6 +310,7 @@ private fun UpdateChannelCard(
                     onValueChange = { repoDraft = it },
                     label = { Text("GitHub Repo (owner/repo, optional)") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier
                         .weight(1f)
                         .testTag("github_release_repo_input")
@@ -358,11 +368,13 @@ private fun LatestReleaseSection(
         )
     } else {
         Card(
+            shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(
-                1.dp,
-                if (evaluation.isUpdateAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-            )
+                if (evaluation.isUpdateAvailable) 1.5.dp else 1.dp,
+                if (evaluation.isUpdateAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (evaluation.isUpdateAvailable) 2.dp else 1.dp)
         ) {
             Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
@@ -434,12 +446,19 @@ private fun LatestReleaseSection(
                     }
                     is UpdateDownloadState.Downloading -> {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            LinearProgressIndicator(progress = { downloadState.progressFraction }, modifier = Modifier.fillMaxWidth())
+                            LinearProgressIndicator(
+                                progress = { downloadState.progressFraction },
+                                modifier = Modifier.fillMaxWidth().height(8.dp),
+                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                            )
                             Text("Downloading ${(downloadState.progressFraction * 100).toInt()}% (${downloadState.bytesRead / 1024} KB)...", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     is UpdateDownloadState.Verifying -> {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                        )
                         Text("Verifying SHA-256 checksum & APK signing certificate...", style = MaterialTheme.typography.bodySmall)
                     }
                     is UpdateDownloadState.VerifiedReady -> {
@@ -477,8 +496,10 @@ private fun BackupManagerCard(
     onRequestRestore: (BackupSnapshotInfo) -> Unit
 ) {
     Card(
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -537,12 +558,13 @@ private fun BackupManagerCard(
 @Composable
 private fun UpdateEventCard(ev: ApplicationUpdateEvent) {
     Card(
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("${ev.status}: v${ev.fromVersion} -> v${ev.toVersion} (${ev.channel})", style = MaterialTheme.typography.labelLarge)
-            if (ev.detail.isNotBlank()) Text(ev.detail, style = MaterialTheme.typography.bodySmall)
+            if (ev.detail.isNotBlank()) Text(ev.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

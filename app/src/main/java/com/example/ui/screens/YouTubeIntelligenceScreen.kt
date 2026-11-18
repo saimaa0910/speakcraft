@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -108,8 +109,10 @@ fun YouTubeIntelligenceScreen(
 
             item {
                 Card(
+                    shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
@@ -117,12 +120,16 @@ fun YouTubeIntelligenceScreen(
                             onValueChange = { urlInput = it },
                             label = { Text("YouTube Channel, Playlist, or Video URL") },
                             singleLine = true,
+                            shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth().testTag("youtube_url_input")
                         )
                         Button(
                             onClick = { coachVm.auditYouTubeUrl(urlInput, youtubeApiKey) },
                             enabled = !auditState.isAuditing,
-                            modifier = Modifier.fillMaxWidth().testTag("youtube_audit_button")
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("youtube_audit_button")
                         ) {
                             if (auditState.isAuditing) {
                                 CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp)
@@ -150,9 +157,9 @@ fun YouTubeIntelligenceScreen(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(sources, key = { it.id.ifBlank { it.videoId } }) { src ->
                             Surface(
-                                shape = MaterialTheme.shapes.medium,
+                                shape = MaterialTheme.shapes.large,
                                 color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
                                 modifier = Modifier.width(250.dp).clickable { uriHandler.openUri(src.videoUrl) }
                             ) {
                                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -200,18 +207,29 @@ fun YouTubeIntelligenceScreen(
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     label = { Text("Search frameworks, drills, or @askvinh topics") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth().testTag("youtube_search_input")
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(listOf("All", "Beginner", "Intermediate", "Advanced")) { diff ->
-                        FilterChip(selected = selectedDifficulty == diff, onClick = { selectedDifficulty = diff }, label = { Text(diff) })
+                        FilterChip(
+                            selected = selectedDifficulty == diff,
+                            onClick = { selectedDifficulty = diff },
+                            label = { Text(diff) },
+                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        )
                     }
                 }
                 Spacer(Modifier.height(4.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(listOf("All") + CurriculumCatalog.allCategories) { cat ->
-                        FilterChip(selected = selectedCategory == cat, onClick = { selectedCategory = cat }, label = { Text(cat) })
+                        FilterChip(
+                            selected = selectedCategory == cat,
+                            onClick = { selectedCategory = cat },
+                            label = { Text(cat) },
+                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        )
                     }
                 }
             }
@@ -261,8 +279,10 @@ private fun YouTubeTechniqueCard(
 ) {
     Card(
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -270,7 +290,16 @@ private fun YouTubeTechniqueCard(
                     isCreatorDerived = tech.isCreatorDerived,
                     sourceVerified = tech.timestampLabel != "Pending"
                 )
-                Text("${tech.suggestedDurationMinutes}m • ${tech.timestampLabel}", style = MaterialTheme.typography.labelSmall)
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        "${tech.suggestedDurationMinutes}m • ${tech.timestampLabel}",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
             Text(tech.title, style = MaterialTheme.typography.titleLarge)
             Text("${tech.category} • ${tech.difficulty}", style = MaterialTheme.typography.labelSmall, color = AcousticTeal)
@@ -302,6 +331,7 @@ private fun YouTubeTechniqueCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                     .clickable { onOpenUrl(tech.sourceVideoUrl) }
                     .padding(top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically

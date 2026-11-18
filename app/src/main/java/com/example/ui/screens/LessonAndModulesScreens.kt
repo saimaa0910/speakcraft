@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -185,14 +186,18 @@ fun ModuleLessonsScreen(
                 }
                 items(pendingSeeds, key = { it.id }) { seed ->
                     Card(
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             LessonAttributionBadge(isCreatorDerived = false, sourceVerified = false)
                             Text(seed.title, style = MaterialTheme.typography.titleMedium)
                             Text(seed.creatorAdvice, style = MaterialTheme.typography.bodySmall)
-                            OutlinedButton(onClick = onOpenYouTubeLibrary) {
+                            OutlinedButton(
+                                onClick = onOpenYouTubeLibrary,
+                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            ) {
                                 Text("Fetch Live Captions in YouTube Library")
                             }
                         }
@@ -212,8 +217,15 @@ private fun ModuleLessonCard(
 ) {
     Card(
         onClick = { onOpenLesson(lesson.id) },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, if (done) EmeraldSuccess else MaterialTheme.colorScheme.outline),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = if (done) EmeraldSuccess.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            if (done) 1.5.dp else 1.dp,
+            if (done) EmeraldSuccess.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier.testTag("lesson_card_${lesson.id}")
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -304,8 +316,10 @@ fun LessonDetailScreen(
 
         val breakdownCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Technique Breakdown", style = MaterialTheme.typography.titleMedium)
@@ -316,7 +330,7 @@ fun LessonDetailScreen(
                     }
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.medium
                     ) {
                         Text(
                             text = lesson.example,
@@ -330,8 +344,10 @@ fun LessonDetailScreen(
 
         val practiceCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Practice Prompt", style = MaterialTheme.typography.titleMedium)
@@ -401,8 +417,10 @@ fun LessonDetailScreen(
 
         val completionCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Completion & Takeaways", style = MaterialTheme.typography.titleMedium)
@@ -410,6 +428,7 @@ fun LessonDetailScreen(
                         value = notesDraft,
                         onValueChange = { notesDraft = it },
                         label = { Text("Your key takeaway from practicing this lesson") },
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -417,7 +436,10 @@ fun LessonDetailScreen(
                             onClick = {
                                 onToggleCompleted(lesson.id, lesson.moduleSlug, !isCompleted, notesDraft)
                             },
-                            modifier = Modifier.weight(1f).testTag("lesson_complete_toggle")
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("lesson_complete_toggle")
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
@@ -429,7 +451,10 @@ fun LessonDetailScreen(
                                     speakingVm.clearAnalysis()
                                     onNavigateToLesson(lesson.nextLessonId)
                                 },
-                                modifier = Modifier.weight(1f).testTag("next_lesson_button")
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("next_lesson_button")
                             ) {
                                 Text("Next Lesson")
                                 Spacer(Modifier.width(4.dp))
@@ -532,8 +557,10 @@ fun VoiceTrainingLabScreen(
 
         val drillCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Vocal Lever Focus: $activeLever", style = MaterialTheme.typography.titleMedium, color = AcousticTeal)
@@ -548,7 +575,7 @@ fun VoiceTrainingLabScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = { ttsHelper.speak(script, (targetWpm / 140f).coerceIn(0.75f, 1.25f)) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
@@ -562,7 +589,7 @@ fun VoiceTrainingLabScreen(
                                     if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) {
                             Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
@@ -579,7 +606,7 @@ fun VoiceTrainingLabScreen(
                             )
                         },
                         enabled = !isRecording && recordedPath != null,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                     ) {
                         Text("Evaluate Vocal Foundations With AI")
                     }
@@ -632,12 +659,17 @@ fun VoiceTrainingLabScreen(
                         ) {
                             Text("Vocal Foundations", style = MaterialTheme.typography.titleMedium)
                             leverScripts.keys.forEach { lever ->
+                                val isSelected = lever == activeLever
                                 Card(
                                     onClick = { activeLever = lever; speakingVm.clearAnalysis() },
+                                    shape = MaterialTheme.shapes.large,
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (lever == activeLever) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                                     ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                                    )
                                 ) {
                                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                                         Text(lever, style = MaterialTheme.typography.titleMedium)
@@ -654,12 +686,17 @@ fun VoiceTrainingLabScreen(
                     item { feedbackSection() }
                 }
                 items(leverScripts.keys.toList()) { lever ->
+                    val isSelected = lever == activeLever
                     Card(
                         onClick = { activeLever = lever; speakingVm.clearAnalysis() },
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(
-                            containerColor = if (lever == activeLever) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                         ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        border = BorderStroke(
+                            if (isSelected) 1.5.dp else 1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                        )
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(lever, style = MaterialTheme.typography.titleMedium)

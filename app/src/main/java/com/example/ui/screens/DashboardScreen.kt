@@ -34,15 +34,18 @@ import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelfImprovement
@@ -50,6 +53,7 @@ import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -262,6 +266,17 @@ fun DashboardScreen(
                 }
             }
 
+            if (profile != null) {
+                item {
+                    DashboardGreetingStrip(
+                        displayName = profile.displayName.ifBlank { "Speaker" },
+                        level = profile.communicationLevel,
+                        streakDays = profile.streakDays,
+                        dailyGoalMinutes = profile.dailyGoalMinutes
+                    )
+                }
+            }
+
             if (tier.isExpandedTablet) {
                 // Expanded Tablet: Hero Banner side-by-side with Routine Progress & Quick Hubs
                 item {
@@ -342,20 +357,20 @@ fun DashboardScreen(
                 val wordsValue = "${vocabulary.size.coerceAtLeast((profile?.wordsLearnedCount ?: 0L).toInt())}"
                 if (tier.isTabletOrWide) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MetricTile("Practice Hours", practiceHours, "${profile?.dailyGoalMinutes ?: 15}m/day goal", ext.warning, Modifier.weight(1f))
-                        MetricTile("Words Learned", wordsValue, "Active notebook", ext.info, Modifier.weight(1f))
-                        MetricTile("Recordings", "${sessions.size}", "Fluency $fluencyDelta", ext.success, Modifier.weight(1f))
-                        MetricTile("Today & Lessons", "$todayDoneCount/9", "$completedLessons lessons • $pendingTasksCount tasks", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        MetricTile("Practice Hours", practiceHours, "${profile?.dailyGoalMinutes ?: 15}m/day goal", ext.warning, Modifier.weight(1f), Icons.Default.Schedule)
+                        MetricTile("Words Learned", wordsValue, "Active notebook", ext.info, Modifier.weight(1f), Icons.Default.Book)
+                        MetricTile("Recordings", "${sessions.size}", "Fluency $fluencyDelta", ext.success, Modifier.weight(1f), Icons.Default.Mic)
+                        MetricTile("Today & Lessons", "$todayDoneCount/9", "$completedLessons lessons • $pendingTasksCount tasks", MaterialTheme.colorScheme.primary, Modifier.weight(1f), Icons.Default.CheckCircle)
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            MetricTile("Practice Hours", practiceHours, "${profile?.dailyGoalMinutes ?: 15}m/day goal", ext.warning, Modifier.weight(1f))
-                            MetricTile("Words Learned", wordsValue, "Active notebook", ext.info, Modifier.weight(1f))
+                            MetricTile("Practice Hours", practiceHours, "${profile?.dailyGoalMinutes ?: 15}m/day goal", ext.warning, Modifier.weight(1f), Icons.Default.Schedule)
+                            MetricTile("Words Learned", wordsValue, "Active notebook", ext.info, Modifier.weight(1f), Icons.Default.Book)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            MetricTile("Recordings", "${sessions.size}", "Fluency $fluencyDelta", ext.success, Modifier.weight(1f))
-                            MetricTile("Today & Lessons", "$todayDoneCount/9", "$completedLessons lessons • $pendingTasksCount tasks", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                            MetricTile("Recordings", "${sessions.size}", "Fluency $fluencyDelta", ext.success, Modifier.weight(1f), Icons.Default.Mic)
+                            MetricTile("Today & Lessons", "$todayDoneCount/9", "$completedLessons lessons • $pendingTasksCount tasks", MaterialTheme.colorScheme.primary, Modifier.weight(1f), Icons.Default.CheckCircle)
                         }
                     }
                 }
@@ -369,20 +384,11 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
                         verticalAlignment = Alignment.Top
                     ) {
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Latest Recording Review", style = MaterialTheme.typography.labelLarge, color = ext.info)
-                                    Text("${latest.wordsPerMinute} WPM", style = MaterialTheme.typography.labelSmall)
-                                }
-                                Text(latest.promptTitle, style = MaterialTheme.typography.titleMedium)
-                                Text(latest.overallAssessment, style = MaterialTheme.typography.bodySmall, maxLines = 3)
-                            }
-                        }
+                        LatestRecordingSummaryCard(
+                            latest = latest,
+                            onOpenSpeakingLab = { onNavigate("speaking_lab") },
+                            modifier = Modifier.weight(1f)
+                        )
                         DashboardTrendCard(
                             reportPeriod = reportPeriod,
                             filteredCount = filteredSessions.size,
@@ -397,19 +403,11 @@ fun DashboardScreen(
                 if (sessions.isNotEmpty()) {
                     val latest = sessions.first()
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Latest Recording Review", style = MaterialTheme.typography.labelLarge, color = ext.info)
-                                    Text("${latest.wordsPerMinute} WPM", style = MaterialTheme.typography.labelSmall)
-                                }
-                                Text(latest.promptTitle, style = MaterialTheme.typography.titleMedium)
-                                Text(latest.overallAssessment, style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                            }
-                        }
+                        LatestRecordingSummaryCard(
+                            latest = latest,
+                            onOpenSpeakingLab = { onNavigate("speaking_lab") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
 
@@ -487,6 +485,122 @@ fun DashboardScreen(
 }
 
 @Composable
+private fun DashboardGreetingStrip(
+    displayName: String,
+    level: String,
+    streakDays: Long,
+    dailyGoalMinutes: Long
+) {
+    val ext = MaterialTheme.speakCraftColors
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Welcome back, $displayName",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "$level Track • ${dailyGoalMinutes}m daily studio goal",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = ext.warningContainer,
+            border = BorderStroke(1.dp, ext.warning.copy(alpha = 0.35f))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = ext.warning,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "${streakDays}d streak",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ext.warning
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LatestRecordingSummaryCard(
+    latest: SpeakingSession,
+    onOpenSpeakingLab: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val ext = MaterialTheme.speakCraftColors
+    Card(
+        onClick = onOpenSpeakingLab,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = ext.infoContainer
+                ) {
+                    Text(
+                        "Latest Recording Review",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ext.info,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            "${latest.wordsPerMinute} WPM • Fluency ${latest.fluencyScore}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Open Speaking Lab",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Text(latest.promptTitle, style = MaterialTheme.typography.titleMedium)
+            Text(
+                latest.overallAssessment,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3
+            )
+        }
+    }
+}
+
+@Composable
 private fun DashboardHeroCard(
     profile: UserProfile?,
     recommendedNextAction: RecommendedNextAction,
@@ -494,84 +608,103 @@ private fun DashboardHeroCard(
     onNavigate: (String) -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp)
-            .clip(MaterialTheme.shapes.large)
+    Card(
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Image(
-            painter = painterResource(R.drawable.img_coach_hero),
-            contentDescription = "SpeakCraft executive coaching stage",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(ext.heroOverlayStart, ext.heroOverlayEnd)
-                    )
-                )
-        )
-        Column(
-            modifier = Modifier.fillMaxSize().padding(18.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .height(228.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = ext.warning.copy(alpha = 0.25f)
-                ) {
-                    Text(
-                        text = "${recommendedNextAction.badge} • ${profile?.streakDays ?: 1}d Streak",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ext.onHeroBadge,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+            Image(
+                painter = painterResource(R.drawable.img_coach_hero),
+                contentDescription = "SpeakCraft executive coaching stage",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(ext.heroOverlayStart, ext.heroOverlayEnd)
+                        )
                     )
-                }
-                Text(
-                    text = "Overall $overallScore/100",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = ext.onHeroBadge
-                )
-            }
-            Column {
-                Text(
-                    text = "Next Step: ${recommendedNextAction.title}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = ext.onHeroTitle
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = recommendedNextAction.reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ext.onHeroSubtitle,
-                    maxLines = 2
-                )
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { onNavigate(recommendedNextAction.targetRoute) },
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                            .testTag("recommended_action_button")
+            )
+            Column(
+                modifier = Modifier.fillMaxSize().padding(18.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = ext.warning.copy(alpha = 0.28f),
+                        border = BorderStroke(1.dp, ext.onHeroBadge.copy(alpha = 0.35f))
                     ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(recommendedNextAction.ctaLabel)
+                        Text(
+                            text = "${recommendedNextAction.badge} • ${profile?.streakDays ?: 1}d Streak",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = ext.onHeroBadge,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
                     }
-                    OutlinedButton(
-                        onClick = { onNavigate("speaking_lab") },
-                        modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
-                        border = BorderStroke(1.dp, ext.onHeroSubtitle.copy(alpha = 0.65f))
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = ext.heroOverlayEnd.copy(alpha = 0.65f),
+                        border = BorderStroke(1.dp, ext.onHeroBadge.copy(alpha = 0.3f))
                     ) {
-                        Text("Quick Record", color = ext.onHeroTitle)
+                        Text(
+                            text = "Overall $overallScore/100",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = ext.onHeroBadge,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = "Next Step: ${recommendedNextAction.title}",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = ext.onHeroTitle
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = recommendedNextAction.reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ext.onHeroSubtitle,
+                        maxLines = 2
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onNavigate(recommendedNextAction.targetRoute) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ext.warning,
+                                contentColor = ext.onWarning
+                            ),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("recommended_action_button")
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(recommendedNextAction.ctaLabel)
+                        }
+                        OutlinedButton(
+                            onClick = { onNavigate("speaking_lab") },
+                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                            border = BorderStroke(1.dp, ext.onHeroSubtitle.copy(alpha = 0.65f))
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = null, tint = ext.onHeroTitle, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Quick Record", color = ext.onHeroTitle)
+                        }
                     }
                 }
             }
@@ -586,9 +719,16 @@ private fun DashboardRoutineCard(
     onNavigate: (String) -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
+    val hubPalette = listOf(
+        ext.warning to ext.warningContainer,
+        ext.info to ext.infoContainer,
+        ext.indigo to ext.indigoContainer,
+        ext.success to ext.successContainer
+    )
     Card(
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(SpeakCraftSpacing.md),
@@ -600,15 +740,21 @@ private fun DashboardRoutineCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Today's Routine Progress", style = MaterialTheme.typography.labelLarge)
-                Text(
-                    "$todayDoneCount / 9 steps",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = ext.successContainer
+                ) {
+                    Text(
+                        "$todayDoneCount / 9 steps",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ext.success,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
             }
             LinearProgressIndicator(
                 progress = { (todayDoneCount / 9f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)),
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                 color = ext.success,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
@@ -616,7 +762,8 @@ private fun DashboardRoutineCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
             ) {
-                quickHubs.forEach { hub ->
+                quickHubs.forEachIndexed { idx, hub ->
+                    val (tint, bg) = hubPalette[idx % hubPalette.size]
                     Surface(
                         modifier = Modifier
                             .weight(1f)
@@ -624,22 +771,24 @@ private fun DashboardRoutineCard(
                             .clip(MaterialTheme.shapes.small)
                             .clickable { onNavigate(hub.route) },
                         shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                        color = bg.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, tint.copy(alpha = 0.25f))
                     ) {
                         Column(
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                            modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
                                 hub.icon,
                                 contentDescription = hub.title,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = tint,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 hub.title,
                                 style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1
                             )
                         }
@@ -663,7 +812,7 @@ private fun DashboardTrendCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
     ) {
         Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
@@ -701,11 +850,18 @@ private fun ModuleGrid(
     columns: Int = 2,
     onNavigate: (String) -> Unit
 ) {
+    val ext = MaterialTheme.speakCraftColors
     val colCount = columns.coerceIn(1, 3)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         items.chunked(colCount).forEach { rowItems ->
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowItems.forEach { mod ->
+                    val (badgeBg, iconTint) = when (mod.hubGroup) {
+                        "Voice & Clarity" -> ext.infoContainer to ext.info
+                        "Speaking & Story" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
+                        "Workplace & Influence" -> ext.successContainer to ext.success
+                        else -> ext.indigoContainer to ext.indigo
+                    }
                     Surface(
                         modifier = Modifier
                             .weight(1f)
@@ -715,29 +871,30 @@ private fun ModuleGrid(
                             .testTag("module_card_${mod.route}"),
                         shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        tonalElevation = 1.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.size(40.dp)
+                                shape = RoundedCornerShape(12.dp),
+                                color = badgeBg,
+                                modifier = Modifier.size(42.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         mod.icon,
                                         contentDescription = mod.title,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        tint = iconTint,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
                             Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text(mod.title, style = MaterialTheme.typography.labelLarge)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(mod.title, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                                 Text(
                                     mod.subtitle,
                                     style = MaterialTheme.typography.bodySmall,

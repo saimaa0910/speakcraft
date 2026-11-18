@@ -1,13 +1,24 @@
 package com.example.ui
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,23 +29,34 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.PlayCircle
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -118,15 +140,16 @@ import kotlinx.coroutines.launch
 private data class PrimaryNavItem(
     val route: String,
     val label: String,
-    val icon: ImageVector
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
 )
 
 private val primaryNavItems = listOf(
-    PrimaryNavItem("dashboard", "Home", Icons.Default.Home),
-    PrimaryNavItem("daily_practice", "Daily", Icons.Default.CheckCircle),
-    PrimaryNavItem("speaking_lab", "Record", Icons.Default.Mic),
-    PrimaryNavItem("youtube_library", "@askvinh", Icons.Default.PlayCircle),
-    PrimaryNavItem("ai_mentor", "Mentor", Icons.Default.Psychology)
+    PrimaryNavItem("dashboard", "Home", Icons.Filled.Home, Icons.Outlined.Home),
+    PrimaryNavItem("daily_practice", "Daily", Icons.Filled.CheckCircle, Icons.Outlined.CheckCircle),
+    PrimaryNavItem("speaking_lab", "Record", Icons.Filled.Mic, Icons.Outlined.Mic),
+    PrimaryNavItem("youtube_library", "@askvinh", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircle),
+    PrimaryNavItem("ai_mentor", "Mentor", Icons.Filled.Psychology, Icons.Outlined.Psychology)
 )
 
 private val routeTitles = mapOf(
@@ -479,59 +502,123 @@ private fun AuthenticatedAppShell(
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val useRail = maxWidth >= 600.dp
                     Scaffold(
+                        containerColor = MaterialTheme.colorScheme.background,
                         snackbarHost = { SnackbarHost(snackbarHostState) },
                         topBar = {
-                            TopAppBar(
-                                title = { Text(topBarTitle) },
-                                navigationIcon = {
-                                    if (!isPrimaryRoute) {
-                                        IconButton(onClick = { navController.navigateUp() }) {
-                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                                        }
-                                    }
-                                },
-                                actions = {
-                                    IconButton(
-                                        onClick = { showFeatureGuideDialog = true },
-                                        modifier = Modifier
-                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                            .testTag("feature_tutorial_topbar_button")
-                                    ) {
-                                        Icon(
-                                            Icons.AutoMirrored.Filled.HelpOutline,
-                                            contentDescription = "Feature guide & what improves"
-                                        )
-                                    }
-                                    if (isAdmin) {
-                                        IconButton(onClick = { navigateTo("admin_console") }) {
-                                            Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Console")
-                                        }
-                                    }
-                                    IconButton(onClick = { navigateTo("app_updates") }) {
-                                        if (updateEvaluation.isUpdateAvailable) {
-                                            BadgedBox(badge = { Badge() }) {
-                                                Icon(Icons.Default.SystemUpdate, contentDescription = "Updates available")
+                            Column {
+                                TopAppBar(
+                                    windowInsets = WindowInsets.statusBars,
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = MaterialTheme.colorScheme.background,
+                                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                                    ),
+                                    title = {
+                                        if (currentRoute == "dashboard") {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    modifier = Modifier.size(34.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.RecordVoiceOver,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Column {
+                                                    Text(topBarTitle, style = MaterialTheme.typography.titleLarge)
+                                                    Text(
+                                                        text = "AI Communication Studio",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
                                             }
                                         } else {
-                                            Icon(Icons.Default.SystemUpdate, contentDescription = "App updates")
+                                            Text(
+                                                text = topBarTitle,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    },
+                                    navigationIcon = {
+                                        if (!isPrimaryRoute) {
+                                            IconButton(onClick = { navController.navigateUp() }) {
+                                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                            }
+                                        }
+                                    },
+                                    actions = {
+                                        IconButton(
+                                            onClick = { showFeatureGuideDialog = true },
+                                            modifier = Modifier
+                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                .testTag("feature_tutorial_topbar_button")
+                                        ) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.HelpOutline,
+                                                contentDescription = "Feature guide & what improves",
+                                                tint = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                        if (isAdmin) {
+                                            IconButton(onClick = { navigateTo("admin_console") }) {
+                                                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Console")
+                                            }
+                                        }
+                                        IconButton(onClick = { navigateTo("app_updates") }) {
+                                            if (updateEvaluation.isUpdateAvailable) {
+                                                BadgedBox(badge = { Badge() }) {
+                                                    Icon(Icons.Default.SystemUpdate, contentDescription = "Updates available")
+                                                }
+                                            } else {
+                                                Icon(Icons.Default.SystemUpdate, contentDescription = "App updates")
+                                            }
+                                        }
+                                        IconButton(onClick = { navigateTo("settings") }) {
+                                            Icon(Icons.Default.Settings, contentDescription = "Settings")
                                         }
                                     }
-                                    IconButton(onClick = { navigateTo("settings") }) {
-                                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                                    }
-                                }
-                            )
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                            }
                         },
                         bottomBar = {
                             if (!useRail) {
-                                NavigationBar {
-                                    primaryNavItems.forEach { item ->
-                                        NavigationBarItem(
-                                            selected = currentRoute == item.route,
-                                            onClick = { navigateTo(item.route) },
-                                            icon = { Icon(item.icon, contentDescription = item.label) },
-                                            label = { Text(item.label) }
-                                        )
+                                Column {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                                    NavigationBar(
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        tonalElevation = 2.dp,
+                                        windowInsets = WindowInsets.navigationBars
+                                    ) {
+                                        primaryNavItems.forEach { item ->
+                                            val isSelected = currentRoute == item.route
+                                            NavigationBarItem(
+                                                selected = isSelected,
+                                                onClick = { navigateTo(item.route) },
+                                                icon = {
+                                                    Icon(
+                                                        if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                                        contentDescription = item.label
+                                                    )
+                                                },
+                                                label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
+                                                colors = NavigationBarItemDefaults.colors(
+                                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                                )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -539,13 +626,44 @@ private fun AuthenticatedAppShell(
                     ) { innerPadding ->
                         Row(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                             if (useRail) {
-                                NavigationRail {
+                                NavigationRail(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    header = {
+                                        Spacer(Modifier.size(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            modifier = Modifier.size(42.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    Icons.Filled.RecordVoiceOver,
+                                                    contentDescription = "SpeakCraft Studio",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.size(8.dp))
+                                    }
+                                ) {
                                     primaryNavItems.forEach { item ->
+                                        val isSelected = currentRoute == item.route
                                         NavigationRailItem(
-                                            selected = currentRoute == item.route,
+                                            selected = isSelected,
                                             onClick = { navigateTo(item.route) },
-                                            icon = { Icon(item.icon, contentDescription = item.label) },
-                                            label = { Text(item.label) }
+                                            icon = {
+                                                Icon(
+                                                    if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                                    contentDescription = item.label
+                                                )
+                                            },
+                                            label = { Text(item.label) },
+                                            colors = NavigationRailItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                            )
                                         )
                                     }
                                 }
@@ -553,6 +671,10 @@ private fun AuthenticatedAppShell(
                             NavHost(
                                 navController = navController,
                                 startDestination = "dashboard",
+                                enterTransition = { fadeIn(tween(180)) },
+                                exitTransition = { fadeOut(tween(140)) },
+                                popEnterTransition = { fadeIn(tween(180)) },
+                                popExitTransition = { fadeOut(tween(140)) },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 composable("dashboard") {

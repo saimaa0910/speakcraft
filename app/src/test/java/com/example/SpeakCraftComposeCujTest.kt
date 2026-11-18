@@ -317,6 +317,10 @@ class SpeakCraftComposeCujTest {
         }
         composeRule.waitForIdle()
 
+        composeRule.onNodeWithTag("speaking_preset_chip_1").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Describe a challenging project conflict and how you resolved it clearly using STAR").assertIsDisplayed()
+
         composeRule.onNodeWithTag("video_review_player_card").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Stage 1: Mute Pass").performScrollTo().performClick()
         composeRule.waitForIdle()

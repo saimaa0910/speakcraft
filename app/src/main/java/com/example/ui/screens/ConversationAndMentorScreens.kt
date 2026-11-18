@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,12 +26,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -68,12 +72,19 @@ import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
 import com.example.data.model.UiState
 import com.example.data.model.UserProfile
+import com.example.ui.components.AnimatedThinkingDots
 import com.example.ui.components.ConfirmDestructiveDialog
 import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.viewmodel.InteractiveCoachViewModel
+
+private fun bubbleShapeFor(isUser: Boolean): RoundedCornerShape = if (isUser) {
+    RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 4.dp)
+} else {
+    RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
+}
 
 @Composable
 fun ConversationSimulatorScreen(
@@ -153,18 +164,42 @@ fun ConversationSimulatorScreen(
                             horizontalArrangement = if (turn.isUser) Arrangement.End else Arrangement.Start
                         ) {
                             Surface(
-                                shape = MaterialTheme.shapes.medium,
+                                shape = bubbleShapeFor(turn.isUser),
                                 color = if (turn.isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                tonalElevation = if (turn.isUser) 0.dp else 1.dp,
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (turn.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                                ),
                                 modifier = Modifier.fillMaxWidth(0.86f)
                             ) {
-                                Column(modifier = Modifier.padding(SpeakCraftSpacing.md)) {
-                                    Text(
-                                        text = if (turn.isUser) "You" else "AI Partner ($selectedScenario)",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(Modifier.height(4.dp))
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (turn.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.secondaryContainer,
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = if (turn.isUser) Icons.Default.Person else Icons.Default.RecordVoiceOver,
+                                                    contentDescription = null,
+                                                    tint = if (turn.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = if (turn.isUser) "You" else "AI Partner ($selectedScenario)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (turn.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                    Spacer(Modifier.height(6.dp))
                                     Text(turn.text, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
@@ -172,7 +207,9 @@ fun ConversationSimulatorScreen(
                     }
 
                     if (isPartnerTyping) {
-                        item { Text("Partner is responding...", style = MaterialTheme.typography.bodySmall) }
+                        item {
+                            AnimatedThinkingDots(label = "Partner is responding...")
+                        }
                     }
 
                     if (!tier.isExpandedTablet) {
@@ -182,6 +219,7 @@ fun ConversationSimulatorScreen(
                                 is UiState.Error -> ErrorRecoveryCard(debrief.message)
                                 is UiState.Success -> {
                                     Card(
+                                        shape = MaterialTheme.shapes.large,
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                                     ) {
                                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -200,53 +238,61 @@ fun ConversationSimulatorScreen(
                     Text(voiceStatus.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
                 ) {
-                    IconButton(
-                        onClick = {
-                            voiceStatus = null
-                            val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                            if (ok) {
-                                ttsHelper.startDictation(
-                                    onResult = { spoken -> messageInput = spoken },
-                                    onError = { err -> voiceStatus = err }
-                                )
-                            } else {
-                                micLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            }
-                        },
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = SpeakCraftSpacing.minTouchTarget, minHeight = SpeakCraftSpacing.minTouchTarget)
-                            .testTag("conversation_voice_button")
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Mic,
-                            contentDescription = "Speak message",
-                            tint = if (isDictating) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        IconButton(
+                            onClick = {
+                                voiceStatus = null
+                                val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                if (ok) {
+                                    ttsHelper.startDictation(
+                                        onResult = { spoken -> messageInput = spoken },
+                                        onError = { err -> voiceStatus = err }
+                                    )
+                                } else {
+                                    micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = SpeakCraftSpacing.minTouchTarget, minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("conversation_voice_button")
+                        ) {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = "Speak message",
+                                tint = if (isDictating) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        OutlinedTextField(
+                            value = messageInput,
+                            onValueChange = { messageInput = it },
+                            placeholder = { Text("Reply naturally...") },
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.weight(1f).testTag("conversation_text_input")
                         )
-                    }
-                    OutlinedTextField(
-                        value = messageInput,
-                        onValueChange = { messageInput = it },
-                        placeholder = { Text("Reply naturally...") },
-                        modifier = Modifier.weight(1f).testTag("conversation_text_input")
-                    )
-                    IconButton(
-                        onClick = {
-                            val msg = messageInput
-                            messageInput = ""
-                            coachVm.sendConversationMessage(msg, userLevel) { reply ->
-                                ttsHelper.speak(reply, ttsRate)
-                            }
-                        },
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = SpeakCraftSpacing.minTouchTarget, minHeight = SpeakCraftSpacing.minTouchTarget)
-                            .testTag("conversation_send_button")
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send reply")
+                        IconButton(
+                            onClick = {
+                                val msg = messageInput
+                                messageInput = ""
+                                coachVm.sendConversationMessage(msg, userLevel) { reply ->
+                                    ttsHelper.speak(reply, ttsRate)
+                                }
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = SpeakCraftSpacing.minTouchTarget, minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("conversation_send_button")
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send reply", tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
 
@@ -318,6 +364,7 @@ fun ConversationSimulatorScreen(
                                     is UiState.Error -> ErrorRecoveryCard(debrief.message)
                                     is UiState.Success -> {
                                         Card(
+                                            shape = MaterialTheme.shapes.large,
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                                         ) {
                                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -414,38 +461,44 @@ fun AiMentorScreen(
                 .padding(SpeakCraftSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Image(
-                        painter = painterResource(R.drawable.img_mentor_avatar),
-                        contentDescription = "SpeakCraft AI Mentor emblem",
-                        modifier = Modifier.size(52.dp).clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("Personalized AI Mentor", style = MaterialTheme.typography.headlineMedium)
-                        Text(
-                            "Grounded in @askvinh • ${sessions.size} sessions synced",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Image(
+                            painter = painterResource(R.drawable.img_mentor_avatar),
+                            contentDescription = "SpeakCraft AI Mentor emblem",
+                            modifier = Modifier.size(50.dp).clip(CircleShape),
+                            contentScale = ContentScale.Crop
                         )
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("Personalized AI Mentor", style = MaterialTheme.typography.headlineMedium)
+                            Text(
+                                "Grounded in @askvinh • ${sessions.size} sessions synced",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                }
-                if (mentorMessages.size > 1) {
-                    TextButton(
-                        onClick = { showClearConfirm = true },
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                            .testTag("mentor_clear_thread_button")
-                    ) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Clear")
+                    if (mentorMessages.size > 1) {
+                        TextButton(
+                            onClick = { showClearConfirm = true },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("mentor_clear_thread_button")
+                        ) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Clear")
+                        }
                     }
                 }
             }
@@ -482,19 +535,43 @@ fun AiMentorScreen(
                         horizontalArrangement = if (turn.isUser) Arrangement.End else Arrangement.Start
                     ) {
                         Surface(
-                            shape = MaterialTheme.shapes.medium,
+                            shape = bubbleShapeFor(turn.isUser),
                             color = if (turn.isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            tonalElevation = if (turn.isUser) 0.dp else 1.dp,
+                            border = BorderStroke(
+                                1.dp,
+                                if (turn.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth(0.9f)
                                 .testTag("mentor_chat_bubble_$idx")
                         ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = if (turn.isUser) "You" else "SpeakCraft AI Mentor",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (turn.isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.secondaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = if (turn.isUser) Icons.Default.Person else Icons.Default.Psychology,
+                                                contentDescription = null,
+                                                tint = if (turn.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = if (turn.isUser) "You" else "SpeakCraft AI Mentor",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (turn.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                                    )
+                                }
                                 Text(turn.text, style = MaterialTheme.typography.bodyLarge)
                             }
                         }
@@ -503,18 +580,7 @@ fun AiMentorScreen(
 
                 if (isResponding) {
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text("Reviewing your scores and @askvinh curriculum...", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
+                        AnimatedThinkingDots(label = "Reviewing your scores and @askvinh curriculum...")
                     }
                 }
 
@@ -525,34 +591,42 @@ fun AiMentorScreen(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
-                OutlinedTextField(
-                    value = question,
-                    onValueChange = { question = it },
-                    label = { Text("Ask your communication mentor...") },
-                    modifier = Modifier.weight(1f).testTag("mentor_question_input")
-                )
-                Button(
-                    onClick = {
-                        val q = question
-                        question = ""
-                        coachVm.askMentor(
-                            profile = profile,
-                            sessions = sessions,
-                            feedbackList = feedbackList,
-                            question = q
-                        )
-                    },
-                    enabled = !isResponding && question.isNotBlank(),
-                    modifier = Modifier
-                        .defaultMinSize(minWidth = 54.dp, minHeight = 54.dp)
-                        .testTag("mentor_ask_button")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
                 ) {
-                    Icon(Icons.Default.Psychology, contentDescription = "Ask mentor")
+                    OutlinedTextField(
+                        value = question,
+                        onValueChange = { question = it },
+                        label = { Text("Ask your communication mentor...") },
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.weight(1f).testTag("mentor_question_input")
+                    )
+                    Button(
+                        onClick = {
+                            val q = question
+                            question = ""
+                            coachVm.askMentor(
+                                profile = profile,
+                                sessions = sessions,
+                                feedbackList = feedbackList,
+                                question = q
+                            )
+                        },
+                        enabled = !isResponding && question.isNotBlank(),
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 54.dp, minHeight = 54.dp)
+                            .testTag("mentor_ask_button")
+                    ) {
+                        Icon(Icons.Default.Psychology, contentDescription = "Ask mentor")
+                    }
                 }
             }
         }

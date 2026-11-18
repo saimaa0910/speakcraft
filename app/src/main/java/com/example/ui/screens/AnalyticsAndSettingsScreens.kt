@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,14 +15,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +53,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.BuildConfig
@@ -139,23 +152,23 @@ fun AnalyticsScreen(
             if (tier.isTabletOrWide) {
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MetricTile("Strongest Skill", strongest?.first ?: "Grammar", "${strongest?.second ?: 68}/100", ext.success, Modifier.weight(1f))
-                        MetricTile("Weakest Skill", weakest?.first ?: "Articulation", "${weakest?.second ?: 58}/100", ext.warning, Modifier.weight(1f))
-                        MetricTile("$period Sessions", "${filteredSessions.size}", "Total ${sessions.size} recorded", ext.info, Modifier.weight(1f))
-                        MetricTile("$period Pace Avg", if (avgWpm > 0) "$avgWpm WPM" else "—", "Target 120–155 WPM", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        MetricTile("Strongest Skill", strongest?.first ?: "Grammar", "${strongest?.second ?: 68}/100", ext.success, Modifier.weight(1f), Icons.Default.EmojiEvents)
+                        MetricTile("Weakest Skill", weakest?.first ?: "Articulation", "${weakest?.second ?: 58}/100", ext.warning, Modifier.weight(1f), Icons.Default.TrendingUp)
+                        MetricTile("$period Sessions", "${filteredSessions.size}", "Total ${sessions.size} recorded", ext.info, Modifier.weight(1f), Icons.Default.Mic)
+                        MetricTile("$period Pace Avg", if (avgWpm > 0) "$avgWpm WPM" else "—", "Target 120–155 WPM", MaterialTheme.colorScheme.primary, Modifier.weight(1f), Icons.Default.Speed)
                     }
                 }
             } else {
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MetricTile("Strongest Skill", strongest?.first ?: "Grammar", "${strongest?.second ?: 68}/100", ext.success, Modifier.weight(1f))
-                        MetricTile("Weakest Skill", weakest?.first ?: "Articulation", "${weakest?.second ?: 58}/100", ext.warning, Modifier.weight(1f))
+                        MetricTile("Strongest Skill", strongest?.first ?: "Grammar", "${strongest?.second ?: 68}/100", ext.success, Modifier.weight(1f), Icons.Default.EmojiEvents)
+                        MetricTile("Weakest Skill", weakest?.first ?: "Articulation", "${weakest?.second ?: 58}/100", ext.warning, Modifier.weight(1f), Icons.Default.TrendingUp)
                     }
                 }
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MetricTile("$period Sessions", "${filteredSessions.size}", "Total ${sessions.size} recorded", ext.info, Modifier.weight(1f))
-                        MetricTile("$period Pace Avg", if (avgWpm > 0) "$avgWpm WPM" else "—", "Target 120–155 WPM", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        MetricTile("$period Sessions", "${filteredSessions.size}", "Total ${sessions.size} recorded", ext.info, Modifier.weight(1f), Icons.Default.Mic)
+                        MetricTile("$period Pace Avg", if (avgWpm > 0) "$avgWpm WPM" else "—", "Target 120–155 WPM", MaterialTheme.colorScheme.primary, Modifier.weight(1f), Icons.Default.Speed)
                     }
                 }
             }
@@ -238,12 +251,14 @@ private fun AnalyticsTrendCard(
             title = "No sessions in $period window",
             message = "Switch to Monthly or record a fresh session in Record & Review to track your $period trend.",
             ctaLabel = if (period != "Monthly") "Switch to Monthly" else null,
-            onCta = if (period != "Monthly") onSwitchToMonthly else null
+            onCta = if (period != "Monthly") onSwitchToMonthly else null,
+            icon = Icons.Default.TrendingUp
         )
     } else {
         Card(
+            shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
         ) {
             Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("$period Composite Speech Trend (${filteredSessions.size} sessions)", style = MaterialTheme.typography.titleMedium)
@@ -256,8 +271,9 @@ private fun AnalyticsTrendCard(
 @Composable
 private fun AnalyticsObjectiveSkillsCard(objectiveSkills: List<Pair<String, Int>>) {
     Card(
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
     ) {
         Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Objective Speech Skills (Rolling Average)", style = MaterialTheme.typography.titleMedium)
@@ -272,36 +288,63 @@ private fun AnalyticsSubjectiveConfidenceCard(
     dailyActivitiesCount: Int
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
     ) {
         Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Subjective Self-Assessment & Consistency (Separate Metric)", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Self-Rated Confidence: ${profile?.confidenceSelfRating ?: 55}/100 • Consistency: $dailyActivitiesCount active practice days (${profile?.streakDays ?: 1}d streak).",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AnalyticsRecurringMistakesCard(
     period: String,
     recurringMistakes: List<String>,
     onNavigateToMentor: () -> Unit
 ) {
+    val ext = MaterialTheme.speakCraftColors
     Card(
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
     ) {
-        Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Recurring Mistakes ($period) & Next Steps", style = MaterialTheme.typography.titleMedium)
             if (recurringMistakes.isEmpty()) {
-                Text("Record 1–2 sessions in Record & Review so SpeakCraft can detect recurring fillers or pronunciation gaps in this window.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Record 1–2 sessions in Record & Review so SpeakCraft can detect recurring fillers or pronunciation gaps in this window.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
-                recurringMistakes.forEach { m -> Text("• $m", style = MaterialTheme.typography.bodyMedium) }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    recurringMistakes.forEach { m ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = ext.warningContainer.copy(alpha = 0.7f),
+                            border = BorderStroke(1.dp, ext.warning.copy(alpha = 0.25f))
+                        ) {
+                            Text(
+                                text = m,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = ext.onWarning,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Button(
                 onClick = onNavigateToMentor,
                 modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
@@ -309,6 +352,30 @@ private fun AnalyticsRecurringMistakesCard(
                 Text("Ask AI Mentor for Custom Weekly Plan")
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsCardHeader(
+    icon: ImageVector,
+    tint: Color,
+    bg: Color,
+    title: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = bg,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+            }
+        }
+        Text(title, style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -332,6 +399,7 @@ fun SettingsScreen(
     onToggleFirstUseTutorials: (Boolean) -> Unit = {},
     onReplayTutorials: () -> Unit = {}
 ) {
+    val ext = MaterialTheme.speakCraftColors
     var apiKeyDraft by remember(prefs.youtubeApiKey) { mutableStateOf(prefs.youtubeApiKey) }
     var ttsSlider by remember(prefs.ttsRate) { mutableFloatStateOf(prefs.ttsRate) }
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
@@ -355,11 +423,17 @@ fun SettingsScreen(
 
         val updatesCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Software Updates & Backups", style = MaterialTheme.typography.titleMedium)
+                    SettingsCardHeader(
+                        icon = Icons.Default.SystemUpdate,
+                        tint = ext.info,
+                        bg = ext.infoContainer,
+                        title = "Software Updates & Backups"
+                    )
                     Text(updateStatusSummary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         listOf("stable", "beta").forEach { ch ->
@@ -414,11 +488,17 @@ fun SettingsScreen(
 
         val appearanceAndTutorialsCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Appearance", style = MaterialTheme.typography.titleMedium)
+                    SettingsCardHeader(
+                        icon = Icons.Default.Palette,
+                        tint = MaterialTheme.colorScheme.primary,
+                        bg = MaterialTheme.colorScheme.primaryContainer,
+                        title = "Appearance"
+                    )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         ThemePreference.entries.forEach { mode ->
                             FilterChip(
@@ -475,11 +555,17 @@ fun SettingsScreen(
 
         val integrationsCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Integrations & Keystore Protection", style = MaterialTheme.typography.titleMedium)
+                    SettingsCardHeader(
+                        icon = Icons.Default.Key,
+                        tint = ext.success,
+                        bg = ext.successContainer,
+                        title = "Integrations & Keystore Protection"
+                    )
                     Text(
                         "• AI Coaching: Active via Firebase AI Logic (Gemini 3.8 Flash, no API key needed).\n" +
                             "• YouTube Channel Audit: Uses live public RSS feeds & timedtext captions automatically. Optional YouTube Data API v3 key is encrypted at rest with Android Keystore.",
@@ -491,6 +577,7 @@ fun SettingsScreen(
                         onValueChange = { apiKeyDraft = it },
                         label = { Text("Optional YouTube Data API v3 Key") },
                         singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedButton(
@@ -505,11 +592,17 @@ fun SettingsScreen(
 
         val privacyCard: @Composable () -> Unit = {
             Card(
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Privacy & Account", style = MaterialTheme.typography.titleMedium)
+                    SettingsCardHeader(
+                        icon = Icons.Default.Security,
+                        tint = MaterialTheme.colorScheme.error,
+                        bg = MaterialTheme.colorScheme.errorContainer,
+                        title = "Privacy & Account"
+                    )
                     OutlinedButton(
                         onClick = { showClearHistoryConfirm = true },
                         modifier = Modifier

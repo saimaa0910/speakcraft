@@ -77,15 +77,13 @@ fun FeatureGuideStrip(
     val reducedMotion = rememberReducedMotionEnabled()
     var expanded by rememberSaveable(featureKey) { mutableStateOf(initiallyExpanded) }
 
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("feature_guide_strip_$featureKey"),
         shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f))
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -99,15 +97,23 @@ fun FeatureGuideStrip(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.HelpOutline,
-                        contentDescription = "Feature tutorial",
-                        tint = ext.info,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = ext.infoContainer,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "Feature tutorial",
+                                tint = ext.info,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                     Column {
                         Text(
                             text = "How to use & what improves",
@@ -121,18 +127,27 @@ fun FeatureGuideStrip(
                         )
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (expanded) "Hide" else "Guide",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ext.info
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (expanded) "Collapse tutorial" else "Expand tutorial",
-                        tint = ext.info
-                    )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = ext.infoContainer.copy(alpha = 0.7f)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = if (expanded) "Hide" else "Guide",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = ext.info
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (expanded) "Collapse tutorial" else "Expand tutorial",
+                            tint = ext.info,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 

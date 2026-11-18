@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -25,8 +26,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,6 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -66,6 +73,7 @@ import com.example.data.firebase.onGoogleSignInClicked
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.StepProgressIndicator
 import com.example.ui.theme.SpeakCraftSpacing
+import com.example.ui.theme.speakCraftColors
 import kotlin.math.roundToInt
 
 @Composable
@@ -75,6 +83,7 @@ fun AuthScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val ext = MaterialTheme.speakCraftColors
     val credentialManager = remember { CredentialManager.create(context) }
     var isLoading by remember { mutableStateOf(false) }
     var isCheckingSession by remember { mutableStateOf(true) }
@@ -112,11 +121,20 @@ fun AuthScreen(
                     )
                     Spacer(Modifier.height(SpeakCraftSpacing.xl))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
-                        Icon(
-                            Icons.Default.RecordVoiceOver,
-                            contentDescription = "SpeakCraft logo icon",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.RecordVoiceOver,
+                                    contentDescription = "SpeakCraft logo icon",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
                         Text(
                             "SpeakCraft",
                             style = MaterialTheme.typography.displayLarge,
@@ -164,18 +182,40 @@ fun AuthScreen(
                         Spacer(Modifier.height(SpeakCraftSpacing.md))
                     }
                     Card(
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
                     ) {
                         Column(
                             modifier = Modifier.padding(SpeakCraftSpacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text("What's inside:", style = MaterialTheme.typography.labelLarge)
-                            Text("• Live YouTube @askvinh intelligence & source-attributed lessons", style = MaterialTheme.typography.bodyMedium)
-                            Text("• Multimodal AI speech & 3-Stage Video Audit feedback", style = MaterialTheme.typography.bodyMedium)
-                            Text("• 13 Conversation Simulator roles, Pronunciation & Shadowing Labs", style = MaterialTheme.typography.bodyMedium)
-                            Text("• 30/60/90-day programs & evidence-based analytics", style = MaterialTheme.typography.bodyMedium)
+                            AuthFeatureRow(
+                                icon = Icons.Default.PlayCircle,
+                                tint = ext.info,
+                                bg = ext.infoContainer,
+                                text = "Live YouTube @askvinh intelligence & source-attributed lessons"
+                            )
+                            AuthFeatureRow(
+                                icon = Icons.Default.GraphicEq,
+                                tint = MaterialTheme.colorScheme.primary,
+                                bg = MaterialTheme.colorScheme.primaryContainer,
+                                text = "Multimodal AI speech & 3-Stage Video Audit feedback"
+                            )
+                            AuthFeatureRow(
+                                icon = Icons.Default.ChatBubble,
+                                tint = ext.indigo,
+                                bg = ext.indigoContainer,
+                                text = "13 Conversation Simulator roles, Pronunciation & Shadowing Labs"
+                            )
+                            AuthFeatureRow(
+                                icon = Icons.Default.School,
+                                tint = ext.success,
+                                bg = ext.successContainer,
+                                text = "30/60/90-day programs & evidence-based analytics"
+                            )
                         }
                     }
                     Spacer(Modifier.height(SpeakCraftSpacing.md))
@@ -212,6 +252,7 @@ fun AuthScreen(
                             )
                         },
                         enabled = !isLoading,
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 54.dp)
@@ -259,6 +300,31 @@ fun AuthScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AuthFeatureRow(
+    icon: ImageVector,
+    tint: Color,
+    bg: Color,
+    text: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = bg,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+            }
+        }
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     }
 }
 
@@ -342,204 +408,221 @@ fun OnboardingAssessmentScreen(
                     modifier = Modifier.widthIn(max = wizardMaxWidth),
                     verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
                 ) {
-                StepProgressIndicator(
-                    currentStep = currentStep,
-                    totalSteps = 3,
-                    stepTitle = when (currentStep) {
-                        1 -> "Identity & Speaking Level"
-                        2 -> "Coaching Goal & Cadence"
-                        else -> "Baseline Calibration"
-                    }
-                )
-                FeatureGuideStrip(featureKey = "onboarding")
+                    StepProgressIndicator(
+                        currentStep = currentStep,
+                        totalSteps = 3,
+                        stepTitle = when (currentStep) {
+                            1 -> "Identity & Speaking Level"
+                            2 -> "Coaching Goal & Cadence"
+                            else -> "Baseline Calibration"
+                        }
+                    )
+                    FeatureGuideStrip(featureKey = "onboarding")
 
-                AnimatedContent(targetState = currentStep, label = "onboarding_step") { step ->
-                    when (step) {
-                        1 -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
-                                Text(
-                                    "Welcome to SpeakCraft",
-                                    style = MaterialTheme.typography.headlineLarge,
-                                    modifier = Modifier.semantics { heading() }
-                                )
-                                Text(
-                                    "Let's tailor your coaching curriculum and @askvinh 30-Day Communication Challenge baseline.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                OutlinedTextField(
-                                    value = name,
-                                    onValueChange = { name = it },
-                                    label = { Text("Your Name") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth().testTag("onboarding_name_input")
-                                )
-                                Text("Current English Speaking Level", style = MaterialTheme.typography.labelLarge)
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
-                                    verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
-                                ) {
-                                    listOf("Beginner", "Intermediate", "Upper-Intermediate", "Advanced").forEach { tier ->
-                                        FilterChip(
-                                            selected = level == tier,
-                                            onClick = { applyLevelPresets(tier) },
-                                            label = { Text(tier) },
-                                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                        )
-                                    }
-                                }
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                ) {
+                    AnimatedContent(targetState = currentStep, label = "onboarding_step") { step ->
+                        when (step) {
+                            1 -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
                                     Text(
-                                        text = "Selecting a level pre-fills realistic skill baselines you can fine-tune in Step 3.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(SpeakCraftSpacing.md)
+                                        "Welcome to SpeakCraft",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        modifier = Modifier.semantics { heading() }
                                     )
-                                }
-                            }
-                        }
-                        2 -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
-                                Text(
-                                    "Set Your Goal & Rhythm",
-                                    style = MaterialTheme.typography.headlineLarge,
-                                    modifier = Modifier.semantics { heading() }
-                                )
-                                Text(
-                                    "Choose a focus area or write your own communication target.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                OutlinedTextField(
-                                    value = goal,
-                                    onValueChange = { goal = it },
-                                    label = { Text("Primary Communication Goal") },
-                                    modifier = Modifier.fillMaxWidth().testTag("onboarding_goal_input")
-                                )
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
-                                    verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
-                                ) {
-                                    goalPresets.forEach { preset ->
-                                        FilterChip(
-                                            selected = goal == preset,
-                                            onClick = { goal = preset },
-                                            label = { Text(preset) }
-                                        )
-                                    }
-                                }
-                                Text("Daily Practice Commitment", style = MaterialTheme.typography.labelLarge)
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
-                                ) {
-                                    listOf(10, 15, 25, 45).forEach { mins ->
-                                        FilterChip(
-                                            selected = dailyMins.roundToInt() == mins,
-                                            onClick = { dailyMins = mins.toFloat() },
-                                            label = { Text("${mins}m / day") },
-                                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                        )
-                                    }
-                                }
-                                AssessmentSlider("Daily Practice Goal: ${dailyMins.roundToInt()} min", dailyMins, 5f..60f) { dailyMins = it }
-                            }
-                        }
-                        else -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
-                                Text(
-                                    "Calibrate Your Skill Baseline",
-                                    style = MaterialTheme.typography.headlineLarge,
-                                    modifier = Modifier.semantics { heading() }
-                                )
-                                Text(
-                                    "Adjust your starting self-assessment. SpeakCraft updates these automatically from real AI speech scores.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(SpeakCraftSpacing.lg),
+                                    Text(
+                                        "Let's tailor your coaching curriculum and @askvinh 30-Day Communication Challenge baseline.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = name,
+                                        onValueChange = { name = it },
+                                        label = { Text("Your Name") },
+                                        singleLine = true,
+                                        shape = MaterialTheme.shapes.medium,
+                                        modifier = Modifier.fillMaxWidth().testTag("onboarding_name_input")
+                                    )
+                                    Text("Current English Speaking Level", style = MaterialTheme.typography.labelLarge)
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
                                         verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
                                     ) {
-                                        AssessmentSlider("Self-Rated Fluency: ${fluency.roundToInt()}%", fluency, 20f..95f) { fluency = it }
-                                        AssessmentSlider("Pronunciation Clarity: ${pronunciation.roundToInt()}%", pronunciation, 20f..95f) { pronunciation = it }
-                                        AssessmentSlider("Active Vocabulary: ${vocab.roundToInt()}%", vocab, 20f..95f) { vocab = it }
-                                        AssessmentSlider("Spoken Grammar: ${grammar.roundToInt()}%", grammar, 20f..95f) { grammar = it }
-                                        AssessmentSlider("Articulation & Structure: ${articulation.roundToInt()}%", articulation, 20f..95f) { articulation = it }
-                                        AssessmentSlider("Listening Comprehension: ${listening.roundToInt()}%", listening, 20f..95f) { listening = it }
-                                        AssessmentSlider("Speaking Confidence (Self-Assessment): ${confidence.roundToInt()}%", confidence, 10f..95f) { confidence = it }
+                                        listOf("Beginner", "Intermediate", "Upper-Intermediate", "Advanced").forEach { tierName ->
+                                            FilterChip(
+                                                selected = level == tierName,
+                                                onClick = { applyLevelPresets(tierName) },
+                                                label = { Text(tierName) },
+                                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                            )
+                                        }
+                                    }
+                                    Card(
+                                        shape = MaterialTheme.shapes.large,
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                    ) {
+                                        Text(
+                                            text = "Selecting a level pre-fills realistic skill baselines you can fine-tune in Step 3.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(SpeakCraftSpacing.md)
+                                        )
+                                    }
+                                }
+                            }
+                            2 -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
+                                    Text(
+                                        "Set Your Goal & Rhythm",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        modifier = Modifier.semantics { heading() }
+                                    )
+                                    Text(
+                                        "Choose a focus area or write your own communication target.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = goal,
+                                        onValueChange = { goal = it },
+                                        label = { Text("Primary Communication Goal") },
+                                        shape = MaterialTheme.shapes.medium,
+                                        modifier = Modifier.fillMaxWidth().testTag("onboarding_goal_input")
+                                    )
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
+                                        verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
+                                    ) {
+                                        goalPresets.forEach { preset ->
+                                            FilterChip(
+                                                selected = goal == preset,
+                                                onClick = { goal = preset },
+                                                label = { Text(preset) }
+                                            )
+                                        }
+                                    }
+                                    Text("Daily Practice Commitment", style = MaterialTheme.typography.labelLarge)
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
+                                    ) {
+                                        listOf(10, 15, 25, 45).forEach { mins ->
+                                            FilterChip(
+                                                selected = dailyMins.roundToInt() == mins,
+                                                onClick = { dailyMins = mins.toFloat() },
+                                                label = { Text("${mins}m / day") },
+                                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                            )
+                                        }
+                                    }
+                                    Card(
+                                        shape = MaterialTheme.shapes.large,
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+                                    ) {
+                                        Column(modifier = Modifier.padding(SpeakCraftSpacing.md)) {
+                                            AssessmentSlider(
+                                                label = "Daily Practice Goal",
+                                                valueDisplay = "${dailyMins.roundToInt()} min",
+                                                value = dailyMins,
+                                                range = 5f..60f
+                                            ) { dailyMins = it }
+                                        }
+                                    }
+                                }
+                            }
+                            else -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
+                                    Text(
+                                        "Calibrate Your Skill Baseline",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        modifier = Modifier.semantics { heading() }
+                                    )
+                                    Text(
+                                        "Adjust your starting self-assessment. SpeakCraft updates these automatically from real AI speech scores.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Card(
+                                        shape = MaterialTheme.shapes.large,
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(SpeakCraftSpacing.lg),
+                                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
+                                        ) {
+                                            AssessmentSlider("Self-Rated Fluency", "${fluency.roundToInt()}%", fluency, 20f..95f) { fluency = it }
+                                            AssessmentSlider("Pronunciation Clarity", "${pronunciation.roundToInt()}%", pronunciation, 20f..95f) { pronunciation = it }
+                                            AssessmentSlider("Active Vocabulary", "${vocab.roundToInt()}%", vocab, 20f..95f) { vocab = it }
+                                            AssessmentSlider("Spoken Grammar", "${grammar.roundToInt()}%", grammar, 20f..95f) { grammar = it }
+                                            AssessmentSlider("Articulation & Structure", "${articulation.roundToInt()}%", articulation, 20f..95f) { articulation = it }
+                                            AssessmentSlider("Listening Comprehension", "${listening.roundToInt()}%", listening, 20f..95f) { listening = it }
+                                            AssessmentSlider("Speaking Confidence (Self-Assessment)", "${confidence.roundToInt()}%", confidence, 10f..95f) { confidence = it }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
-                ) {
-                    if (currentStep > 1) {
-                        OutlinedButton(
-                            onClick = { currentStep-- },
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 52.dp)
-                                .testTag("onboarding_back_button")
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Back")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                    ) {
+                        if (currentStep > 1) {
+                            OutlinedButton(
+                                onClick = { currentStep-- },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 52.dp)
+                                    .testTag("onboarding_back_button")
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Back")
+                            }
+                        }
+                        if (currentStep < 3) {
+                            Button(
+                                onClick = { currentStep++ },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 52.dp)
+                                    .testTag("onboarding_next_button")
+                            ) {
+                                Text("Continue")
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    onComplete(
+                                        name,
+                                        level,
+                                        goal,
+                                        dailyMins.roundToInt().toLong(),
+                                        fluency.roundToInt().toLong(),
+                                        pronunciation.roundToInt().toLong(),
+                                        vocab.roundToInt().toLong(),
+                                        grammar.roundToInt().toLong(),
+                                        articulation.roundToInt().toLong(),
+                                        listening.roundToInt().toLong(),
+                                        confidence.roundToInt().toLong()
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 52.dp)
+                                    .testTag("complete_onboarding_button")
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Start My Coaching Plan")
+                            }
                         }
                     }
-                    if (currentStep < 3) {
-                        Button(
-                            onClick = { currentStep++ },
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 52.dp)
-                                .testTag("onboarding_next_button")
-                        ) {
-                            Text("Continue")
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                        }
-                    } else {
-                        Button(
-                            onClick = {
-                                onComplete(
-                                    name,
-                                    level,
-                                    goal,
-                                    dailyMins.roundToInt().toLong(),
-                                    fluency.roundToInt().toLong(),
-                                    pronunciation.roundToInt().toLong(),
-                                    vocab.roundToInt().toLong(),
-                                    grammar.roundToInt().toLong(),
-                                    articulation.roundToInt().toLong(),
-                                    listening.roundToInt().toLong(),
-                                    confidence.roundToInt().toLong()
-                                )
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 52.dp)
-                                .testTag("complete_onboarding_button")
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Start My Coaching Plan")
-                        }
-                    }
-                }
                     Spacer(Modifier.height(SpeakCraftSpacing.xl))
                 }
             }
@@ -550,12 +633,30 @@ fun OnboardingAssessmentScreen(
 @Composable
 private fun AssessmentSlider(
     label: String,
+    valueDisplay: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     onChange: (Float) -> Unit
 ) {
     Column {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+            ) {
+                Text(
+                    text = valueDisplay,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
         Slider(value = value, onValueChange = onChange, valueRange = range)
     }
 }

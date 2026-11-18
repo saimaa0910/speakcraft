@@ -3,17 +3,17 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Editorial Studio Palette — Midnight Navy, Warm Ivory, Amber Spotlight, Acoustic Teal
-val MidnightNavy = Color(0xFF0F172A)
-val DeepSlate = Color(0xFF1E293B)
-val SlateSurface = Color(0xFF283548)
-val WarmIvory = Color(0xFFFAF9F6)
+val MidnightNavy = Color(0xFF0B1120)
+val DeepSlate = Color(0xFF151F32)
+val SlateSurface = Color(0xFF212E45)
+val WarmIvory = Color(0xFFFAF8F4)
 val CrispPaper = Color(0xFFFFFFFF)
-val SoftStone = Color(0xFFF1F5F9)
+val SoftStone = Color(0xFFF3EFE8)
 val MutedSlate = Color(0xFF64748B)
 val MutedSlateOnLight = Color(0xFF475569)
 val SlateMutedLight = Color(0xFFCBD5E1)
-val SubtleBorderLight = Color(0xFFE2E8F0)
-val SubtleBorderDark = Color(0xFF334155)
+val SubtleBorderLight = Color(0xFFE6E0D5)
+val SubtleBorderDark = Color(0xFF2D3B54)
 
 val AmberSpotlight = Color(0xFFD97706)
 val AmberGoldBright = Color(0xFFF59E0B)
