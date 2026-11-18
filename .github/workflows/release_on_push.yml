@@ -218,7 +218,14 @@ jobs:
               base64 --decode debug.keystore.base64 > debug.keystore
             fi
             if [ ! -s debug.keystore ]; then
-              echo "::error::Fallback debug.keystore could not be restored for beta build."
+              # debug.keystore is gitignored, so generate a standard Android debug keystore on the runner.
+              keytool -genkeypair -v -keystore debug.keystore \
+                -storepass android -keypass android -alias androiddebugkey \
+                -keyalg RSA -keysize 2048 -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+            fi
+            if [ ! -s debug.keystore ]; then
+              echo "::error::Fallback debug.keystore could not be restored or generated for beta build."
               exit 1
             fi
             echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; building debug-signed APK for beta channel testing only."
