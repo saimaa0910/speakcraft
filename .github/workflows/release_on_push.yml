@@ -58,6 +58,40 @@ jobs:
         with:
           packages: "platform-tools platforms;android-36 build-tools;36.0.0"
 
+      - name: Restore Firebase Android configuration
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLESERVICES }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GOOGLE_SERVICES_JSON:-}" ]; then
+            echo "::error::Missing GOOGLESERVICES repository secret containing the Firebase google-services.json file."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path('app/google-services.json').read_text())
+          clients = config.get('client', [])
+          matching = [
+              client for client in clients
+              if client.get('client_info', {}).get('android_client_info', {}).get('package_name')
+              == 'com.aistudio.speakcraft.qxmvkp'
+          ]
+          if not matching:
+              raise SystemExit('google-services.json has no Android client for com.aistudio.speakcraft.qxmvkp')
+          web_client_ids = [
+              oauth.get('client_id')
+              for client in matching
+              for oauth in client.get('oauth_client', [])
+              if oauth.get('client_type') == 3 and oauth.get('client_id')
+          ]
+          if not web_client_ids:
+              raise SystemExit('google-services.json is missing the Web OAuth client (client_type 3) required for default_web_client_id')
+          print('Firebase Android configuration validated.')
+          PY
+
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
