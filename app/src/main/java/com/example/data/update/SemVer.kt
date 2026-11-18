@@ -14,7 +14,25 @@ data class SemVer(
         // Stable release (empty preRelease) is newer than a pre-release on same X.Y.Z
         if (preRelease.isBlank() && other.preRelease.isNotBlank()) return 1
         if (preRelease.isNotBlank() && other.preRelease.isBlank()) return -1
-        return preRelease.compareTo(other.preRelease, ignoreCase = true)
+        if (preRelease.isBlank() && other.preRelease.isBlank()) return 0
+
+        val aParts = preRelease.split(".")
+        val bParts = other.preRelease.split(".")
+        val maxLen = maxOf(aParts.size, bParts.size)
+        for (i in 0 until maxLen) {
+            val aPart = aParts.getOrNull(i) ?: return -1
+            val bPart = bParts.getOrNull(i) ?: return 1
+            val aInt = aPart.toIntOrNull()
+            val bInt = bPart.toIntOrNull()
+            val cmp = when {
+                aInt != null && bInt != null -> aInt.compareTo(bInt)
+                aInt != null && bInt == null -> -1
+                aInt == null && bInt != null -> 1
+                else -> aPart.compareTo(bPart, ignoreCase = true)
+            }
+            if (cmp != 0) return cmp
+        }
+        return 0
     }
 
     override fun toString(): String =

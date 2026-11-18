@@ -48,8 +48,11 @@ class MainCoachViewModel(
     private val currentUserId: String
 ) : ViewModel() {
 
-    val todayDateKey: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-    val todayEpochDay: Long = System.currentTimeMillis() / 86_400_000L
+    val todayDateKey: String
+        get() = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    val todayEpochDay: Long
+        get() = System.currentTimeMillis() / 86_400_000L
 
     private fun <T> Flow<T>.toUiStateFlow(label: String): StateFlow<UiState<T>> =
         map<T, UiState<T>> { UiState.Success(it) }

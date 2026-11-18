@@ -6,6 +6,7 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,7 +80,7 @@ class AudioRecorderManager(private val context: Context) {
             }
             recorder = rec
             accumulatedActiveMs = 0L
-            activeSegmentStartMs = System.currentTimeMillis()
+            activeSegmentStartMs = SystemClock.elapsedRealtime()
             _isRecording.value = true
             _isPaused.value = false
             _elapsedSeconds.value = 0
@@ -95,7 +96,7 @@ class AudioRecorderManager(private val context: Context) {
                             0
                         }
                         _amplitude.value = (maxAmp / 32767f).coerceIn(0.05f, 1f)
-                        val totalMs = accumulatedActiveMs + (System.currentTimeMillis() - activeSegmentStartMs)
+                        val totalMs = accumulatedActiveMs + (SystemClock.elapsedRealtime() - activeSegmentStartMs)
                         _elapsedSeconds.value = (totalMs / 1000L).toInt().coerceAtLeast(0)
                     } else {
                         _amplitude.value = 0.04f
@@ -115,7 +116,7 @@ class AudioRecorderManager(private val context: Context) {
         if (!_isRecording.value || _isPaused.value) return false
         return try {
             recorder?.pause()
-            accumulatedActiveMs += (System.currentTimeMillis() - activeSegmentStartMs).coerceAtLeast(0L)
+            accumulatedActiveMs += (SystemClock.elapsedRealtime() - activeSegmentStartMs).coerceAtLeast(0L)
             _isPaused.value = true
             _amplitude.value = 0.04f
             true
@@ -129,7 +130,7 @@ class AudioRecorderManager(private val context: Context) {
         if (!_isRecording.value || !_isPaused.value) return false
         return try {
             recorder?.resume()
-            activeSegmentStartMs = System.currentTimeMillis()
+            activeSegmentStartMs = SystemClock.elapsedRealtime()
             _isPaused.value = false
             true
         } catch (e: Exception) {
@@ -142,7 +143,7 @@ class AudioRecorderManager(private val context: Context) {
         meteringJob?.cancel()
         meteringJob = null
         if (_isRecording.value && !_isPaused.value) {
-            accumulatedActiveMs += (System.currentTimeMillis() - activeSegmentStartMs).coerceAtLeast(0L)
+            accumulatedActiveMs += (SystemClock.elapsedRealtime() - activeSegmentStartMs).coerceAtLeast(0L)
             _elapsedSeconds.value = (accumulatedActiveMs / 1000L).toInt().coerceAtLeast(1)
         }
         _isRecording.value = false
@@ -156,6 +157,10 @@ class AudioRecorderManager(private val context: Context) {
         releaseRecorder()
         val file = outputFile
         if (file != null && file.exists() && file.length() > 0L) {
+            val inspectedDuration = inspectMediaDurationSeconds(Uri.fromFile(file))
+            if (inspectedDuration > 0) {
+                _elapsedSeconds.value = inspectedDuration
+            }
             _recordedFilePath.value = file.absolutePath
             return file
         }

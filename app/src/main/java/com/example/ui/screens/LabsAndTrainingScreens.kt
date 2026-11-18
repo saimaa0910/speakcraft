@@ -6,11 +6,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -54,130 +56,232 @@ import com.example.data.model.CurriculumCatalog
 import com.example.data.model.RealWorldTaskRecord
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UiState
+import com.example.ui.components.CloudSyncWarningBanner
 import com.example.ui.components.ErrorRecoveryCard
+import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
 import com.example.ui.components.LiveWaveformVisualizer
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.ShimmerSkeletonCard
-import com.example.ui.theme.AcousticTeal
-import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.SpeakCraftSpacing
+import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PronunciationLabScreen(
     speakingVm: SpeakingAndLabsViewModel,
     ttsHelper: TtsAndSpeechHelper,
-    pastSessions: List<SpeakingSession>
+    pastSessions: List<SpeakingSession>,
+    initialFocus: String = "pronunciation"
 ) {
     val context = LocalContext.current
+    val ext = MaterialTheme.speakCraftColors
     val drills = CurriculumCatalog.pronunciationDrills
     val categories = listOf("All") + drills.map { it.category }.distinct()
-    var selectedCategory by remember { mutableStateOf("All") }
-    var activeDrill by remember { mutableStateOf(drills.first()) }
+    val defaultCat = if (initialFocus == "articulation" && categories.contains("Difficult Sounds")) {
+        "Difficult Sounds"
+    } else "All"
+    var selectedCategory by remember(initialFocus) { mutableStateOf(defaultCat) }
+    var activeDrill by remember(initialFocus) {
+        mutableStateOf(drills.firstOrNull { defaultCat == "All" || it.category == defaultCat } ?: drills.first())
+    }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
+    val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    val headerTitle = if (initialFocus == "articulation") {
+        "Articulation & Enunciation Lab"
+    } else {
+        "Phonetic & Intonation Lab"
+    }
+    val headerSubtitle = if (initialFocus == "articulation") {
+        "Crisp consonant clarity, tongue placement, linking & enunciation drills"
+    } else {
+        "Minimal pairs, IPA contrasts, word/sentence stress & downward authority intonation"
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+        val filteredDrills = drills.filter { selectedCategory == "All" || it.category == selectedCategory }
+
+        val activeDrillCard: @Composable () -> Unit = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                    Text(
+                        "1. Listen carefully -> 2. Record aloud -> 3. Compare with AI",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text("${activeDrill.title} • ${activeDrill.targetIpa}", style = MaterialTheme.typography.titleLarge)
+                    Text(activeDrill.contrastOrFocus, style = MaterialTheme.typography.labelMedium, color = ext.info)
+                    Text("Practice Phrase: \"${activeDrill.practicePhrase}\"", style = MaterialTheme.typography.bodyLarge)
+                    Text("Tip: ${activeDrill.tip}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        OutlinedButton(
+                            onClick = { ttsHelper.speak(activeDrill.practicePhrase, 0.72f) },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Listen 0.75x")
+                        }
+                        OutlinedButton(
+                            onClick = { ttsHelper.speak(activeDrill.practicePhrase, 1.0f) },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Listen 1.0x")
+                        }
+                    }
+
+                    LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        Button(
+                            onClick = {
+                                if (isRecording) speakingVm.stopRecording()
+                                else {
+                                    val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                    if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("pron_record_button")
+                        ) {
+                            Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (isRecording) "Stop" else "Record")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                speakingVm.submitForAiAnalysis(
+                                    moduleType = "PRONUNCIATION",
+                                    promptTitle = activeDrill.title,
+                                    previousSession = pastSessions.firstOrNull(),
+                                    extraInstructions = "Compare pronunciation strictly against target phrase: '${activeDrill.practicePhrase}' focusing on ${activeDrill.targetIpa}."
+                                )
+                            },
+                            enabled = !isRecording && recordedPath != null,
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text("Compare AI") }
+                    }
+                }
+            }
+        }
+
+        val feedbackSection: @Composable () -> Unit = {
+            if (cloudSyncError != null) {
+                CloudSyncWarningBanner(cloudSyncError.orEmpty()) { speakingVm.retryCloudSync() }
+            }
+            if (activeModule == "PRONUNCIATION") {
+                when (val s = analysisState) {
+                    is UiState.Loading -> ShimmerSkeletonCard(150)
+                    is UiState.Error -> ErrorRecoveryCard(s.message)
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    null -> Unit
+                }
+            }
+        }
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
-                SectionHeader("Articulation & Pronunciation Lab", "Minimal pairs, IPA sounds, word/sentence stress, intonation & linking")
-                Spacer(Modifier.height(8.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(categories) { cat ->
-                        FilterChip(selected = selectedCategory == cat, onClick = { selectedCategory = cat }, label = { Text(cat) })
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                SectionHeader(headerTitle, headerSubtitle)
+                Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                FeatureGuideStrip(
+                    featureKey = if (initialFocus == "articulation") "articulation_lab" else "pronunciation"
+                )
+                Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("${activeDrill.title} • ${activeDrill.targetIpa}", style = MaterialTheme.typography.titleLarge)
-                        Text(activeDrill.contrastOrFocus, style = MaterialTheme.typography.labelMedium, color = AcousticTeal)
-                        Text("Practice Phrase: \"${activeDrill.practicePhrase}\"", style = MaterialTheme.typography.bodyLarge)
-                        Text("Tip: ${activeDrill.tip}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { ttsHelper.speak(activeDrill.practicePhrase, 0.72f) }, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Listen 0.75x")
-                            }
-                            OutlinedButton(onClick = { ttsHelper.speak(activeDrill.practicePhrase, 1.0f) }, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Listen 1.0x")
-                            }
-                        }
-
-                        LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    if (isRecording) speakingVm.stopRecording()
-                                    else {
-                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                                        if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f).testTag("pron_record_button")
-                            ) {
-                                Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text(if (isRecording) "Stop" else "Record")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    speakingVm.submitForAiAnalysis(
-                                        moduleType = "PRONUNCIATION",
-                                        promptTitle = activeDrill.title,
-                                        previousSession = pastSessions.firstOrNull(),
-                                        extraInstructions = "Compare pronunciation strictly against target phrase: '${activeDrill.practicePhrase}' focusing on ${activeDrill.targetIpa}."
-                                    )
-                                },
-                                enabled = !isRecording && recordedPath != null,
-                                modifier = Modifier.weight(1f)
-                            ) { Text("Compare AI") }
-                        }
+                    categories.forEach { cat ->
+                        FilterChip(
+                            selected = selectedCategory == cat,
+                            onClick = { selectedCategory = cat },
+                            label = { Text(cat) },
+                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        )
                     }
                 }
             }
 
-            if (activeModule == "PRONUNCIATION") {
+            if (tier.isExpandedTablet) {
                 item {
-                    when (val s = analysisState) {
-                        is UiState.Loading -> ShimmerSkeletonCard(150)
-                        is UiState.Error -> ErrorRecoveryCard(s.message)
-                        is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
-                        null -> Unit
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1.1f),
+                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                        ) {
+                            activeDrillCard()
+                            feedbackSection()
+                        }
+                        Column(
+                            modifier = Modifier.weight(0.9f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Select Practice Drill (${filteredDrills.size})", style = MaterialTheme.typography.titleMedium)
+                            filteredDrills.forEach { drill ->
+                                val isSelected = drill.id == activeDrill.id
+                                Card(
+                                    onClick = { activeDrill = drill; speakingVm.clearAnalysis() },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                                        Text("${drill.category}: ${drill.title}", style = MaterialTheme.typography.titleMedium)
+                                        Text(drill.practicePhrase, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-
-            items(drills.filter { selectedCategory == "All" || it.category == selectedCategory }, key = { it.id }) { drill ->
-                Card(
-                    onClick = { activeDrill = drill; speakingVm.clearAnalysis() },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text("${drill.category}: ${drill.title}", style = MaterialTheme.typography.titleMedium)
-                        Text(drill.practicePhrase, style = MaterialTheme.typography.bodySmall)
+            } else {
+                item { activeDrillCard() }
+                if (cloudSyncError != null || activeModule == "PRONUNCIATION") {
+                    item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
+                }
+                items(filteredDrills, key = { it.id }) { drill ->
+                    val isSelected = drill.id == activeDrill.id
+                    Card(
+                        onClick = { activeDrill = drill; speakingVm.clearAnalysis() },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("${drill.category}: ${drill.title}", style = MaterialTheme.typography.titleMedium)
+                            Text(drill.practicePhrase, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
@@ -192,6 +296,7 @@ fun ListeningShadowingScreen(
     pastSessions: List<SpeakingSession>
 ) {
     val context = LocalContext.current
+    val ext = MaterialTheme.speakCraftColors
     val uriHandler = LocalUriHandler.current
     val segments = CurriculumCatalog.shadowingSegments
     var activeSegment by remember { mutableStateOf(segments.first()) }
@@ -200,91 +305,148 @@ fun ListeningShadowingScreen(
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
+    val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
+        val shadowCard: @Composable () -> Unit = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(activeSegment.title, style = MaterialTheme.typography.titleLarge)
+                    Text("Focus: ${activeSegment.focusSkill} • Target ${activeSegment.pacingTargetWpm} WPM", style = MaterialTheme.typography.labelMedium, color = ext.info)
+                    Text(activeSegment.scriptWithMarkers, style = MaterialTheme.typography.bodyLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        OutlinedButton(
+                            onClick = { ttsHelper.speak(activeSegment.plainScript, 0.92f) },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Play Reference")
+                        }
+                        OutlinedButton(
+                            onClick = { uriHandler.openUri(activeSegment.sourceVideoUrl) },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) {
+                            Text("Watch @askvinh")
+                        }
+                    }
+
+                    LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        Button(
+                            onClick = {
+                                if (isRecording) speakingVm.stopRecording()
+                                else {
+                                    val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                    if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text(if (isRecording) "Stop Shadowing" else "Shadow & Repeat") }
+                        OutlinedButton(
+                            onClick = {
+                                speakingVm.submitForAiAnalysis(
+                                    moduleType = "SHADOWING",
+                                    promptTitle = activeSegment.title,
+                                    previousSession = pastSessions.firstOrNull(),
+                                    extraInstructions = "Compare timing, WPM (target ${activeSegment.pacingTargetWpm}), pause placement, and pronunciation against reference transcript: '${activeSegment.plainScript}'."
+                                )
+                            },
+                            enabled = !isRecording && recordedPath != null,
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text("Score Shadow") }
+                    }
+                }
+            }
+        }
+
+        val feedbackSection: @Composable () -> Unit = {
+            if (cloudSyncError != null) {
+                CloudSyncWarningBanner(cloudSyncError.orEmpty()) { speakingVm.retryCloudSync() }
+            }
+            if (activeModule == "SHADOWING") {
+                when (val s = analysisState) {
+                    is UiState.Loading -> ShimmerSkeletonCard(150)
+                    is UiState.Error -> ErrorRecoveryCard(s.message)
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    null -> Unit
+                }
+            }
+        }
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
                 SectionHeader("Active Listening & Shadowing", "4 Ways of Listening + match @askvinh pacing & silent pauses")
+                Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                FeatureGuideStrip(featureKey = "listening_lab")
             }
 
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(activeSegment.title, style = MaterialTheme.typography.titleLarge)
-                        Text("Focus: ${activeSegment.focusSkill} • Target ${activeSegment.pacingTargetWpm} WPM", style = MaterialTheme.typography.labelMedium, color = AcousticTeal)
-                        Text(activeSegment.scriptWithMarkers, style = MaterialTheme.typography.bodyLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { ttsHelper.speak(activeSegment.plainScript, 0.92f) }, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Play Reference")
-                            }
-                            OutlinedButton(onClick = { uriHandler.openUri(activeSegment.sourceVideoUrl) }, modifier = Modifier.weight(1f)) {
-                                Text("Watch @askvinh")
-                            }
-                        }
-
-                        LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    if (isRecording) speakingVm.stopRecording()
-                                    else {
-                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                                        if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text(if (isRecording) "Stop Shadowing" else "Shadow & Repeat") }
-                            OutlinedButton(
-                                onClick = {
-                                    speakingVm.submitForAiAnalysis(
-                                        moduleType = "SHADOWING",
-                                        promptTitle = activeSegment.title,
-                                        previousSession = pastSessions.firstOrNull(),
-                                        extraInstructions = "Compare timing, WPM (target ${activeSegment.pacingTargetWpm}), pause placement, and pronunciation against reference transcript: '${activeSegment.plainScript}'."
-                                    )
-                                },
-                                enabled = !isRecording && recordedPath != null,
-                                modifier = Modifier.weight(1f)
-                            ) { Text("Score Shadow") }
-                        }
-                    }
-                }
-            }
-
-            if (activeModule == "SHADOWING") {
+            if (tier.isExpandedTablet) {
                 item {
-                    when (val s = analysisState) {
-                        is UiState.Loading -> ShimmerSkeletonCard(150)
-                        is UiState.Error -> ErrorRecoveryCard(s.message)
-                        is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
-                        null -> Unit
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1.1f),
+                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                        ) {
+                            shadowCard()
+                            feedbackSection()
+                        }
+                        Column(
+                            modifier = Modifier.weight(0.9f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Shadowing Segments", style = MaterialTheme.typography.titleMedium)
+                            segments.forEach { seg ->
+                                Card(
+                                    onClick = { activeSegment = seg; speakingVm.clearAnalysis() },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (seg.id == activeSegment.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                                        Text(seg.title, style = MaterialTheme.typography.titleMedium)
+                                        Text(seg.sourceVideoTitle, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-
-            items(segments, key = { it.id }) { seg ->
-                Card(
-                    onClick = { activeSegment = seg; speakingVm.clearAnalysis() },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(seg.title, style = MaterialTheme.typography.titleMedium)
-                        Text(seg.sourceVideoTitle, style = MaterialTheme.typography.bodySmall)
+            } else {
+                item { shadowCard() }
+                if (cloudSyncError != null || activeModule == "SHADOWING") {
+                    item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
+                }
+                items(segments, key = { it.id }) { seg ->
+                    Card(
+                        onClick = { activeSegment = seg; speakingVm.clearAnalysis() },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(seg.title, style = MaterialTheme.typography.titleMedium)
+                            Text(seg.sourceVideoTitle, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
@@ -298,84 +460,141 @@ fun GrammarSpeakingScreen(
     pastSessions: List<SpeakingSession>
 ) {
     val context = LocalContext.current
+    val ext = MaterialTheme.speakCraftColors
     val lessons = CurriculumCatalog.grammarLessons
     var activeLesson by remember { mutableStateOf(lessons.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
+    val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
+    val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
+        val grammarCard: @Composable () -> Unit = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                    Text(activeLesson.topic, style = MaterialTheme.typography.titleLarge)
+                    Text(activeLesson.ruleSummary, style = MaterialTheme.typography.bodyLarge)
+                    Text("Common Mistake: \"${activeLesson.commonConversationalMistake}\"", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text("Natural Fix: \"${activeLesson.naturalCorrection}\"", style = MaterialTheme.typography.bodySmall, color = ext.success)
+                    Text("Speaking Drill: ${activeLesson.speakingPrompt}", style = MaterialTheme.typography.bodyMedium)
+
+                    LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        Button(
+                            onClick = {
+                                if (isRecording) speakingVm.stopRecording()
+                                else {
+                                    val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                    if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text(if (isRecording) "Stop" else "Speak Drill") }
+                        OutlinedButton(
+                            onClick = {
+                                speakingVm.submitForAiAnalysis(
+                                    moduleType = "GRAMMAR_SPEAKING",
+                                    promptTitle = activeLesson.topic,
+                                    previousSession = pastSessions.firstOrNull(),
+                                    extraInstructions = "Evaluate grammatical accuracy and thought organization for: ${activeLesson.topic}. Rule: ${activeLesson.ruleSummary}"
+                                )
+                            },
+                            enabled = !isRecording && recordedPath != null,
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text("Check Grammar") }
+                    }
+                }
+            }
+        }
+
+        val feedbackSection: @Composable () -> Unit = {
+            if (cloudSyncError != null) {
+                CloudSyncWarningBanner(cloudSyncError.orEmpty()) { speakingVm.retryCloudSync() }
+            }
+            if (activeModule == "GRAMMAR_SPEAKING") {
+                when (val s = analysisState) {
+                    is UiState.Loading -> ShimmerSkeletonCard(150)
+                    is UiState.Error -> ErrorRecoveryCard(s.message)
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    null -> Unit
+                }
+            }
+        }
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
                 SectionHeader("Thinking & Articulation / Grammar", "Structure spontaneous thoughts cleanly via PREP, CLEAR & spoken grammar")
+                Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                FeatureGuideStrip(featureKey = "grammar_speaking")
             }
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(activeLesson.topic, style = MaterialTheme.typography.titleLarge)
-                        Text(activeLesson.ruleSummary, style = MaterialTheme.typography.bodyLarge)
-                        Text("Common Mistake: \"${activeLesson.commonConversationalMistake}\"", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        Text("Natural Fix: \"${activeLesson.naturalCorrection}\"", style = MaterialTheme.typography.bodySmall, color = EmeraldSuccess)
-                        Text("Speaking Drill: ${activeLesson.speakingPrompt}", style = MaterialTheme.typography.bodyMedium)
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    if (isRecording) speakingVm.stopRecording()
-                                    else {
-                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                                        if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            if (tier.isExpandedTablet) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1.1f),
+                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                        ) {
+                            grammarCard()
+                            feedbackSection()
+                        }
+                        Column(
+                            modifier = Modifier.weight(0.9f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Thinking & Grammar Frameworks", style = MaterialTheme.typography.titleMedium)
+                            lessons.forEach { lesson ->
+                                Card(
+                                    onClick = { activeLesson = lesson; speakingVm.clearAnalysis() },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (lesson.id == activeLesson.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                                        Text(lesson.topic, style = MaterialTheme.typography.titleMedium)
+                                        Text(lesson.ruleSummary, style = MaterialTheme.typography.bodySmall)
                                     }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text(if (isRecording) "Stop" else "Speak Drill") }
-                            OutlinedButton(
-                                onClick = {
-                                    speakingVm.submitForAiAnalysis(
-                                        moduleType = "GRAMMAR_SPEAKING",
-                                        promptTitle = activeLesson.topic,
-                                        previousSession = pastSessions.firstOrNull(),
-                                        extraInstructions = "Evaluate grammatical accuracy and thought organization for: ${activeLesson.topic}. Rule: ${activeLesson.ruleSummary}"
-                                    )
-                                },
-                                enabled = !isRecording && recordedPath != null,
-                                modifier = Modifier.weight(1f)
-                            ) { Text("Check Grammar") }
+                                }
+                            }
                         }
                     }
                 }
-            }
-            if (activeModule == "GRAMMAR_SPEAKING") {
-                item {
-                    when (val s = analysisState) {
-                        is UiState.Loading -> ShimmerSkeletonCard(150)
-                        is UiState.Error -> ErrorRecoveryCard(s.message)
-                        is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
-                        null -> Unit
-                    }
+            } else {
+                item { grammarCard() }
+                if (cloudSyncError != null || activeModule == "GRAMMAR_SPEAKING") {
+                    item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
                 }
-            }
-            items(lessons, key = { it.id }) { lesson ->
-                Card(
-                    onClick = { activeLesson = lesson; speakingVm.clearAnalysis() },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(lesson.topic, style = MaterialTheme.typography.titleMedium)
-                        Text(lesson.ruleSummary, style = MaterialTheme.typography.bodySmall)
+                items(lessons, key = { it.id }) { lesson ->
+                    Card(
+                        onClick = { activeLesson = lesson; speakingVm.clearAnalysis() },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(lesson.topic, style = MaterialTheme.typography.titleMedium)
+                            Text(lesson.ruleSummary, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
@@ -389,82 +608,140 @@ fun PublicSpeakingScreen(
     pastSessions: List<SpeakingSession>
 ) {
     val context = LocalContext.current
+    val ext = MaterialTheme.speakCraftColors
     val modules = CurriculumCatalog.publicSpeakingModules
     var activeModule by remember { mutableStateOf(modules.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
+    val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
     val activeAnalysisModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
+    val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
+        val rehearsalCard: @Composable () -> Unit = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                    Text(activeModule.title, style = MaterialTheme.typography.titleLarge)
+                    Text("Framework: ${activeModule.creatorFramework}", style = MaterialTheme.typography.labelMedium, color = ext.info)
+                    Text(activeModule.keyPrinciple, style = MaterialTheme.typography.bodyLarge)
+                    Text("Simulated Assignment: ${activeModule.rehearsalPrompt}", style = MaterialTheme.typography.bodyMedium)
+
+                    LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        Button(
+                            onClick = {
+                                if (isRecording) speakingVm.stopRecording()
+                                else {
+                                    val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                    if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text(if (isRecording) "Stop Delivery" else "Record Rehearsal") }
+                        OutlinedButton(
+                            onClick = {
+                                speakingVm.submitForAiAnalysis(
+                                    moduleType = "PRESENTATION",
+                                    promptTitle = activeModule.title,
+                                    previousSession = pastSessions.firstOrNull(),
+                                    extraInstructions = "Evaluate presentation delivery, opening hook, vocal modulation, and structure using ${activeModule.creatorFramework}."
+                                )
+                            },
+                            enabled = !isRecording && recordedPath != null,
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) { Text("Get Presentation AI") }
+                    }
+                }
+            }
+        }
+
+        val feedbackSection: @Composable () -> Unit = {
+            if (cloudSyncError != null) {
+                CloudSyncWarningBanner(cloudSyncError.orEmpty()) { speakingVm.retryCloudSync() }
+            }
+            if (activeAnalysisModule == "PRESENTATION") {
+                when (val s = analysisState) {
+                    is UiState.Loading -> ShimmerSkeletonCard(150)
+                    is UiState.Error -> ErrorRecoveryCard(s.message)
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    null -> Unit
+                }
+            }
+        }
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
                 SectionHeader("Public Speaking & Presentation Training", "Hooks, PREP structure, vocal modulation & stage closing")
+                Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                FeatureGuideStrip(featureKey = "public_speaking")
             }
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(activeModule.title, style = MaterialTheme.typography.titleLarge)
-                        Text("Framework: ${activeModule.creatorFramework}", style = MaterialTheme.typography.labelMedium, color = AcousticTeal)
-                        Text(activeModule.keyPrinciple, style = MaterialTheme.typography.bodyLarge)
-                        Text("Simulated Assignment: ${activeModule.rehearsalPrompt}", style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    if (isRecording) speakingVm.stopRecording()
-                                    else {
-                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                                        if (ok) speakingVm.startRecording(null) else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            if (tier.isExpandedTablet) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1.1f),
+                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+                        ) {
+                            rehearsalCard()
+                            feedbackSection()
+                        }
+                        Column(
+                            modifier = Modifier.weight(0.9f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Presentation Modules", style = MaterialTheme.typography.titleMedium)
+                            modules.forEach { mod ->
+                                Card(
+                                    onClick = { activeModule = mod; speakingVm.clearAnalysis() },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (mod.id == activeModule.id) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                                        Text(mod.title, style = MaterialTheme.typography.titleMedium)
+                                        Text(mod.keyPrinciple, style = MaterialTheme.typography.bodySmall)
                                     }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text(if (isRecording) "Stop Delivery" else "Record Rehearsal") }
-                            OutlinedButton(
-                                onClick = {
-                                    speakingVm.submitForAiAnalysis(
-                                        moduleType = "PRESENTATION",
-                                        promptTitle = activeModule.title,
-                                        previousSession = pastSessions.firstOrNull(),
-                                        extraInstructions = "Evaluate presentation delivery, opening hook, vocal modulation, and structure using ${activeModule.creatorFramework}."
-                                    )
-                                },
-                                enabled = !isRecording && recordedPath != null,
-                                modifier = Modifier.weight(1f)
-                            ) { Text("Get Presentation AI") }
+                                }
+                            }
                         }
                     }
                 }
-            }
-            if (activeAnalysisModule == "PRESENTATION") {
-                item {
-                    when (val s = analysisState) {
-                        is UiState.Loading -> ShimmerSkeletonCard(150)
-                        is UiState.Error -> ErrorRecoveryCard(s.message)
-                        is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
-                        null -> Unit
-                    }
+            } else {
+                item { rehearsalCard() }
+                if (cloudSyncError != null || activeAnalysisModule == "PRESENTATION") {
+                    item { Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) { feedbackSection() } }
                 }
-            }
-            items(modules, key = { it.id }) { mod ->
-                Card(
-                    onClick = { activeModule = mod; speakingVm.clearAnalysis() },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(mod.title, style = MaterialTheme.typography.titleMedium)
-                        Text(mod.keyPrinciple, style = MaterialTheme.typography.bodySmall)
+                items(modules, key = { it.id }) { mod ->
+                    Card(
+                        onClick = { activeModule = mod; speakingVm.clearAnalysis() },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(mod.title, style = MaterialTheme.typography.titleMedium)
+                            Text(mod.keyPrinciple, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
@@ -478,51 +755,102 @@ fun RealWorldTasksScreen(
     onSaveTask: (taskId: String, title: String, completed: Boolean, reflection: String) -> Unit
 ) {
     val seeds = CurriculumCatalog.realWorldTaskSeeds
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
                 SectionHeader("Real-World Communication Tasks", "Apply @askvinh techniques outside the app and log your reflection")
+                Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                FeatureGuideStrip(featureKey = "real_world_tasks")
             }
-            items(seeds.indices.toList()) { idx ->
-                val taskTitle = seeds[idx]
-                val taskId = "rw_task_$idx"
-                val saved = records.firstOrNull { it.id == taskId || it.taskTitle == taskTitle }
-                var completed by remember(saved?.completed) { mutableStateOf(saved?.completed ?: false) }
-                var reflection by remember(saved?.reflection) { mutableStateOf(saved?.reflection.orEmpty()) }
-
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = completed,
-                                onCheckedChange = {
-                                    completed = it
-                                    onSaveTask(taskId, taskTitle, it, reflection)
-                                }
+            if (tier.isExpandedTablet) {
+                items(seeds.indices.chunked(2), key = { row -> row.joinToString("_") }) { pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        pair.forEach { idx ->
+                            val taskTitle = seeds[idx]
+                            val taskId = "rw_task_$idx"
+                            val saved = records.firstOrNull { it.id == taskId || it.taskTitle == taskTitle }
+                            RealWorldTaskCard(
+                                taskId = taskId,
+                                taskTitle = taskTitle,
+                                saved = saved,
+                                onSaveTask = onSaveTask,
+                                modifier = Modifier.weight(1f)
                             )
-                            Text(taskTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            if (completed) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = "Completed", tint = EmeraldSuccess)
-                            }
                         }
-                        OutlinedTextField(
-                            value = reflection,
-                            onValueChange = { reflection = it },
-                            label = { Text("What happened? What would you refine next time?") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedButton(onClick = { onSaveTask(taskId, taskTitle, completed, reflection) }) {
-                            Text("Save Reflection")
-                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
+            } else {
+                items(seeds.indices.toList()) { idx ->
+                    val taskTitle = seeds[idx]
+                    val taskId = "rw_task_$idx"
+                    val saved = records.firstOrNull { it.id == taskId || it.taskTitle == taskTitle }
+                    RealWorldTaskCard(
+                        taskId = taskId,
+                        taskTitle = taskTitle,
+                        saved = saved,
+                        onSaveTask = onSaveTask,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RealWorldTaskCard(
+    taskId: String,
+    taskTitle: String,
+    saved: RealWorldTaskRecord?,
+    onSaveTask: (taskId: String, title: String, completed: Boolean, reflection: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val ext = MaterialTheme.speakCraftColors
+    var completed by remember(saved?.completed) { mutableStateOf(saved?.completed ?: false) }
+    var reflection by remember(saved?.reflection) { mutableStateOf(saved?.reflection.orEmpty()) }
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = completed,
+                    onCheckedChange = {
+                        completed = it
+                        onSaveTask(taskId, taskTitle, it, reflection)
+                    }
+                )
+                Text(taskTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (completed) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Completed", tint = ext.success)
+                }
+            }
+            OutlinedTextField(
+                value = reflection,
+                onValueChange = { reflection = it },
+                label = { Text("What happened? What would you refine next time?") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedButton(
+                onClick = { onSaveTask(taskId, taskTitle, completed, reflection) },
+                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+            ) {
+                Text("Save Reflection")
             }
         }
     }

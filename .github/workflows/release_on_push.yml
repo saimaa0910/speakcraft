@@ -1,0 +1,231 @@
+name: Build & Publish SpeakCraft OTA Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - beta
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Release channel (beta or stable)"
+        required: true
+        default: "beta"
+        type: choice
+        options:
+          - beta
+          - stable
+      version_name:
+        description: "Optional explicit SemVer (e.g. 1.1.0-beta.2 or 1.1.0)"
+        required: false
+        default: ""
+      mandatory:
+        description: "Mark update as mandatory"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Compute release channel, versionName & versionCode
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_NUM="${GITHUB_RUN_NUMBER:-1}"
+          VERSION_CODE=$((1 + RUN_NUM))
+          EVENT_NAME="${{ github.event_name }}"
+          REF_NAME="${{ github.ref_name }}"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            CHANNEL="${{ github.event.inputs.channel }}"
+            EXPLICIT_VER="${{ github.event.inputs.version_name }}"
+            MANDATORY="${{ github.event.inputs.mandatory }}"
+            if [ -n "$EXPLICIT_VER" ]; then
+              VERSION_NAME="${EXPLICIT_VER#v}"
+            elif [ "$CHANNEL" = "stable" ]; then
+              VERSION_NAME="1.1.${RUN_NUM}"
+            else
+              VERSION_NAME="1.1.0-beta.${RUN_NUM}"
+            fi
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            CHANNEL="stable"
+            VERSION_NAME="${REF_NAME#v}"
+            MANDATORY="false"
+          else
+            CHANNEL="beta"
+            VERSION_NAME="1.1.0-beta.${RUN_NUM}"
+            MANDATORY="false"
+          fi
+
+          if [ "$CHANNEL" = "beta" ]; then
+            IS_PRERELEASE="true"
+            TAG_NAME="v${VERSION_NAME}-build.${VERSION_CODE}"
+          else
+            IS_PRERELEASE="false"
+            TAG_NAME="v${VERSION_NAME}"
+          fi
+
+          APK_FILENAME="speakcraft_${VERSION_NAME}.apk"
+          COMMIT_MSG="$(git log -1 --pretty=%s | tr -d '\r')"
+
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_filename=$APK_FILENAME" >> "$GITHUB_OUTPUT"
+          echo "mandatory=$MANDATORY" >> "$GITHUB_OUTPUT"
+          echo "commit_msg=$COMMIT_MSG" >> "$GITHUB_OUTPUT"
+
+      - name: Restore signing keystore
+        id: sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > my-upload-key.jks
+            echo "gradle_task=assembleRelease" >> "$GITHUB_OUTPUT"
+            echo "apk_path=app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_OUTPUT"
+          else
+            if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            fi
+            echo "gradle_task=assembleDebug" >> "$GITHUB_OUTPUT"
+            echo "apk_path=app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build & sign Android APK
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+        run: |
+          set -euo pipefail
+          GRADLE_CMD="gradle"
+          if [ -x "./gradlew" ]; then
+            GRADLE_CMD="./gradlew"
+          fi
+          "$GRADLE_CMD" "${{ steps.sign.outputs.gradle_task }}" \
+            -PversionCodeOverride="${{ steps.meta.outputs.version_code }}" \
+            -PversionNameOverride="${{ steps.meta.outputs.version_name }}" \
+            -PbuildChannelOverride="${{ steps.meta.outputs.channel }}" \
+            -PgithubReleaseRepoOverride="${{ github.repository }}" \
+            --no-daemon
+
+      - name: Compute APK checksum & signing certificate SHA-256
+        id: pkg
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC_APK="${{ steps.sign.outputs.apk_path }}"
+          OUT_DIR="build-release-artifacts"
+          mkdir -p "$OUT_DIR"
+          APK_FILE="${OUT_DIR}/${{ steps.meta.outputs.apk_filename }}"
+          cp "$SRC_APK" "$APK_FILE"
+
+          SHA256="$(sha256sum "$APK_FILE" | awk '{print $1}')"
+          FILE_SIZE="$(wc -c < "$APK_FILE" | tr -d ' ')"
+          echo "$SHA256  ${{ steps.meta.outputs.apk_filename }}" > "${APK_FILE}.sha256"
+
+          APKSIGNER_BIN="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name apksigner | sort -V | tail -n 1 || true)"
+          CERT_SHA256=""
+          if [ -n "$APKSIGNER_BIN" ]; then
+            CERT_SHA256="$("$APKSIGNER_BIN" verify --print-certs "$APK_FILE" | grep -m1 "SHA-256 digest:" | awk '{print $NF}' | tr '[:upper:]' '[:lower:]' || true)"
+          fi
+
+          DL_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.tag_name }}/${{ steps.meta.outputs.apk_filename }}"
+
+          echo "apk_file=$APK_FILE" >> "$GITHUB_OUTPUT"
+          echo "sha_file=${APK_FILE}.sha256" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "file_size=$FILE_SIZE" >> "$GITHUB_OUTPUT"
+          echo "cert_sha256=$CERT_SHA256" >> "$GITHUB_OUTPUT"
+          echo "download_url=$DL_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          cat > release_notes.md <<'EOF'
+          ## SpeakCraft ${{ steps.meta.outputs.version_name }} (${{ steps.meta.outputs.channel }})
+
+          - Latest commit: ${{ steps.meta.outputs.commit_msg }}
+          - Built & signed automatically on push to `${{ github.ref_name }}`
+
+          VersionCode: ${{ steps.meta.outputs.version_code }}
+          VersionName: ${{ steps.meta.outputs.version_name }}
+          Channel: ${{ steps.meta.outputs.channel }}
+          MinSupportedVersion: 1.0.0
+          Mandatory: ${{ steps.meta.outputs.mandatory }}
+          SHA256: ${{ steps.pkg.outputs.sha256 }}
+          SigningCertSHA256: ${{ steps.pkg.outputs.cert_sha256 }}
+          EOF
+
+      - name: Upload APK to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: SpeakCraft v${{ steps.meta.outputs.version_name }}
+          body_path: release_notes.md
+          prerelease: ${{ steps.meta.outputs.is_prerelease }}
+          files: |
+            ${{ steps.pkg.outputs.apk_file }}
+            ${{ steps.pkg.outputs.sha_file }}
+
+      - name: Publish release metadata to Firestore applicationReleases (for v1.0.0+ APKs)
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          RELEASE_VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          RELEASE_VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          RELEASE_CHANNEL: ${{ steps.meta.outputs.channel }}
+          RELEASE_DOWNLOAD_URL: ${{ steps.pkg.outputs.download_url }}
+          RELEASE_INSTALLER_FILENAME: ${{ steps.meta.outputs.apk_filename }}
+          RELEASE_FILE_SIZE_BYTES: ${{ steps.pkg.outputs.file_size }}
+          RELEASE_SHA256: ${{ steps.pkg.outputs.sha256 }}
+          RELEASE_SIGNING_CERT_SHA256: ${{ steps.pkg.outputs.cert_sha256 }}
+          RELEASE_MIN_SUPPORTED_VERSION: "1.0.0"
+          RELEASE_MANDATORY: ${{ steps.meta.outputs.mandatory }}
+          RELEASE_NOTES: "SpeakCraft v${{ steps.meta.outputs.version_name }} (${{ steps.meta.outputs.channel }}) — ${{ steps.meta.outputs.commit_msg }}"
+        run: |
+          mkdir -p /tmp/fb-pub
+          npm --prefix /tmp/fb-pub install --no-save firebase-admin@^13.0.0
+          NODE_PATH=/tmp/fb-pub/node_modules node scripts/publish_firestore_release.mjs
+
+      - name: Warn if FIREBASE_SERVICE_ACCOUNT_JSON secret is not configured
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON == '' }}
+        run: |
+          echo "::warning::FIREBASE_SERVICE_ACCOUNT_JSON secret is missing. GitHub Release was published for v1.1.0-beta.1+ APKs, but Firestore applicationReleases was NOT updated for already-installed v1.0.0 APKs."

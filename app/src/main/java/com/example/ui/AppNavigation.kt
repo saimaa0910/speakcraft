@@ -1,13 +1,17 @@
 package com.example.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
@@ -36,12 +40,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -61,10 +68,19 @@ import com.example.data.firebase.authStateFlow
 import com.example.data.firebase.signOut
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
+import com.example.data.model.FeatureTutorialRegistry
 import com.example.data.model.UiState
 import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.preferences.ThemePreference
+import com.example.data.preferences.TutorialState
+import com.example.ui.components.FeatureTutorialDialog
+import com.example.ui.components.LaunchExperienceViewModel
+import com.example.ui.components.SpeakCraftLaunchOverlay
+import com.example.ui.components.TutorialOverlay
+import com.example.ui.components.TutorialOverlayCatalog
+import com.example.ui.components.TutorialOverlayStep
+import com.example.ui.components.rememberReducedMotionEnabled
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.AnalyticsScreen
@@ -96,6 +112,7 @@ import com.example.ui.viewmodel.UpdateAndAdminViewModel
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 private data class PrimaryNavItem(
@@ -119,8 +136,8 @@ private val routeTitles = mapOf(
     "vocabulary" to "Vocabulary Builder",
     "speaking_lab" to "Record & Review",
     "challenges" to "Challenges",
-    "pronunciation" to "Articulation Lab",
-    "articulation_lab" to "Articulation Lab",
+    "pronunciation" to "Phonetic & Intonation Lab",
+    "articulation_lab" to "Articulation & Enunciation Lab",
     "voice_training" to "Voice Training Lab",
     "conversation" to "Conversation Mastery",
     "listening_lab" to "Active Listening",
@@ -136,31 +153,78 @@ private val routeTitles = mapOf(
 )
 
 @Composable
-fun SpeakCraftRoot(auth: FirebaseAuth = Firebase.auth) {
+fun SpeakCraftRoot(
+    auth: FirebaseAuth = Firebase.auth,
+    launchVm: LaunchExperienceViewModel = viewModel()
+) {
     val context = LocalContext.current
     val container = remember(context.applicationContext) { AppContainer(context.applicationContext) }
-    val prefs by container.preferencesRepository.preferencesFlow.collectAsStateWithLifecycle(initialValue = AppPreferences())
+    val prefsSnapshot by remember(container) {
+        container.preferencesRepository.preferencesFlow.map { it to true }
+    }.collectAsStateWithLifecycle(initialValue = AppPreferences() to false)
+    val (prefs, prefsLoaded) = prefsSnapshot
     val darkTheme = when (prefs.themeMode) {
         ThemePreference.SYSTEM -> isSystemInDarkTheme()
         ThemePreference.LIGHT -> false
         ThemePreference.DARK -> true
     }
 
+    val reducedMotion = rememberReducedMotionEnabled()
+    val launchVisible by launchVm.isOverlayVisible.collectAsStateWithLifecycle()
+    val latchedCadence by launchVm.latchedCadence.collectAsStateWithLifecycle()
+
+    LaunchedEffect(prefsLoaded, reducedMotion) {
+        if (prefsLoaded) {
+            val firstLaunch = !prefs.hasCompletedInitialLaunch
+            launchVm.latchCadenceIfNeeded(
+                isFirstLaunch = firstLaunch,
+                reducedMotion = reducedMotion
+            )
+            if (firstLaunch) {
+                container.preferencesRepository.markInitialLaunchCompleted()
+            }
+        }
+    }
+
     val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
 
     SpeakCraftTheme(darkTheme = darkTheme) {
-        val user = currentUser
-        if (user == null) {
-            AuthScreen(onAuthSuccess = {})
-        } else {
-            key(user.uid) {
-                AuthenticatedAppShell(
-                    userId = user.uid,
-                    userDisplayName = user.displayName.orEmpty(),
-                    userEmail = user.email.orEmpty(),
-                    prefs = prefs,
-                    container = container
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            val user = currentUser
+            if (user == null) {
+                AuthScreen(onAuthSuccess = {})
+            } else {
+                key(user.uid) {
+                    AuthenticatedAppShell(
+                        userId = user.uid,
+                        userDisplayName = user.displayName.orEmpty(),
+                        userEmail = user.email.orEmpty(),
+                        prefs = prefs,
+                        prefsLoaded = prefsLoaded,
+                        container = container
+                    )
+                }
+            }
+
+            if (launchVisible) {
+                val activeCadence = latchedCadence
+                if (activeCadence == null) {
+                    // Seamless Stage 0 hold for the few milliseconds DataStore loads prefs
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
+                            .testTag("launch_animation_settling_bg")
+                    )
+                } else {
+                    SpeakCraftLaunchOverlay(
+                        visible = true,
+                        cadence = activeCadence,
+                        reducedMotion = reducedMotion,
+                        onStageChanged = { stage -> launchVm.updateStage(stage) },
+                        onFinished = { launchVm.markCompleted() }
+                    )
+                }
             }
         }
     }
@@ -173,6 +237,7 @@ private fun AuthenticatedAppShell(
     userDisplayName: String,
     userEmail: String,
     prefs: AppPreferences,
+    prefsLoaded: Boolean,
     container: AppContainer
 ) {
     val context = LocalContext.current
@@ -180,6 +245,11 @@ private fun AuthenticatedAppShell(
     val credentialManager = remember { CredentialManager.create(context) }
     val ttsHelper = remember { TtsAndSpeechHelper(context.applicationContext) }
     val prefsRepo: AppPreferencesRepository = container.preferencesRepository
+    val tutorialStateManager = container.tutorialStateManager
+    val tutorialSnapshot by remember(tutorialStateManager, userId) {
+        tutorialStateManager.observeTutorialState(userId).map { it to true }
+    }.collectAsStateWithLifecycle(initialValue = TutorialState(userId = userId) to false)
+    val (tutorialState, tutorialStateLoaded) = tutorialSnapshot
 
     DisposableEffect(Unit) {
         onDispose { ttsHelper.release() }
@@ -219,9 +289,11 @@ private fun AuthenticatedAppShell(
             initializer {
                 checkNotNull(this[APPLICATION_KEY])
                 InteractiveCoachViewModel(
-                    container.repository,
-                    container.geminiCoachService,
-                    container.youtubeClient
+                    repository = container.repository,
+                    geminiCoach = container.geminiCoachService,
+                    youtubeClient = container.youtubeClient,
+                    appContext = context.applicationContext,
+                    currentUserId = userId
                 )
             }
         }
@@ -239,7 +311,8 @@ private fun AuthenticatedAppShell(
                     prefsRepo = container.preferencesRepository,
                     youtubeClient = container.youtubeClient,
                     geminiCoach = container.geminiCoachService,
-                    currentUserId = userId
+                    currentUserId = userId,
+                    githubReleaseClient = container.githubReleaseClient
                 )
             }
         }
@@ -284,8 +357,24 @@ private fun AuthenticatedAppShell(
 
     when (val pState = profileState) {
         is UiState.Loading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .testTag("profile_loading_indicator"),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.layout.Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = "Preparing your speaking studio...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         is UiState.Error -> {
@@ -334,6 +423,10 @@ private fun AuthenticatedAppShell(
                     else -> routeTitles[currentRoute] ?: "SpeakCraft"
                 }
 
+                var showFeatureGuideDialog by remember { mutableStateOf(false) }
+                var manualTourSteps by remember { mutableStateOf<List<TutorialOverlayStep>?>(null) }
+                var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
+
                 val navigateTo: (String) -> Unit = { route ->
                     navController.navigate(route) {
                         if (primaryNavItems.any { it.route == route }) {
@@ -344,8 +437,47 @@ private fun AuthenticatedAppShell(
                     }
                 }
 
+                if (showFeatureGuideDialog) {
+                    FeatureTutorialDialog(
+                        initialTutorial = FeatureTutorialRegistry.forRoute(currentRoute),
+                        onDismiss = { showFeatureGuideDialog = false },
+                        onNavigateToFeature = { route -> navigateTo(route) },
+                        onStartInteractiveTour = {
+                            manualTourTitle = "Core Features Guided Tour"
+                            manualTourSteps = TutorialOverlayCatalog.coreWelcomeTourSteps()
+                        }
+                    )
+                }
+
+                val showCoreTour = prefsLoaded &&
+                    tutorialStateLoaded &&
+                    !showFeatureGuideDialog &&
+                    manualTourSteps == null &&
+                    currentRoute == "dashboard" &&
+                    tutorialState.shouldShowTutorial(TutorialOverlayCatalog.CORE_TOUR_KEY)
+
+                val showModuleSpotlight = prefsLoaded &&
+                    tutorialStateLoaded &&
+                    !showFeatureGuideDialog &&
+                    manualTourSteps == null &&
+                    currentRoute in TutorialOverlayCatalog.coreModuleFirstUseRoutes &&
+                    tutorialState.shouldShowTutorial(currentRoute)
+
+                val activeOverlaySteps: List<TutorialOverlayStep> = when {
+                    manualTourSteps != null -> manualTourSteps.orEmpty()
+                    showCoreTour -> TutorialOverlayCatalog.coreWelcomeTourSteps()
+                    showModuleSpotlight -> listOf(TutorialOverlayCatalog.singleModuleStep(currentRoute))
+                    else -> emptyList()
+                }
+                val activeOverlayVisible = activeOverlaySteps.isNotEmpty()
+                val activeOverlayTitle = when {
+                    manualTourSteps != null -> manualTourTitle
+                    showCoreTour -> "Welcome to SpeakCraft"
+                    else -> "Module Quick Guide"
+                }
+
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val useRail = maxWidth >= 720.dp
+                    val useRail = maxWidth >= 600.dp
                     Scaffold(
                         snackbarHost = { SnackbarHost(snackbarHostState) },
                         topBar = {
@@ -359,6 +491,17 @@ private fun AuthenticatedAppShell(
                                     }
                                 },
                                 actions = {
+                                    IconButton(
+                                        onClick = { showFeatureGuideDialog = true },
+                                        modifier = Modifier
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                            .testTag("feature_tutorial_topbar_button")
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.HelpOutline,
+                                            contentDescription = "Feature guide & what improves"
+                                        )
+                                    }
                                     if (isAdmin) {
                                         IconButton(onClick = { navigateTo("admin_console") }) {
                                             Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Console")
@@ -476,10 +619,20 @@ private fun AuthenticatedAppShell(
                                     )
                                 }
                                 composable("articulation_lab") {
-                                    PronunciationLabScreen(speakingVm = speakingVm, ttsHelper = ttsHelper, pastSessions = sessions)
+                                    PronunciationLabScreen(
+                                        speakingVm = speakingVm,
+                                        ttsHelper = ttsHelper,
+                                        pastSessions = sessions,
+                                        initialFocus = "articulation"
+                                    )
                                 }
                                 composable("pronunciation") {
-                                    PronunciationLabScreen(speakingVm = speakingVm, ttsHelper = ttsHelper, pastSessions = sessions)
+                                    PronunciationLabScreen(
+                                        speakingVm = speakingVm,
+                                        ttsHelper = ttsHelper,
+                                        pastSessions = sessions,
+                                        initialFocus = "pronunciation"
+                                    )
                                 }
                                 composable("voice_training") {
                                     VoiceTrainingLabScreen(speakingVm = speakingVm, ttsHelper = ttsHelper, pastSessions = sessions)
@@ -566,7 +719,8 @@ private fun AuthenticatedAppShell(
                                     AppUpdateScreen(
                                         vm = updateAdminVm,
                                         prefs = prefs,
-                                        onSetUpdateChannel = { ch -> scope.launch { prefsRepo.setUpdateChannel(ch) } }
+                                        onSetUpdateChannel = { ch -> updateAdminVm.selectUpdateChannel(ch, prefs) },
+                                        onSetGithubReleaseRepo = { repo -> updateAdminVm.setGithubReleaseRepo(repo, prefs) }
                                     )
                                 }
                                 composable("admin_console") {
@@ -586,17 +740,91 @@ private fun AuthenticatedAppShell(
                                         onSetTheme = { mode -> scope.launch { prefsRepo.setThemeMode(mode) } },
                                         onSetTtsRate = { rate -> scope.launch { prefsRepo.setTtsRate(rate) } },
                                         onSetYoutubeKey = { key -> scope.launch { prefsRepo.setYoutubeApiKey(key) } },
-                                        onSetUpdateChannel = { ch -> scope.launch { prefsRepo.setUpdateChannel(ch) } },
-                                        onOpenUpdater = { navigateTo("app_updates") },
+                                        onSetUpdateChannel = { ch -> updateAdminVm.selectUpdateChannel(ch, prefs) },
+                                        onOpenUpdater = {
+                                            updateAdminVm.checkForUpdatesManual(prefs)
+                                            navigateTo("app_updates")
+                                        },
                                         onCreateBackupNow = { updateAdminVm.createManualBackup(prefs) },
                                         onOpenAdminConsole = { navigateTo("admin_console") },
                                         onClearHistory = { mainVm.clearSpeakingHistory() },
-                                        onSignOut = { signOut(credentialManager, scope) }
+                                        onSignOut = { signOut(credentialManager, scope) },
+                                        firstUseTutorialsEnabled = tutorialState.firstUseTutorialsEnabled,
+                                        onToggleFirstUseTutorials = { enabled ->
+                                            scope.launch { tutorialStateManager.setFirstUseTutorialsEnabled(userId, enabled) }
+                                        },
+                                        onReplayTutorials = {
+                                            scope.launch {
+                                                tutorialStateManager.resetUserTutorials(userId)
+                                                navigateTo("dashboard")
+                                            }
+                                        }
                                     )
                                 }
                             }
                         }
                     }
+
+                    TutorialOverlay(
+                        visible = activeOverlayVisible,
+                        steps = activeOverlaySteps,
+                        tourTitle = activeOverlayTitle,
+                        tourSubtitle = if (activeOverlaySteps.size > 1) {
+                            "Core features walkthrough • highlight benefits & usage instructions"
+                        } else {
+                            "First visit spotlight • what this module improves & how to practice"
+                        },
+                        allowDisableFutureOverlays = true,
+                        onDismiss = { dontShowAgain ->
+                            if (manualTourSteps != null) {
+                                manualTourSteps = null
+                                if (dontShowAgain) {
+                                    scope.launch { tutorialStateManager.setFirstUseTutorialsEnabled(userId, false) }
+                                }
+                            } else {
+                                val completedKey = if (showCoreTour) {
+                                    TutorialOverlayCatalog.CORE_TOUR_KEY
+                                } else {
+                                    currentRoute
+                                }
+                                scope.launch {
+                                    tutorialStateManager.markFeatureCompleted(userId, completedKey)
+                                    if (dontShowAgain) tutorialStateManager.setFirstUseTutorialsEnabled(userId, false)
+                                }
+                            }
+                        },
+                        onComplete = { dontShowAgain ->
+                            if (manualTourSteps != null) {
+                                manualTourSteps = null
+                                if (dontShowAgain) {
+                                    scope.launch { tutorialStateManager.setFirstUseTutorialsEnabled(userId, false) }
+                                }
+                            } else {
+                                val completedKey = if (showCoreTour) {
+                                    TutorialOverlayCatalog.CORE_TOUR_KEY
+                                } else {
+                                    currentRoute
+                                }
+                                scope.launch {
+                                    tutorialStateManager.markFeatureCompleted(userId, completedKey)
+                                    if (dontShowAgain) tutorialStateManager.setFirstUseTutorialsEnabled(userId, false)
+                                }
+                            }
+                        },
+                        onTryModule = { targetRoute ->
+                            if (manualTourSteps != null) {
+                                manualTourSteps = null
+                            } else {
+                                scope.launch {
+                                    tutorialStateManager.markFeaturesCompleted(
+                                        userId = userId,
+                                        featureKeys = setOf(TutorialOverlayCatalog.CORE_TOUR_KEY, targetRoute)
+                                    )
+                                }
+                            }
+                            navigateTo(targetRoute)
+                        }
+                    )
                 }
             }
         }

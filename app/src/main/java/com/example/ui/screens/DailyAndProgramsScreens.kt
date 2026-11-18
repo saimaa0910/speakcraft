@@ -2,7 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -45,8 +45,10 @@ import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
 import com.example.data.model.ProgramEnrollment
 import com.example.data.model.VocabSeed
+import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.SpeakCraftSpacing
 import kotlin.math.roundToInt
 
 @Composable
@@ -69,9 +71,51 @@ fun DailyPracticeScreen(
     val steps = CurriculumCatalog.dailySteps
     val progress = (completedIds.size.toFloat() / steps.size.coerceAtLeast(1)).coerceIn(0f, 1f)
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
+        val targetWordsCard: @Composable () -> Unit = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Today's 3 Target Words (Daily Rotation)", style = MaterialTheme.typography.titleMedium)
+                    todaysWords.forEach { w ->
+                        Text("• ${w.word} (${w.phonetic}): ${w.meaning}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
+        val reflectionCard: @Composable () -> Unit = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Daily Self-Reflection & Confidence Check", style = MaterialTheme.typography.titleMedium)
+                    Text("Self-rated confidence today: ${confidence.roundToInt()}/10", style = MaterialTheme.typography.bodySmall)
+                    Slider(value = confidence, onValueChange = { confidence = it }, valueRange = 1f..10f)
+                    OutlinedTextField(
+                        value = reflection,
+                        onValueChange = { reflection = it },
+                        label = { Text("What felt stronger today? What @askvinh lever will you focus on tomorrow?") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth().testTag("daily_reflection_input")
+                    )
+                    Button(
+                        onClick = { onSaveReflection(reflection, confidence.roundToInt().toLong()) },
+                        modifier = Modifier.fillMaxWidth().testTag("save_daily_reflection_button")
+                    ) {
+                        Text("Save Daily Reflection")
+                    }
+                }
+            }
+        }
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -89,79 +133,93 @@ fun DailyPracticeScreen(
             }
 
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Today's 3 Target Words (Daily Rotation)", style = MaterialTheme.typography.titleMedium)
-                        todaysWords.forEach { w ->
-                            Text("• ${w.word} (${w.phonetic}): ${w.meaning}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
+                FeatureGuideStrip(featureKey = "daily_practice")
             }
 
-            items(steps, key = { it.id }) { step ->
-                val isDone = completedIds.contains(step.id)
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
+            if (tier.isExpandedTablet) {
+                item {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        IconButton(
-                            onClick = { onToggleStep(step.id, reflection, confidence.roundToInt().toLong()) },
-                            modifier = Modifier.testTag("daily_step_toggle_${step.id}")
+                        Column(
+                            modifier = Modifier.weight(1.2f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                contentDescription = if (isDone) "Completed ${step.title}" else "Mark ${step.title} complete",
-                                tint = if (isDone) EmeraldSuccess else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("${step.stepNumber}. ${step.title}", style = MaterialTheme.typography.titleMedium)
-                            Text(step.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (step.actionRoute != null) {
-                            OutlinedButton(onClick = { onNavigate(step.actionRoute) }) {
-                                Text("Open")
-                                Spacer(Modifier.width(4.dp))
-                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                            steps.forEach { step ->
+                                val isDone = completedIds.contains(step.id)
+                                DailyStepCard(
+                                    step = step,
+                                    isDone = isDone,
+                                    onToggle = { onToggleStep(step.id, reflection, confidence.roundToInt().toLong()) },
+                                    onNavigate = onNavigate
+                                )
                             }
                         }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Daily Self-Reflection & Confidence Check", style = MaterialTheme.typography.titleMedium)
-                        Text("Self-rated confidence today: ${confidence.roundToInt()}/10", style = MaterialTheme.typography.bodySmall)
-                        Slider(value = confidence, onValueChange = { confidence = it }, valueRange = 1f..10f)
-                        OutlinedTextField(
-                            value = reflection,
-                            onValueChange = { reflection = it },
-                            label = { Text("What felt stronger today? What @askvinh lever will you focus on tomorrow?") },
-                            minLines = 3,
-                            modifier = Modifier.fillMaxWidth().testTag("daily_reflection_input")
-                        )
-                        Button(
-                            onClick = { onSaveReflection(reflection, confidence.roundToInt().toLong()) },
-                            modifier = Modifier.fillMaxWidth().testTag("save_daily_reflection_button")
+                        Column(
+                            modifier = Modifier.weight(0.8f),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("Save Daily Reflection")
+                            targetWordsCard()
+                            reflectionCard()
                         }
                     }
+                }
+            } else {
+                item { targetWordsCard() }
+                items(steps, key = { it.id }) { step ->
+                    val isDone = completedIds.contains(step.id)
+                    DailyStepCard(
+                        step = step,
+                        isDone = isDone,
+                        onToggle = { onToggleStep(step.id, reflection, confidence.roundToInt().toLong()) },
+                        onNavigate = onNavigate
+                    )
+                }
+                item { reflectionCard() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyStepCard(
+    step: com.example.data.model.DailyStepDefinition,
+    isDone: Boolean,
+    onToggle: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onToggle,
+                modifier = Modifier.testTag("daily_step_toggle_${step.id}")
+            ) {
+                Icon(
+                    imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    contentDescription = if (isDone) "Completed ${step.title}" else "Mark ${step.title} complete",
+                    tint = if (isDone) EmeraldSuccess else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("${step.stepNumber}. ${step.title}", style = MaterialTheme.typography.titleMedium)
+                Text(step.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (step.actionRoute != null) {
+                OutlinedButton(onClick = { onNavigate(step.actionRoute) }) {
+                    Text("Open")
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }
             }
         }
@@ -177,9 +235,12 @@ fun LearningPathsScreen(
     val programs = CurriculumCatalog.structuredPrograms
     var expandedProgramId by remember { mutableStateOf("30_day_challenge") }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -188,6 +249,8 @@ fun LearningPathsScreen(
                     title = "Structured Learning Programs",
                     subtitle = "30/60/90-day tracks & specialized @askvinh skill curricula"
                 )
+                Spacer(Modifier.height(8.dp))
+                FeatureGuideStrip(featureKey = "learning_paths")
             }
 
             items(programs, key = { it.id }) { program ->

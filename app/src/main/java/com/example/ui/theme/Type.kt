@@ -8,29 +8,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
+/**
+ * Bundled Google Fonts installed via font-util are single-weight (400) static TTF files.
+ * Registering only FontWeight.Normal lets Android/Compose synthesize crisp SemiBold/Bold
+ * strokes instead of clamping headings to weight 400.
+ */
 val PlusJakartaSansFamily = FontFamily(
-    Font(R.font.plus_jakarta_sans, FontWeight.Normal),
-    Font(R.font.plus_jakarta_sans, FontWeight.SemiBold),
-    Font(R.font.plus_jakarta_sans, FontWeight.Bold),
+    Font(R.font.plus_jakarta_sans, FontWeight.Normal)
 )
 
 val DmSansFamily = FontFamily(
-    Font(R.font.dm_sans, FontWeight.Normal),
-    Font(R.font.dm_sans, FontWeight.Medium),
-    Font(R.font.dm_sans, FontWeight.Bold),
+    Font(R.font.dm_sans, FontWeight.Normal)
 )
 
 val JetBrainsMonoFamily = FontFamily(
-    Font(R.font.jetbrains_mono, FontWeight.Normal),
-    Font(R.font.jetbrains_mono, FontWeight.Medium),
+    Font(R.font.jetbrains_mono, FontWeight.Normal)
 )
 
 val SpeakCraftTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 42.sp,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
         letterSpacing = (-0.5).sp
     ),
     headlineLarge = TextStyle(
@@ -43,20 +43,27 @@ val SpeakCraftTypography = Typography(
     headlineMedium = TextStyle(
         fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp
+        fontSize = 21.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.15).sp
     ),
     titleLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 19.sp,
-        lineHeight = 26.sp
+        fontSize = 18.sp,
+        lineHeight = 25.sp
     ),
     titleMedium = TextStyle(
         fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 22.sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = PlusJakartaSansFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = DmSansFamily,
@@ -74,7 +81,7 @@ val SpeakCraftTypography = Typography(
         fontFamily = DmSansFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        lineHeight = 16.sp
+        lineHeight = 17.sp
     ),
     labelLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,
@@ -87,13 +94,13 @@ val SpeakCraftTypography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
+        letterSpacing = 0.35.sp
     ),
     labelSmall = TextStyle(
         fontFamily = JetBrainsMonoFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.3.sp
+        letterSpacing = 0.25.sp
     ),
 )

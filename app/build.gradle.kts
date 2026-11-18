@@ -16,8 +16,20 @@ android {
     applicationId = "com.aistudio.speakcraft.qxmvkp"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0.0"
+    val versionCodeOverride = (project.findProperty("versionCodeOverride") as String?)?.toIntOrNull()
+    val versionNameOverride = (project.findProperty("versionNameOverride") as String?)?.trim()?.takeIf { it.isNotBlank() }
+    val buildChannelOverride = (project.findProperty("buildChannelOverride") as String?)
+      ?.trim()
+      ?.takeIf { it == "beta" || it == "stable" }
+    val githubRepoOverride = (project.findProperty("githubReleaseRepoOverride") as String?)
+      ?.trim()
+      ?.takeIf { it.matches(Regex("^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$")) }
+      .orEmpty()
+
+    versionCode = versionCodeOverride ?: 2
+    versionName = versionNameOverride ?: "1.1.0-beta.1"
+    buildConfigField("String", "BUILD_CHANNEL", "\"${buildChannelOverride ?: "beta"}\"")
+    buildConfigField("String", "GITHUB_RELEASE_REPO", "\"$githubRepoOverride\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

@@ -3,7 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -46,11 +46,13 @@ import com.example.data.model.CurriculumCatalog
 import com.example.data.model.ExtractedTechnique
 import com.example.data.model.YouTubeSource
 import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.LessonAttributionBadge
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.AcousticTeal
 import com.example.ui.theme.AmberSpotlight
 import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.viewmodel.InteractiveCoachViewModel
 
 @Composable
@@ -86,9 +88,12 @@ fun YouTubeIntelligenceScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -97,6 +102,8 @@ fun YouTubeIntelligenceScreen(
                     title = "YouTube Channel Intelligence",
                     subtitle = "Inspect @askvinh or any channel/playlist/video • ${sources.size} audited videos, ${mergedTechniques.size} techniques"
                 )
+                Spacer(Modifier.height(8.dp))
+                FeatureGuideStrip(featureKey = "youtube_library")
             }
 
             item {
@@ -216,61 +223,92 @@ fun YouTubeIntelligenceScreen(
                         message = "Clear your category filter or search term to inspect all @askvinh techniques."
                     )
                 }
-            } else {
-                items(filteredTechniques, key = { it.id.ifBlank { it.title } }) { tech ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            } else if (tier.isExpandedTablet) {
+                items(filteredTechniques.chunked(2), key = { row -> row.joinToString("_") { it.id.ifBlank { it.title } } }) { pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                LessonAttributionBadge(
-                                    isCreatorDerived = tech.isCreatorDerived,
-                                    sourceVerified = tech.timestampLabel != "Pending"
-                                )
-                                Text("${tech.suggestedDurationMinutes}m • ${tech.timestampLabel}", style = MaterialTheme.typography.labelSmall)
-                            }
-                            Text(tech.title, style = MaterialTheme.typography.titleLarge)
-                            Text("${tech.category} • ${tech.difficulty}", style = MaterialTheme.typography.labelSmall, color = AcousticTeal)
-
-                            if (tech.originalContext.isNotBlank()) {
-                                Text("Context: ${tech.originalContext}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-
-                            Text("CREATOR ADVICE (Attributed):", style = MaterialTheme.typography.labelSmall, color = AmberSpotlight)
-                            Text(tech.creatorAdvice, style = MaterialTheme.typography.bodyMedium)
-
-                            if (tech.aiExplanation.isNotBlank()) {
-                                Text("AI COACHING SUPPLEMENT:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                Text(tech.aiExplanation, style = MaterialTheme.typography.bodySmall)
-                            }
-
-                            if (tech.instructions.isNotBlank()) {
-                                Text("Instructions:\n${tech.instructions}", style = MaterialTheme.typography.bodySmall)
-                            }
-                            Text("Practical Exercise: ${tech.practicalExercise}", style = MaterialTheme.typography.bodyMedium)
-                            if (tech.expectedOutcome.isNotBlank()) {
-                                Text("Expected Outcome: ${tech.expectedOutcome}", style = MaterialTheme.typography.bodySmall, color = EmeraldSuccess)
-                            }
-
-                            if (tech.commonMistake.isNotBlank()) {
-                                Text("Mistake -> Fix: ${tech.commonMistake} → ${tech.correction}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { uriHandler.openUri(tech.sourceVideoUrl) }
-                                    .padding(top = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open source video", tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Source: ${tech.sourceVideoTitle}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                            }
+                        pair.forEach { tech ->
+                            YouTubeTechniqueCard(
+                                tech = tech,
+                                onOpenUrl = { uriHandler.openUri(it) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
+            } else {
+                items(filteredTechniques, key = { it.id.ifBlank { it.title } }) { tech ->
+                    YouTubeTechniqueCard(
+                        tech = tech,
+                        onOpenUrl = { uriHandler.openUri(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YouTubeTechniqueCard(
+    tech: ExtractedTechnique,
+    onOpenUrl: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                LessonAttributionBadge(
+                    isCreatorDerived = tech.isCreatorDerived,
+                    sourceVerified = tech.timestampLabel != "Pending"
+                )
+                Text("${tech.suggestedDurationMinutes}m • ${tech.timestampLabel}", style = MaterialTheme.typography.labelSmall)
+            }
+            Text(tech.title, style = MaterialTheme.typography.titleLarge)
+            Text("${tech.category} • ${tech.difficulty}", style = MaterialTheme.typography.labelSmall, color = AcousticTeal)
+
+            if (tech.originalContext.isNotBlank()) {
+                Text("Context: ${tech.originalContext}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Text("CREATOR ADVICE (Attributed):", style = MaterialTheme.typography.labelSmall, color = AmberSpotlight)
+            Text(tech.creatorAdvice, style = MaterialTheme.typography.bodyMedium)
+
+            if (tech.aiExplanation.isNotBlank()) {
+                Text("AI COACHING SUPPLEMENT:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(tech.aiExplanation, style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (tech.instructions.isNotBlank()) {
+                Text("Instructions:\n${tech.instructions}", style = MaterialTheme.typography.bodySmall)
+            }
+            Text("Practical Exercise: ${tech.practicalExercise}", style = MaterialTheme.typography.bodyMedium)
+            if (tech.expectedOutcome.isNotBlank()) {
+                Text("Expected Outcome: ${tech.expectedOutcome}", style = MaterialTheme.typography.bodySmall, color = EmeraldSuccess)
+            }
+
+            if (tech.commonMistake.isNotBlank()) {
+                Text("Mistake -> Fix: ${tech.commonMistake} → ${tech.correction}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenUrl(tech.sourceVideoUrl) }
+                    .padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open source video", tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(6.dp))
+                Text("Source: ${tech.sourceVideoTitle}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
         }
     }

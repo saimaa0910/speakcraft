@@ -2,6 +2,7 @@ package com.example.data.update
 
 import android.content.Context
 import com.example.data.preferences.AppPreferences
+import com.example.data.preferences.ThemePreference
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -13,6 +14,15 @@ data class BackupSnapshotInfo(
     val appVersionCode: Long,
     val recordingsCount: Int,
     val sizeBytes: Long
+)
+
+data class RestoredBackupPrefs(
+    val fileName: String,
+    val themeMode: ThemePreference,
+    val ttsRate: Float,
+    val updateChannel: String,
+    val appVersionName: String,
+    val recordingsCount: Int
 )
 
 class UpdateBackupManager(private val context: Context) {
@@ -83,6 +93,26 @@ class UpdateBackupManager(private val context: Context) {
                 )
             }.getOrNull()
         }
+    }
+
+    fun restoreBackupSnapshot(fileName: String): Result<RestoredBackupPrefs> = runCatching {
+        val target = File(backupsDir(), fileName)
+        require(target.exists() && target.length() > 0L) { "Backup snapshot '$fileName' not found." }
+        val json = JSONObject(target.readText())
+        val themeStr = json.optString("themeMode", ThemePreference.SYSTEM.name)
+        val theme = enumValues<ThemePreference>().firstOrNull { it.name == themeStr } ?: ThemePreference.SYSTEM
+        val rate = json.optDouble("ttsRate", 1.0).toFloat().coerceIn(0.6f, 1.4f)
+        val ch = json.optString("updateChannel", "stable").let { if (it == "beta") "beta" else "stable" }
+        val ver = json.optString("appVersionName", "1.0.0")
+        val recCount = json.optJSONArray("recordingsFiles")?.length() ?: 0
+        RestoredBackupPrefs(
+            fileName = fileName,
+            themeMode = theme,
+            ttsRate = rate,
+            updateChannel = ch,
+            appVersionName = ver,
+            recordingsCount = recCount
+        )
     }
 
     fun checkInterruptedUpdateMarker(currentVersionName: String): String? {

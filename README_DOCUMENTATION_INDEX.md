@@ -1,72 +1,60 @@
 # SpeakCraft Technical Documentation & Architecture Audit Index
 
 **Revision Date:** 2026-11-18  
-**Audited Application:** SpeakCraft (`com.aistudio.speakcraft.qxmvkp`, v1.0.0)  
-**Repository State:** Read-only architecture and codebase audit complete across all 7 technical pillars. Zero application source files, database rules, or configurations were modified during this audit.
+**Application:** SpeakCraft (`com.aistudio.speakcraft.qxmvkp`, v1.0.0)  
+**Repository State:** Architecture audit (`01`–`07`) plus full Material 3 UI/UX transformation, P0/P1 reliability fixes, universal 24-feature interactive tutorial system, and verified test/build pass (`30 / 30` unit & Robolectric CUJ tests passing; `compile_applet` build succeeded).
 
 ---
 
 ## Critical Platform Alignment Notice
 
-Before reading the detailed specifications below, engineering and product leadership should note a key platform discrepancy between the audit brief and the repository contents:
+Before reading the detailed specifications below, engineering and product leadership should note a key platform context point:
 
-* **Actual Codebase Reality (Verified):** The repository implements **SpeakCraft as a native Android application** written in **Kotlin + Jetpack Compose (Material 3)**, powered by serverless **Firebase Authentication (Google Credential Manager)**, **Cloud Firestore Enterprise** (named DB `ai-studio-android-speakcra-e1a16d03-38bd-4af0-9917-ae6b64cadc11`), **Firebase App Check**, and **Firebase AI Logic (`gemini-3.8-flash`)**.
-* **Prompt Target Context (Not Implemented / Proposed):** There are **zero** Electron, React, TypeScript, Windows Desktop, Web SPA, REST HTTP backend server, or SQL/PostgreSQL files in this repository.
-* **Documentation Standard Applied:** Every document strictly separates **Verified Current Implementation** (anchored to exact file paths, line numbers, and symbols) from **Proposed Target Architecture** (for Electron + React Windows Desktop/Web parity, dedicated API Gateway, and PostgreSQL migration).
+* **Actual Codebase Reality (Verified):** The repository implements **SpeakCraft as a native Android application** written in **Kotlin + Jetpack Compose (Material 3)**, powered by **Firebase Authentication (Google Credential Manager)**, **Cloud Firestore** (named DB `ai-studio-android-speakcra-e1a16d03-38bd-4af0-9917-ae6b64cadc11`), **Firebase App Check**, and **Firebase AI Logic (`gemini-3.8-flash`)**.
+* **Historical Audit Docs (`01`–`07`):** Docs `01`–`07` were produced during the initial read-only baseline audit prior to the UI/UX transformation and defect remediation. See Docs `08`–`17` below for the implemented redesign specifications, verification results, and changelog.
 
 ---
 
-## Documentation Directory
+## Technical Architecture & Audit Directory (`01`–`07`)
 
 | # | Document | Primary Audience | Scope Summary |
 | :-: | :--- | :--- | :--- |
-| **01** | [`docs/01_UI_UX_DESIGN_DOCUMENTATION.md`](docs/01_UI_UX_DESIGN_DOCUMENTATION.md) | Product, UI/UX Designers, Frontend Engineers | Audit of all 22 Compose routes, Onboarding/Auth gates, Editorial Studio design system, adaptive Bar/Rail navigation, accessibility, UI defects (`ISS-001`, `ISS-014`–`ISS-019`), and Electron/Web redesign blueprint. |
-| **02** | [`docs/02_BACKEND_ARCHITECTURE_DOCUMENTATION.md`](docs/02_BACKEND_ARCHITECTURE_DOCUMENTATION.md) | Backend & Cloud Architects, Security Engineers | Audit of serverless Firebase/OkHttp topology (`OP-001`..`OP-015`), Credential Manager + App Check, YouTube scraping pipeline, APK verification updater, and proposed REST/WebSocket Backend API (`API-001`..`API-014`). |
-| **03** | [`docs/03_USER_SCALABILITY_DOCUMENTATION.md`](docs/03_USER_SCALABILITY_DOCUMENTATION.md) | Principal Architects, SRE, FinOps | Baseline concurrency (`15–16` Firestore listeners/user), bottleneck analysis (`ISS-010`, `ISS-005`, `ISS-007`), and 7-tier growth projections (`100` to `1,000,000` users) separating estimates from unverified load capacity. |
-| **04** | [`docs/04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md`](docs/04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md) | Engineering Leads, QA, Maintainers | Full 17-field register of 28 confirmed bugs, incomplete features, security/integrity risks, and tech debt (`ISS-001`..`ISS-028`) with file/line evidence and P0–P3 remediation roadmap. |
-| **05** | [`docs/05_COMPLETE_FEATURE_DOCUMENTATION.md`](docs/05_COMPLETE_FEATURE_DOCUMENTATION.md) | Product Managers, QA, Full-Stack Engineers | Exhaustive inventory of 40 feature domains (`FEAT-001`..`FEAT-040`) with strict status tagging (`Implemented`, `Partially implemented`, `Broken`, `Not implemented`) and MVP-to-V2.0 roadmap. |
-| **06** | [`docs/06_AI_FEATURES_AND_AI_ARCHITECTURE.md`](docs/06_AI_FEATURES_AND_AI_ARCHITECTURE.md) | AI/ML Engineers, Prompt Architects | Deep dive into `GeminiCoachService` (`gemini-3.8-flash`), 3 JSON schemas, `RecommendationEngine`, Capabilities A–L (13-subsection specs), guardrails, `19 MB` payload cap, and Vertex/File API evolution. |
-| **07** | [`docs/07_DATABASE_DESIGN_AND_DOCUMENTATION.md`](docs/07_DATABASE_DESIGN_AND_DOCUMENTATION.md) | Database Architects, Security Engineers | Audit of all 22 Firestore collections (`firebase-blueprint.json` + `firestore.rules`), DataStore/Keystore local storage, ER diagrams, and proposed 28-table PostgreSQL migration schema. |
+| **01** | [`docs/01_UI_UX_DESIGN_DOCUMENTATION.md`](docs/01_UI_UX_DESIGN_DOCUMENTATION.md) | Product, UI/UX Designers, Frontend Engineers | Baseline audit of all 22 Compose routes, design system, navigation, accessibility, and pre-redesign UI defects. |
+| **02** | [`docs/02_BACKEND_ARCHITECTURE_DOCUMENTATION.md`](docs/02_BACKEND_ARCHITECTURE_DOCUMENTATION.md) | Backend & Cloud Architects, Security Engineers | Serverless Firebase/OkHttp topology (`OP-001`..`OP-015`), Credential Manager + App Check, YouTube scraping pipeline, APK verification updater. |
+| **03** | [`docs/03_USER_SCALABILITY_DOCUMENTATION.md`](docs/03_USER_SCALABILITY_DOCUMENTATION.md) | Principal Architects, SRE, FinOps | Baseline concurrency, bottleneck analysis, and 7-tier growth projections (`100` to `1,000,000` users). |
+| **04** | [`docs/04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md`](docs/04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md) | Engineering Leads, QA, Maintainers | Full register of 28 baseline bugs and tech debt (`ISS-001`..`ISS-028`) with file/line evidence and P0–P3 remediation roadmap. |
+| **05** | [`docs/05_COMPLETE_FEATURE_DOCUMENTATION.md`](docs/05_COMPLETE_FEATURE_DOCUMENTATION.md) | Product Managers, QA, Full-Stack Engineers | Exhaustive inventory of 40 feature domains (`FEAT-001`..`FEAT-040`) and MVP-to-V2.0 roadmap. |
+| **06** | [`docs/06_AI_FEATURES_AND_AI_ARCHITECTURE.md`](docs/06_AI_FEATURES_AND_AI_ARCHITECTURE.md) | AI/ML Engineers, Prompt Architects | Deep dive into `GeminiCoachService` (`gemini-3.8-flash`), JSON schemas, `RecommendationEngine`, guardrails, and payload limits. |
+| **07** | [`docs/07_DATABASE_DESIGN_AND_DOCUMENTATION.md`](docs/07_DATABASE_DESIGN_AND_DOCUMENTATION.md) | Database Architects, Security Engineers | Audit of all 22 Firestore collections (`firebase-blueprint.json` + `firestore.rules`), DataStore/Keystore local storage, and relational schema proposals. |
 
 ---
 
-## Recommended Reading Order
+## UI/UX Redesign, Tutorial System & Verification Directory (`08`–`17`)
 
-1. **Product & Executive Overview:** Start with [`05_COMPLETE_FEATURE_DOCUMENTATION.md`](docs/05_COMPLETE_FEATURE_DOCUMENTATION.md) -> [`04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md`](docs/04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md).
-2. **Design & Experience Leads:** Read [`01_UI_UX_DESIGN_DOCUMENTATION.md`](docs/01_UI_UX_DESIGN_DOCUMENTATION.md) -> [`05_COMPLETE_FEATURE_DOCUMENTATION.md`](docs/05_COMPLETE_FEATURE_DOCUMENTATION.md).
-3. **Backend, AI & Database Architects:** Read [`02_BACKEND_ARCHITECTURE_DOCUMENTATION.md`](docs/02_BACKEND_ARCHITECTURE_DOCUMENTATION.md) -> [`07_DATABASE_DESIGN_AND_DOCUMENTATION.md`](docs/07_DATABASE_DESIGN_AND_DOCUMENTATION.md) -> [`06_AI_FEATURES_AND_AI_ARCHITECTURE.md`](docs/06_AI_FEATURES_AND_AI_ARCHITECTURE.md) -> [`03_USER_SCALABILITY_DOCUMENTATION.md`](docs/03_USER_SCALABILITY_DOCUMENTATION.md).
-
----
-
-## Audit Completion Status
-
-| Deliverable | Status | Cross-Reference IDs Verified |
-| :--- | :--- | :--- |
-| `docs/01_UI_UX_DESIGN_DOCUMENTATION.md` | **Complete** | `ISS-001`, `ISS-003`, `ISS-014`–`ISS-019`, `ISS-021`, `ISS-024` |
-| `docs/02_BACKEND_ARCHITECTURE_DOCUMENTATION.md` | **Complete** | `OP-001`–`OP-015`, `API-001`–`API-014`, `ISS-002`–`ISS-012` |
-| `docs/03_USER_SCALABILITY_DOCUMENTATION.md` | **Complete** | 7-tier matrix (`100`..`1M`), `ISS-004`–`ISS-010` |
-| `docs/04_ISSUES_BUGS_AND_TECHNICAL_DEBT.md` | **Complete** | `ISS-001`–`ISS-028` (28 issues, 17-field template) |
-| `docs/05_COMPLETE_FEATURE_DOCUMENTATION.md` | **Complete** | `FEAT-001`–`FEAT-040` |
-| `docs/06_AI_FEATURES_AND_AI_ARCHITECTURE.md` | **Complete** | Capabilities `A`–`L`, `ISS-003`, `ISS-005`–`ISS-007`, `ISS-021` |
-| `docs/07_DATABASE_DESIGN_AND_DOCUMENTATION.md` | **Complete** | 22 Firestore collections, 28 PG tables, `ISS-002`, `ISS-008`–`ISS-012`, `ISS-027` |
-| `README_DOCUMENTATION_INDEX.md` | **Complete** | All 7 documents indexed |
+| # | Document | Scope Summary |
+| :-: | :--- | :--- |
+| **08** | [`docs/UI_UX_CURRENT_STATE_AUDIT.md`](docs/UI_UX_CURRENT_STATE_AUDIT.md) | Pre-redesign UX friction, visual hierarchy, and component-level audit. |
+| **09** | [`docs/COMPETITIVE_UX_ANALYSIS.md`](docs/COMPETITIVE_UX_ANALYSIS.md) | Benchmarking against leading communication, language, and coaching experiences. |
+| **10** | [`docs/SPEAKCRAFT_NEW_INFORMATION_ARCHITECTURE.md`](docs/SPEAKCRAFT_NEW_INFORMATION_ARCHITECTURE.md) | Streamlined 4-hub navigation hierarchy, 24-route structure, and discoverability architecture. |
+| **11** | [`docs/SPEAKCRAFT_DESIGN_SYSTEM.md`](docs/SPEAKCRAFT_DESIGN_SYSTEM.md) | `SpeakCraftColors` tokens, `SpeakCraftSpacing` (`4dp`/`8dp` grid), typography hierarchy, and theme specification. |
+| **12** | [`docs/SCREEN_BY_SCREEN_REDESIGN_SPECIFICATION.md`](docs/SCREEN_BY_SCREEN_REDESIGN_SPECIFICATION.md) | Screen-by-screen blueprint covering Onboarding, Dashboard, Speaking Studio, Labs, Vocabulary, Mentor, Analytics, Settings, and Updates. |
+| **13** | [`docs/INTERACTION_AND_MOTION_GUIDELINES.md`](docs/INTERACTION_AND_MOTION_GUIDELINES.md) | Transitions, animated card flips, waveform motion, and `rememberReducedMotionEnabled()` compliance. |
+| **14** | [`docs/ACCESSIBILITY_AUDIT.md`](docs/ACCESSIBILITY_AUDIT.md) | TalkBack `heading()` semantics, `48dp` touch targets, color contrast tokens, and content descriptions. |
+| **15** | [`docs/UI_UX_IMPLEMENTATION_ROADMAP.md`](docs/UI_UX_IMPLEMENTATION_ROADMAP.md) | 5-stage implementation plan mapping P0/P1 fixes and UI upgrades across codebase layers. |
+| **16** | [`docs/UI_UX_TESTING_AND_VALIDATION_REPORT.md`](docs/UI_UX_TESTING_AND_VALIDATION_REPORT.md) | Verified `30 / 30` unit & Robolectric Compose CUJ test results, `compile_applet` build check, and manual device verification checklist. |
+| **17** | [`docs/UI_UX_CHANGELOG.md`](docs/UI_UX_CHANGELOG.md) | Summary of design system tokenization, defect resolutions (`ISS-001`..`ISS-028`), and the 24-feature tutorial system. |
 
 ---
 
-## Key Verified Findings Snapshot
+## Verified Key Improvements & Outstanding Items
 
-* **Top Confirmed Defects Requiring P0 Action:**
-  * `ISS-001`: Stage 1 "Mute Pass" in `SpeakingLabScreen` calls `AudioRecorderManager` (`MediaPlayer` audio-only) with no video player surface for CameraX/uploaded `.mp4` clips.
-  * `ISS-002`: `SpeakCraftRepository.saveDailyActivity` increments `streakDays` on any non-matching date without checking consecutive days, and hardcodes `totalPracticeMinutes += 3L`.
-  * `ISS-003`: `SpeakingAndLabsViewModel.submitForAiAnalysis` emits `UiState.Success` even if Firestore persistence fails.
-  * `ISS-018`: `Daily`/`Weekly`/`Monthly` period filter chips on Analytics & Dashboard change header strings without filtering `sessions`.
-  * `ISS-019`: Destructive session/history deletion runs without confirmation dialogs.
-
----
-
-## Outstanding Information Gaps & Open Questions
-
-1. **Target Platform Strategy (`ISS-024`):** Confirm whether SpeakCraft will remain Android-first (expanding to tablets/ChromeOS) or initiate companion **Electron (Windows Desktop)** and **React (Web)** repositories backed by a unified API Gateway.
-2. **Media Storage Policy (`ISS-004`):** Decide between Firebase Cloud Storage vs. GCS/S3 signed URLs for cross-device audio/video sync and define raw `.mp4` retention limits.
-3. **Production App Check & Play Compliance:** Confirm `recaptcha_site_key` provisioning for release Android builds (`AppCheckConfig.kt:46`) and whether an in-app `"Delete Account & Cloud Data"` flow is required alongside `"Delete Speaking Session History"`.
-4. **Load & AI Cost Budgets:** Establish per-user daily AI quotas (`analyzeSpeechRecording`, `sendConversationTurn`, `youtubeInspect`) and execute formal load benchmarks prior to scaling beyond Pilot/Early Beta (`>1,000` users).
+* **Resolved Defects in Current Codebase:**
+  * `ISS-001`: `VideoReviewPlayerCard` wired into `SpeakingLabScreen` with real `VideoView` playback and Stage 1 muted (`volume = 0f`) vs. Stage 2/3 review controls.
+  * `ISS-002`, `ISS-020`, `ISS-028`: Consecutive-day calendar streak validation, `SystemClock.elapsedRealtime()` + `MediaMetadataRetriever` audio duration, and dynamic `todayDateKey()` calculation.
+  * `ISS-003` & `ISS-005`: Honest Firestore failure surfacing via `CloudSyncWarningBanner` + `retryCloudSync()`, plus `OpenableColumns.SIZE` pre-check against the `19 MB` multimodal cap.
+  * `ISS-014` & `ISS-015`: Tokenized `MaterialTheme.speakCraftColors`, unified `Theme.SpeakCraft` manifest/resource styling, and differentiated font weights.
+  * `ISS-017`, `ISS-018`, `ISS-018B`, `ISS-019`, `ISS-021`: Backup snapshot restore UI, true timestamp-window filtering (`Daily`/`Weekly`/`Monthly`), specialized `articulation_lab` vs. `pronunciation` lab defaults, confirmation dialogs on destructive actions, and persisted multi-turn AI Mentor chat bubbles.
+  * **Per-Feature Interactive Tutorials:** `FeatureTutorialRegistry` (24 features), inline collapsible `FeatureGuideStrip`, and searchable `FeatureTutorialDialog` accessible from both the TopAppBar (`?`) and the Dashboard.
+* **Remaining Hardware / Platform Considerations:**
+  * **Live Emulator Visual & Hardware Checks:** Execute camera/microphone capture, Google Credential Manager sign-in, and TalkBack sweeps on a physical Android device or streaming emulator.
+  * **Long-Term Platform Decisions:** Companion Desktop/Web parity (`ISS-024`), cloud media storage retention policy (`ISS-004`), and release `recaptcha_site_key` provisioning (`AppCheckConfig.kt`).

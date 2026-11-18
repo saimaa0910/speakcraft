@@ -48,7 +48,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -57,6 +56,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.ui.theme.speakCraftColors
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -129,12 +129,13 @@ fun InAppCameraVideoDialog(
         },
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        val ext = MaterialTheme.speakCraftColors
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .height(560.dp),
             shape = RoundedCornerShape(24.dp),
-            color = Color.Black
+            color = ext.cameraBackdrop
         ) {
             Box(Modifier.fillMaxSize()) {
                 AndroidView(
@@ -151,12 +152,12 @@ fun InAppCameraVideoDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.65f),
+                        color = ext.cameraScrim,
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
                             text = if (isRecording) "REC %02d:%02d".format(elapsedSec / 60, elapsedSec % 60) else "CameraX Video Audit",
-                            color = if (isRecording) Color(0xFFF87171) else Color.White,
+                            color = if (isRecording) ext.recordingPulse else ext.onHeroTitle,
                             style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         )
@@ -166,7 +167,7 @@ fun InAppCameraVideoDialog(
                             onClick = { if (!isRecording) useFrontCamera = !useFrontCamera },
                             enabled = !isRecording
                         ) {
-                            Icon(Icons.Default.Cameraswitch, contentDescription = "Switch camera", tint = Color.White)
+                            Icon(Icons.Default.Cameraswitch, contentDescription = "Switch camera", tint = ext.onHeroTitle)
                         }
                         IconButton(
                             onClick = {
@@ -174,7 +175,7 @@ fun InAppCameraVideoDialog(
                                 onDismiss()
                             }
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Close camera", tint = Color.White)
+                            Icon(Icons.Default.Close, contentDescription = "Close camera", tint = ext.onHeroTitle)
                         }
                     }
                 }
@@ -183,13 +184,13 @@ fun InAppCameraVideoDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
-                        .background(Color.Black.copy(alpha = 0.6f))
+                        .background(ext.cameraScrim)
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "Frame chest-to-waist (Power Zone) for @askvinh 3-Stage Video Audit",
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = ext.onHeroSubtitle,
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(Modifier.height(10.dp))

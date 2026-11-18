@@ -15,6 +15,7 @@ import com.example.data.model.ProgramEnrollment
 import com.example.data.model.RealWorldTaskRecord
 import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
+import com.example.data.model.StreakAndAnalyticsHelper
 import com.example.data.model.TranscriptSegment
 import com.example.data.model.UserLearningProgress
 import com.example.data.model.UserProfile
@@ -28,6 +29,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -295,6 +297,22 @@ class SpeakCraftRepository(
         )
     }
 
+    suspend fun fetchEnabledReleasesOnce(): Result<List<ApplicationRelease>> = runCatching {
+        if (auth.currentUser == null) return@runCatching emptyList()
+        val snap = runCatching {
+            db.collection("applicationReleases")
+                .whereEqualTo("enabled", true)
+                .get(Source.SERVER)
+                .await()
+        }.getOrElse {
+            db.collection("applicationReleases")
+                .whereEqualTo("enabled", true)
+                .get()
+                .await()
+        }
+        snap.toObjects(ApplicationRelease::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+    }
+
     fun observeAdminReleases(): Flow<List<ApplicationRelease>> = flow {
         if (auth.currentUser == null) {
             emit(emptyList())
@@ -531,11 +549,14 @@ class SpeakCraftRepository(
         val safeDate = sanitizeId(dateKey, 20)
         val docRef = db.collection("users").document(uid).collection("dailyActivities").document(safeDate)
         val snap = docRef.get().await()
+        val prevDayMinutes = if (snap.exists()) (snap.getLong("minutesSpent") ?: 0L) else 0L
+        val clampedMinutes = minutesSpent.coerceIn(0L, 600L)
+        val minutesDelta = StreakAndAnalyticsHelper.computeMinutesDelta(prevDayMinutes, clampedMinutes)
         val cleanSteps = completedSteps.distinct().take(20)
         val payload = mutableMapOf<String, Any>(
             "completedStepIds" to cleanSteps,
             "confidenceRating" to confidenceRating.coerceIn(1L, 10L),
-            "minutesSpent" to minutesSpent.coerceIn(0L, 600L),
+            "minutesSpent" to clampedMinutes,
             "updatedAt" to FieldValue.serverTimestamp()
         )
         if (reflection.isNotBlank()) {
@@ -555,17 +576,23 @@ class SpeakCraftRepository(
         if (userSnap.exists()) {
             val prevLast = userSnap.getString("lastPracticeDate").orEmpty()
             val prevStreak = userSnap.getLong("streakDays") ?: 0L
-            val newStreak = if (prevLast != safeDate && cleanSteps.isNotEmpty()) prevStreak + 1L else prevStreak.coerceAtLeast(1L)
-            userRef.update(
-                mapOf(
-                    "lastPracticeDate" to safeDate,
-                    "streakDays" to newStreak,
-                    "confidenceSelfRating" to (confidenceRating * 10L).coerceIn(10L, 100L),
-                    "completedExercisesCount" to FieldValue.increment(1L),
-                    "totalPracticeMinutes" to FieldValue.increment(3L),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            val newStreak = StreakAndAnalyticsHelper.computeUpdatedStreak(
+                prevLastDateKey = prevLast,
+                todayDateKey = safeDate,
+                prevStreak = prevStreak,
+                hasCompletedSteps = cleanSteps.isNotEmpty()
+            )
+            val updates = mutableMapOf<String, Any>(
+                "lastPracticeDate" to safeDate,
+                "streakDays" to newStreak,
+                "confidenceSelfRating" to (confidenceRating * 10L).coerceIn(10L, 100L),
+                "completedExercisesCount" to FieldValue.increment(1L),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            if (minutesDelta > 0L) {
+                updates["totalPracticeMinutes"] = FieldValue.increment(minutesDelta)
+            }
+            userRef.update(updates).await()
         }
     }
 

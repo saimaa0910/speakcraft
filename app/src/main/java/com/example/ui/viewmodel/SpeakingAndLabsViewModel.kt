@@ -2,6 +2,7 @@ package com.example.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.GeminiCoachService
@@ -19,6 +20,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+private const val MAX_MEDIA_BYTES = 19 * 1024 * 1024L
 
 class SpeakingAndLabsViewModel(
     private val repository: SpeakCraftRepository,
@@ -41,6 +44,16 @@ class SpeakingAndLabsViewModel(
     private val _playbackStatusNote = MutableStateFlow<String?>(null)
     val playbackStatusNote: StateFlow<String?> = _playbackStatusNote.asStateFlow()
 
+    private val _activeMediaPath = MutableStateFlow<String?>(null)
+    val activeMediaPath: StateFlow<String?> = _activeMediaPath.asStateFlow()
+
+    private val _activeMediaIsVideo = MutableStateFlow(false)
+    val activeMediaIsVideo: StateFlow<Boolean> = _activeMediaIsVideo.asStateFlow()
+
+    private val _cloudSyncError = MutableStateFlow<String?>(null)
+    val cloudSyncError: StateFlow<String?> = _cloudSyncError.asStateFlow()
+
+    private var pendingUnsavedSession: SpeakingSession? = null
     private var uploadedMediaBytes: ByteArray? = null
     private var uploadedMimeType: String = "audio/mp4"
     private var uploadedMediaPath: String = ""
@@ -52,6 +65,10 @@ class SpeakingAndLabsViewModel(
         uploadedMediaPath = ""
         uploadedDurationSeconds = 0
         _uploadedMediaLabel.value = null
+        _activeMediaPath.value = null
+        _activeMediaIsVideo.value = false
+        _cloudSyncError.value = null
+        pendingUnsavedSession = null
         _analysisState.value = null
         _playbackStatusNote.value = null
         val started = audioManager.startRecording(viewModelScope)
@@ -93,41 +110,89 @@ class SpeakingAndLabsViewModel(
         countdownJob?.cancel()
         countdownJob = null
         _challengeRemainingSeconds.value = null
-        audioManager.stopRecording()
+        val recordedFile = audioManager.stopRecording()
+        if (recordedFile != null) {
+            _activeMediaPath.value = recordedFile.absolutePath
+            _activeMediaIsVideo.value = false
+        }
     }
 
     fun attachUploadedMedia(context: Context, uri: Uri) {
         viewModelScope.launch {
             _analysisState.value = null
             _playbackStatusNote.value = null
-            val result = withContext(Dispatchers.IO) {
+            _cloudSyncError.value = null
+            pendingUnsavedSession = null
+
+            val checkOutcome = withContext(Dispatchers.IO) {
                 val resolver = context.contentResolver
                 val mime = resolver.getType(uri) ?: "video/mp4"
-                val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                var declaredBytes = -1L
+                runCatching {
+                    resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                            if (idx >= 0 && !cursor.isNull(idx)) {
+                                declaredBytes = cursor.getLong(idx)
+                            }
+                        }
+                    }
+                }
+                if (declaredBytes <= 0L) {
+                    runCatching {
+                        resolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
+                            if (afd.length > 0L) declaredBytes = afd.length
+                        }
+                    }
+                }
+                if (declaredBytes > MAX_MEDIA_BYTES) {
+                    return@withContext Result.failure<Triple<String, ByteArray, Pair<Int, String>>>(
+                        IllegalArgumentException("Selected file exceeds 19MB limit (${declaredBytes / (1024 * 1024)}MB). Please pick a shorter clip.")
+                    )
+                }
+
+                val bytes = resolver.openInputStream(uri)?.use { input ->
+                    val buffer = ByteArray(8192)
+                    val outStream = java.io.ByteArrayOutputStream()
+                    var total = 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        total += read
+                        if (total > MAX_MEDIA_BYTES) {
+                            return@withContext Result.failure<Triple<String, ByteArray, Pair<Int, String>>>(
+                                IllegalArgumentException("Selected file exceeds 19MB limit. Please pick a shorter clip.")
+                            )
+                        }
+                        outStream.write(buffer, 0, read)
+                    }
+                    outStream.toByteArray()
+                }
+                if (bytes == null || bytes.isEmpty()) {
+                    return@withContext Result.failure<Triple<String, ByteArray, Pair<Int, String>>>(
+                        IllegalStateException("Unable to read selected media file.")
+                    )
+                }
                 val dur = audioManager.inspectMediaDurationSeconds(uri)
-                val ext = if (mime.contains("video")) "mp4" else "m4a"
-                val cachedCopy = if (bytes != null && bytes.isNotEmpty() && bytes.size <= 19 * 1024 * 1024) {
-                    val out = File(audioManager.recordingsDir(), "speakcraft_clip_${System.currentTimeMillis()}.$ext")
-                    out.writeBytes(bytes)
-                    out.absolutePath
-                } else ""
-                Triple(mime, bytes, Pair(dur, cachedCopy))
+                val isVideo = mime.contains("video", ignoreCase = true)
+                val ext = if (isVideo) "mp4" else "m4a"
+                val out = File(audioManager.recordingsDir(), "speakcraft_clip_${System.currentTimeMillis()}.$ext")
+                out.writeBytes(bytes)
+                Result.success(Triple(mime, bytes, Pair(dur, out.absolutePath)))
             }
-            val bytes = result.second
-            if (bytes == null || bytes.isEmpty()) {
-                _analysisState.value = UiState.Error("Unable to read selected media file.")
-                return@launch
+
+            checkOutcome.onFailure { err ->
+                _analysisState.value = UiState.Error(err.message ?: "Unable to read selected media file.")
+            }.onSuccess { (mime, bytes, meta) ->
+                uploadedMediaBytes = bytes
+                uploadedMimeType = mime
+                uploadedDurationSeconds = meta.first
+                uploadedMediaPath = meta.second
+                _activeMediaPath.value = meta.second
+                _activeMediaIsVideo.value = mime.contains("video", ignoreCase = true) || meta.second.endsWith(".mp4", ignoreCase = true)
+                val durNote = if (uploadedDurationSeconds > 0) " • ${uploadedDurationSeconds}s" else ""
+                _uploadedMediaLabel.value = "Attached clip (${bytes.size / 1024} KB$durNote • $mime)"
             }
-            if (bytes.size > 19 * 1024 * 1024) {
-                _analysisState.value = UiState.Error("Selected file exceeds 19MB limit (${bytes.size / (1024 * 1024)}MB). Please pick a shorter clip.")
-                return@launch
-            }
-            uploadedMediaBytes = bytes
-            uploadedMimeType = result.first
-            uploadedDurationSeconds = result.third.first
-            uploadedMediaPath = result.third.second
-            val durNote = if (uploadedDurationSeconds > 0) " • ${uploadedDurationSeconds}s" else ""
-            _uploadedMediaLabel.value = "Attached clip (${bytes.size / 1024} KB$durNote • ${result.first})"
         }
     }
 
@@ -135,21 +200,23 @@ class SpeakingAndLabsViewModel(
         viewModelScope.launch {
             _analysisState.value = null
             _playbackStatusNote.value = null
-            val bytes = withContext(Dispatchers.IO) {
-                if (file.exists() && file.length() > 0L) file.readBytes() else null
-            }
-            if (bytes == null || bytes.isEmpty()) {
+            _cloudSyncError.value = null
+            pendingUnsavedSession = null
+            if (!file.exists() || file.length() <= 0L) {
                 _analysisState.value = UiState.Error("Recorded video file was empty.")
                 return@launch
             }
-            if (bytes.size > 19 * 1024 * 1024) {
-                _analysisState.value = UiState.Error("Recorded video exceeds 19MB upload limit. Try a 1–2 minute clip.")
+            if (file.length() > MAX_MEDIA_BYTES) {
+                _analysisState.value = UiState.Error("Recorded video exceeds 19MB upload limit (${file.length() / (1024 * 1024)}MB). Try a 1–2 minute clip.")
                 return@launch
             }
+            val bytes = withContext(Dispatchers.IO) { file.readBytes() }
             uploadedMediaBytes = bytes
             uploadedMimeType = "video/mp4"
             uploadedMediaPath = file.absolutePath
             uploadedDurationSeconds = durationSeconds.coerceAtLeast(1)
+            _activeMediaPath.value = file.absolutePath
+            _activeMediaIsVideo.value = true
             _uploadedMediaLabel.value = "CameraX Video (${bytes.size / 1024} KB • ${uploadedDurationSeconds}s)"
         }
     }
@@ -198,6 +265,9 @@ class SpeakingAndLabsViewModel(
 
             _activeAnalysisModule.value = moduleType
             _analysisState.value = UiState.Loading
+            _cloudSyncError.value = null
+            pendingUnsavedSession = null
+
             val analysisResult = geminiCoach.analyzeSpeechRecording(
                 mediaBytes = bytes,
                 mimeType = mime,
@@ -212,12 +282,31 @@ class SpeakingAndLabsViewModel(
             analysisResult.onSuccess { session ->
                 val saveRes = repository.saveSpeakingSession(session)
                 if (saveRes.isSuccess) {
+                    _cloudSyncError.value = null
+                    pendingUnsavedSession = null
                     _analysisState.value = UiState.Success(session.copy(id = saveRes.getOrDefault("")))
                 } else {
+                    pendingUnsavedSession = session
+                    val errDetail = saveRes.exceptionOrNull()?.localizedMessage ?: "Firestore unreachable"
+                    _cloudSyncError.value = "AI feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
                     _analysisState.value = UiState.Success(session)
                 }
             }.onFailure { err ->
                 _analysisState.value = UiState.Error(err.localizedMessage ?: "AI speech analysis failed.")
+            }
+        }
+    }
+
+    fun retryCloudSync() {
+        val pending = pendingUnsavedSession ?: return
+        viewModelScope.launch {
+            val res = repository.saveSpeakingSession(pending)
+            res.onSuccess { savedId ->
+                pendingUnsavedSession = null
+                _cloudSyncError.value = null
+                _analysisState.value = UiState.Success(pending.copy(id = savedId))
+            }.onFailure { err ->
+                _cloudSyncError.value = "Retry failed (${err.localizedMessage ?: "network error"}). Check connection and try again."
             }
         }
     }
@@ -234,10 +323,14 @@ class SpeakingAndLabsViewModel(
         _analysisState.value = null
         _activeAnalysisModule.value = null
         _playbackStatusNote.value = null
+        _cloudSyncError.value = null
+        pendingUnsavedSession = null
         uploadedMediaBytes = null
         uploadedMediaPath = ""
         uploadedDurationSeconds = 0
         _uploadedMediaLabel.value = null
+        _activeMediaPath.value = audioManager.recordedFilePath.value
+        _activeMediaIsVideo.value = false
     }
 
     override fun onCleared() {

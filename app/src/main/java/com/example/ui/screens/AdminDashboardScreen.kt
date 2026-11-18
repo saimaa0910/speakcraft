@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -49,10 +50,12 @@ import com.example.data.model.CurriculumCatalog
 import com.example.data.model.LearningChallenge
 import com.example.data.model.Lesson
 import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.MetricTile
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.AcousticTeal
 import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.viewmodel.UpdateAndAdminViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -93,24 +96,31 @@ fun AdminDashboardScreen(
     val releases by vm.adminReleases.collectAsStateWithLifecycle()
     val updateEvents by vm.adminUpdateEvents.collectAsStateWithLifecycle()
 
-    Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        TabRow(selectedTabIndex = selectedTab, modifier = Modifier.widthIn(max = 880.dp)) {
-            listOf("YouTube Sync", "Moderation", "Releases", "Telemetry").forEachIndexed { idx, label ->
-                Tab(selected = selectedTab == idx, onClick = { selectedTab = idx }, text = { Text(label) })
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
+        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+
+        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), contentAlignment = Alignment.TopCenter) {
+                FeatureGuideStrip(featureKey = "admin_console", modifier = Modifier.widthIn(max = containerMaxWidth))
             }
-        }
+            TabRow(selectedTabIndex = selectedTab, modifier = Modifier.widthIn(max = containerMaxWidth)) {
+                listOf("YouTube Sync", "Moderation", "Releases", "Telemetry").forEachIndexed { idx, label ->
+                    Tab(selected = selectedTab == idx, onClick = { selectedTab = idx }, text = { Text(label) })
+                }
+            }
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            when (selectedTab) {
-                0 -> {
-                    var channelUrl by remember { mutableStateOf("https://www.youtube.com/@askvinh") }
-                    var autoPublish by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                when (selectedTab) {
+                    0 -> {
+                        var channelUrl by remember { mutableStateOf("https://www.youtube.com/@askvinh") }
+                        var autoPublish by remember { mutableStateOf(false) }
 
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                         item {
                             SectionHeader("YouTube Content Sync Console", "Ingest @askvinh feeds & queue techniques for moderation")
                         }
@@ -154,7 +164,7 @@ fun AdminDashboardScreen(
                     var chalPrompt by remember { mutableStateOf("") }
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+                        modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -255,10 +265,15 @@ fun AdminDashboardScreen(
                 }
 
                 2 -> {
-                    var versionName by remember { mutableStateOf("1.1.0") }
-                    var versionCode by remember { mutableStateOf("2") }
-                    var channel by remember { mutableStateOf("stable") }
-                    var releaseNotes by remember { mutableStateOf("") }
+                    var versionName by remember { mutableStateOf(com.example.BuildConfig.VERSION_NAME) }
+                    var versionCode by remember { mutableStateOf(com.example.BuildConfig.VERSION_CODE.toString()) }
+                    var channel by remember { mutableStateOf(com.example.BuildConfig.BUILD_CHANNEL) }
+                    var releaseNotes by remember {
+                        mutableStateOf("Premium native Jetpack Compose launch animation with deliberate 2.9s/2.1s pacing, adaptive light/dark studio lighting, and non-blocking auth initialization.")
+                    }
+                    var featuresCsv by remember {
+                        mutableStateOf("Native Acoustic Aperture Compose Launch Animation, Non-blocking initialization & auth flow, Beta channel update verification")
+                    }
                     var downloadUrl by remember { mutableStateOf("https://") }
                     var sha256 by remember { mutableStateOf("") }
                     var minSupported by remember { mutableStateOf("1.0.0") }
@@ -266,7 +281,7 @@ fun AdminDashboardScreen(
                     val todayIso = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+                        modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -292,6 +307,7 @@ fun AdminDashboardScreen(
                                     OutlinedTextField(value = downloadUrl, onValueChange = { downloadUrl = it }, label = { Text("HTTPS Installer URL (https://...)") }, modifier = Modifier.fillMaxWidth())
                                     OutlinedTextField(value = sha256, onValueChange = { sha256 = it }, label = { Text("SHA-256 Checksum (64 hex chars)") }, modifier = Modifier.fillMaxWidth())
                                     OutlinedTextField(value = minSupported, onValueChange = { minSupported = it }, label = { Text("Min Supported Version (X.Y.Z)") }, modifier = Modifier.fillMaxWidth())
+                                    OutlinedTextField(value = featuresCsv, onValueChange = { featuresCsv = it }, label = { Text("Feature Highlights (comma-separated)") }, modifier = Modifier.fillMaxWidth())
                                     OutlinedTextField(value = releaseNotes, onValueChange = { releaseNotes = it }, label = { Text("Release Notes") }, minLines = 2, modifier = Modifier.fillMaxWidth())
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Checkbox(checked = mandatory, onCheckedChange = { mandatory = it })
@@ -306,6 +322,7 @@ fun AdminDashboardScreen(
                                                     channel = channel,
                                                     releaseDate = todayIso,
                                                     releaseNotes = releaseNotes.ifBlank { "SpeakCraft update v$versionName" },
+                                                    features = featuresCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                                                     downloadUrl = downloadUrl.trim(),
                                                     installerFileName = "speakcraft_${versionName.trim()}.apk",
                                                     sha256Checksum = sha256.trim().lowercase(),
@@ -352,7 +369,7 @@ fun AdminDashboardScreen(
                     val failures = updateEvents.count { it.status == "FAILED" }
                     val verified = updateEvents.count { it.status == "VERIFIED" || it.status == "INSTALL_LAUNCHED" }
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = 840.dp),
+                        modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -380,5 +397,6 @@ fun AdminDashboardScreen(
                 }
             }
         }
+    }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.GeminiCoachService
@@ -17,6 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 
 data class ChatTurn(
     val isUser: Boolean,
@@ -32,8 +36,15 @@ data class YouTubeAuditUiState(
 class InteractiveCoachViewModel(
     private val repository: SpeakCraftRepository,
     private val geminiCoach: GeminiCoachService,
-    private val youtubeClient: YouTubeIntelligenceClient
+    private val youtubeClient: YouTubeIntelligenceClient,
+    private val appContext: Context? = null,
+    private val currentUserId: String = "default"
 ) : ViewModel() {
+
+    private val defaultMentorGreeting = ChatTurn(
+        isUser = false,
+        text = "Ask me anything about your speaking scores, recurring mistakes, or @askvinh techniques."
+    )
 
     private val _selectedScenario = MutableStateFlow("Job interviews")
     val selectedScenario: StateFlow<String> = _selectedScenario.asStateFlow()
@@ -47,13 +58,56 @@ class InteractiveCoachViewModel(
     private val _coachDebrief = MutableStateFlow<UiState<String>?>(null)
     val coachDebrief: StateFlow<UiState<String>?> = _coachDebrief.asStateFlow()
 
+    private val _mentorMessages = MutableStateFlow(loadPersistedMentorHistory())
+    val mentorMessages: StateFlow<List<ChatTurn>> = _mentorMessages.asStateFlow()
+
+    private val _isMentorResponding = MutableStateFlow(false)
+    val isMentorResponding: StateFlow<Boolean> = _isMentorResponding.asStateFlow()
+
+    private val _mentorError = MutableStateFlow<String?>(null)
+    val mentorError: StateFlow<String?> = _mentorError.asStateFlow()
+
     private val _mentorAnswer = MutableStateFlow<UiState<String>>(
-        UiState.Success("Ask me anything about your speaking scores, recurring mistakes, or @askvinh techniques.")
+        UiState.Success(defaultMentorGreeting.text)
     )
     val mentorAnswer: StateFlow<UiState<String>> = _mentorAnswer.asStateFlow()
 
     private val _ytAuditState = MutableStateFlow(YouTubeAuditUiState())
     val ytAuditState: StateFlow<YouTubeAuditUiState> = _ytAuditState.asStateFlow()
+
+    private fun mentorHistoryFile(): File? {
+        val ctx = appContext ?: return null
+        val safeUid = currentUserId.replace(Regex("[^a-zA-Z0-9_-]"), "_").ifBlank { "default" }
+        return File(ctx.filesDir, "mentor_history_$safeUid.json")
+    }
+
+    private fun loadPersistedMentorHistory(): List<ChatTurn> {
+        val file = mentorHistoryFile()
+        if (file == null || !file.exists()) return listOf(defaultMentorGreeting)
+        return runCatching {
+            val arr = JSONArray(file.readText())
+            val list = (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.optJSONObject(i) ?: return@mapNotNull null
+                val txt = obj.optString("text")
+                if (txt.isBlank()) null else ChatTurn(isUser = obj.optBoolean("isUser", false), text = txt)
+            }
+            list.ifEmpty { listOf(defaultMentorGreeting) }
+        }.getOrElse { listOf(defaultMentorGreeting) }
+    }
+
+    private fun persistMentorHistory(turns: List<ChatTurn>) {
+        val file = mentorHistoryFile() ?: return
+        runCatching {
+            val arr = JSONArray()
+            turns.takeLast(40).forEach { turn ->
+                arr.put(JSONObject().apply {
+                    put("isUser", turn.isUser)
+                    put("text", turn.text)
+                })
+            }
+            file.writeText(arr.toString())
+        }
+    }
 
     fun startScenario(scenario: String, userLevel: String) {
         _selectedScenario.value = scenario
@@ -119,30 +173,69 @@ class InteractiveCoachViewModel(
         feedbackList: List<SpeechFeedback> = emptyList(),
         question: String
     ) {
-        if (question.isBlank()) return
+        val trimmed = question.trim()
+        if (trimmed.isBlank() || _isMentorResponding.value) return
+        val priorHistory = _mentorMessages.value
+        val withUser = priorHistory + ChatTurn(isUser = true, text = trimmed)
+        _mentorMessages.value = withUser
+        persistMentorHistory(withUser)
+
+        val recentContextSnippet = priorHistory.takeLast(4).joinToString("\n") {
+            (if (it.isUser) "User: " else "Mentor: ") + it.text.take(300)
+        }
+        val contextualQuestion = if (priorHistory.size > 1) {
+            "Recent chat context:\n$recentContextSnippet\n\nFollow-up question: $trimmed"
+        } else trimmed
+
         viewModelScope.launch {
+            _isMentorResponding.value = true
+            _mentorError.value = null
             _mentorAnswer.value = UiState.Loading
             val sb = StringBuilder()
+            val placeholder = withUser + ChatTurn(isUser = false, text = "")
             try {
                 withTimeout(60_000L) {
-                    geminiCoach.askMentorStream(profile, sessions, feedbackList, question).collect { chunk ->
+                    geminiCoach.askMentorStream(profile, sessions, feedbackList, contextualQuestion).collect { chunk ->
                         sb.append(chunk)
                         if (sb.isNotBlank()) {
-                            _mentorAnswer.value = UiState.Success(sb.toString())
+                            val partial = sb.toString()
+                            _mentorAnswer.value = UiState.Success(partial)
+                            _mentorMessages.value = withUser + ChatTurn(isUser = false, text = partial)
                         }
                     }
                 }
                 if (sb.isBlank()) {
+                    _mentorError.value = "Mentor returned an empty response."
                     _mentorAnswer.value = UiState.Error("Mentor returned an empty response.")
+                    _mentorMessages.value = withUser
+                } else {
+                    val finalized = withUser + ChatTurn(isUser = false, text = sb.toString())
+                    _mentorMessages.value = finalized
+                    persistMentorHistory(finalized)
                 }
             } catch (e: TimeoutCancellationException) {
+                _mentorError.value = "Mentor timed out after 60 seconds. Please try again."
                 _mentorAnswer.value = UiState.Error("Mentor timed out after 60 seconds. Please try again.")
+                _mentorMessages.value = withUser
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _mentorAnswer.value = UiState.Error(e.localizedMessage ?: "Mentor failed to respond.")
+                val msg = e.localizedMessage ?: "Mentor failed to respond."
+                _mentorError.value = msg
+                _mentorAnswer.value = UiState.Error(msg)
+                _mentorMessages.value = withUser
+            } finally {
+                _isMentorResponding.value = false
             }
         }
+    }
+
+    fun clearMentorThread() {
+        val reset = listOf(defaultMentorGreeting)
+        _mentorMessages.value = reset
+        _mentorError.value = null
+        _mentorAnswer.value = UiState.Success(defaultMentorGreeting.text)
+        persistMentorHistory(reset)
     }
 
     fun auditYouTubeUrl(url: String, youtubeApiKey: String) {

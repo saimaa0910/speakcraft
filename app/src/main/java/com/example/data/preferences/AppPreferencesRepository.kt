@@ -4,10 +4,12 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,7 +30,11 @@ data class AppPreferences(
     val updateChannel: String = "stable",
     val lastUpdateCheckMs: Long = 0L,
     val dismissedReleaseVersion: String = "",
-    val lastVerifiedVersionCode: Long = 0L
+    val lastVerifiedVersionCode: Long = 0L,
+    val completedTutorialKeys: Set<String> = emptySet(),
+    val firstUseTutorialsEnabled: Boolean = true,
+    val hasCompletedInitialLaunch: Boolean = false,
+    val githubReleaseRepo: String = ""
 )
 
 private object KeystoreCipherHelper {
@@ -93,6 +99,10 @@ class AppPreferencesRepository(private val context: Context) {
     private val lastCheckKey = longPreferencesKey("last_update_check_ms")
     private val dismissedReleaseKey = stringPreferencesKey("dismissed_release_version")
     private val verifiedVersionCodeKey = longPreferencesKey("last_verified_version_code")
+    private val completedTutorialsKey = stringSetPreferencesKey("completed_tutorial_keys")
+    private val firstUseTutorialsEnabledKey = booleanPreferencesKey("first_use_tutorials_enabled")
+    private val initialLaunchCompletedKey = booleanPreferencesKey("initial_launch_completed")
+    private val githubReleaseRepoKey = stringPreferencesKey("github_release_repo")
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
         val theme = enumValues<ThemePreference>().firstOrNull { it.name == prefs[themeKey] }
@@ -100,6 +110,8 @@ class AppPreferencesRepository(private val context: Context) {
         val rate = prefs[ttsRateKey] ?: 1.0f
         val apiKey = KeystoreCipherHelper.decrypt(prefs[ytKey].orEmpty())
         val channel = prefs[updateChannelKey]?.takeIf { it in listOf("stable", "beta") } ?: "stable"
+        val defaultRepo = com.example.BuildConfig.GITHUB_RELEASE_REPO
+        val storedRepo = prefs[githubReleaseRepoKey].orEmpty().ifBlank { defaultRepo }
         AppPreferences(
             themeMode = theme,
             ttsRate = rate,
@@ -107,7 +119,11 @@ class AppPreferencesRepository(private val context: Context) {
             updateChannel = channel,
             lastUpdateCheckMs = prefs[lastCheckKey] ?: 0L,
             dismissedReleaseVersion = prefs[dismissedReleaseKey].orEmpty(),
-            lastVerifiedVersionCode = prefs[verifiedVersionCodeKey] ?: 0L
+            lastVerifiedVersionCode = prefs[verifiedVersionCodeKey] ?: 0L,
+            completedTutorialKeys = prefs[completedTutorialsKey] ?: emptySet(),
+            firstUseTutorialsEnabled = prefs[firstUseTutorialsEnabledKey] ?: true,
+            hasCompletedInitialLaunch = prefs[initialLaunchCompletedKey] ?: false,
+            githubReleaseRepo = storedRepo
         )
     }
 
@@ -140,5 +156,43 @@ class AppPreferencesRepository(private val context: Context) {
 
     suspend fun recordVerifiedVersionCode(versionCode: Long) {
         context.dataStore.edit { it[verifiedVersionCodeKey] = versionCode }
+    }
+
+    suspend fun markTutorialCompleted(key: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[completedTutorialsKey] ?: emptySet()
+            prefs[completedTutorialsKey] = current + key
+        }
+    }
+
+    suspend fun markTutorialsCompleted(keys: Set<String>) {
+        if (keys.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[completedTutorialsKey] ?: emptySet()
+            prefs[completedTutorialsKey] = current + keys
+        }
+    }
+
+    suspend fun setFirstUseTutorialsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[firstUseTutorialsEnabledKey] = enabled }
+    }
+
+    suspend fun resetAllTutorials() {
+        context.dataStore.edit { prefs ->
+            prefs[completedTutorialsKey] = emptySet()
+            prefs[firstUseTutorialsEnabledKey] = true
+        }
+    }
+
+    suspend fun markInitialLaunchCompleted() {
+        context.dataStore.edit { prefs ->
+            prefs[initialLaunchCompletedKey] = true
+        }
+    }
+
+    suspend fun setGithubReleaseRepo(repoSlug: String) {
+        context.dataStore.edit { prefs ->
+            prefs[githubReleaseRepoKey] = com.example.data.update.GitHubReleaseClient.normalizeRepoSlug(repoSlug)
+        }
     }
 }

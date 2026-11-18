@@ -7,8 +7,80 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+
+@Immutable
+data class SpeakCraftExtendedColors(
+    val success: Color,
+    val onSuccess: Color,
+    val successContainer: Color,
+    val warning: Color,
+    val onWarning: Color,
+    val warningContainer: Color,
+    val info: Color,
+    val infoContainer: Color,
+    val heroOverlayStart: Color,
+    val heroOverlayEnd: Color,
+    val onHeroTitle: Color,
+    val onHeroSubtitle: Color,
+    val onHeroBadge: Color,
+    val cameraBackdrop: Color,
+    val cameraScrim: Color,
+    val recordingPulse: Color,
+    val sparklinePointCenter: Color
+)
+
+private val LightExtendedColors = SpeakCraftExtendedColors(
+    success = EmeraldSuccess,
+    onSuccess = CrispPaper,
+    successContainer = EmeraldContainerLight,
+    warning = AmberSpotlight,
+    onWarning = CrispPaper,
+    warningContainer = AmberContainerLight,
+    info = AcousticTealAccessible,
+    infoContainer = TealContainerLight,
+    heroOverlayStart = HeroOverlayStart,
+    heroOverlayEnd = HeroOverlayEnd,
+    onHeroTitle = HeroTitleWhite,
+    onHeroSubtitle = HeroSubtitleSlate,
+    onHeroBadge = HeroBadgeIvory,
+    cameraBackdrop = CameraBackdrop,
+    cameraScrim = CameraScrim,
+    recordingPulse = CrimsonSoft,
+    sparklinePointCenter = CrispPaper
+)
+
+private val DarkExtendedColors = SpeakCraftExtendedColors(
+    success = EmeraldBright,
+    onSuccess = MidnightNavy,
+    successContainer = EmeraldContainerDark,
+    warning = AmberGoldBright,
+    onWarning = MidnightNavy,
+    warningContainer = AmberContainerDark,
+    info = AcousticTealBright,
+    infoContainer = TealContainerDark,
+    heroOverlayStart = HeroOverlayStart,
+    heroOverlayEnd = HeroOverlayEnd,
+    onHeroTitle = HeroTitleWhite,
+    onHeroSubtitle = HeroSubtitleSlate,
+    onHeroBadge = HeroBadgeIvory,
+    cameraBackdrop = CameraBackdrop,
+    cameraScrim = CameraScrim,
+    recordingPulse = CrimsonSoft,
+    sparklinePointCenter = DeepSlate
+)
+
+val LocalSpeakCraftColors = staticCompositionLocalOf { LightExtendedColors }
+
+val MaterialTheme.speakCraftColors: SpeakCraftExtendedColors
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSpeakCraftColors.current
 
 private val DarkColorScheme = darkColorScheme(
     primary = AmberGoldBright,
@@ -26,36 +98,36 @@ private val DarkColorScheme = darkColorScheme(
     surface = DeepSlate,
     onSurface = WarmIvory,
     surfaceVariant = SlateSurface,
-    onSurfaceVariant = Color(0xFFCBD5E1),
+    onSurfaceVariant = SlateMutedLight,
     outline = SubtleBorderDark,
-    error = Color(0xFFF87171),
+    error = CrimsonSoft,
     onError = MidnightNavy,
-    errorContainer = Color(0xFF7F1D1D),
+    errorContainer = CrimsonContainerDark,
     onErrorContainer = CrimsonContainerLight
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = AmberSpotlight,
-    onPrimary = Color.White,
+    onPrimary = CrispPaper,
     primaryContainer = AmberContainerLight,
-    onPrimaryContainer = Color(0xFF78350F),
-    secondary = AcousticTeal,
-    onSecondary = Color.White,
+    onPrimaryContainer = AmberDarkInk,
+    secondary = AcousticTealAccessible,
+    onSecondary = CrispPaper,
     secondaryContainer = TealContainerLight,
-    onSecondaryContainer = Color(0xFF115E59),
+    onSecondaryContainer = TealDarkInk,
     tertiary = IndigoAccent,
-    onTertiary = Color.White,
+    onTertiary = CrispPaper,
     background = WarmIvory,
     onBackground = MidnightNavy,
     surface = CrispPaper,
     onSurface = MidnightNavy,
     surfaceVariant = SoftStone,
-    onSurfaceVariant = Color(0xFF475569),
+    onSurfaceVariant = MutedSlateOnLight,
     outline = SubtleBorderLight,
     error = CrimsonError,
-    onError = Color.White,
+    onError = CrispPaper,
     errorContainer = CrimsonContainerLight,
-    onErrorContainer = Color(0xFF991B1B)
+    onErrorContainer = CrimsonDarkInk
 )
 
 val SpeakCraftShapes = Shapes(
@@ -71,11 +143,14 @@ fun SpeakCraftTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val extendedColors = if (darkTheme) DarkExtendedColors else LightExtendedColors
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = SpeakCraftTypography,
-        shapes = SpeakCraftShapes,
-        content = content
-    )
+    CompositionLocalProvider(LocalSpeakCraftColors provides extendedColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = SpeakCraftTypography,
+            shapes = SpeakCraftShapes,
+            content = content
+        )
+    }
 }

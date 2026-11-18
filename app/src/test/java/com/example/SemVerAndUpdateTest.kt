@@ -86,4 +86,157 @@ class SemVerAndUpdateTest {
         // Once running target v1.2.0 -> marker clears cleanly
         assertNull(manager.checkInterruptedUpdateMarker("1.2.0"))
     }
+
+    @Test
+    fun `release evaluation respects stable vs beta channel and rejects non-https download url`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val manager = UpdateBackupManager(context)
+        val repo = com.example.data.update.ReleaseUpdateRepository(context, manager)
+
+        val stableRelease = com.example.data.model.ApplicationRelease(
+            id = "1_1_0",
+            versionCode = 2L,
+            versionName = "1.1.0",
+            channel = "stable",
+            downloadUrl = "https://example.com/speakcraft-1.1.0.apk",
+            sha256Checksum = "a".repeat(64),
+            enabled = true
+        )
+        val betaRelease = com.example.data.model.ApplicationRelease(
+            id = "1_2_0_beta_1",
+            versionCode = 3L,
+            versionName = "1.2.0-beta.1",
+            channel = "beta",
+            downloadUrl = "http://insecure.example.com/speakcraft-beta.apk",
+            sha256Checksum = "b".repeat(64),
+            enabled = true
+        )
+        val disabledHigherRelease = com.example.data.model.ApplicationRelease(
+            id = "2_0_0",
+            versionCode = 10L,
+            versionName = "2.0.0",
+            channel = "stable",
+            downloadUrl = "https://example.com/speakcraft-2.0.0.apk",
+            sha256Checksum = "c".repeat(64),
+            enabled = false
+        )
+
+        val all = listOf(stableRelease, betaRelease, disabledHigherRelease)
+
+        val stableEval = repo.evaluateReleases(all, "stable")
+        assertTrue(stableEval.isUpdateAvailable)
+        assertEquals("1.1.0", stableEval.latestRelease?.versionName)
+
+        val betaEval = repo.evaluateReleases(all, "beta")
+        assertTrue(betaEval.isUpdateAvailable)
+        assertEquals("1.2.0-beta.1", betaEval.latestRelease?.versionName)
+
+        // Attempting download on HTTP (non-HTTPS) must fail safely
+        val dlResult = repo.downloadAndVerifyRelease(betaRelease, AppPreferences(updateChannel = "beta"))
+        assertTrue(dlResult.isFailure)
+        assertTrue(repo.downloadState.value is com.example.data.update.UpdateDownloadState.Failed)
+    }
+
+    @Test
+    fun `previous apk 1_0_0 receives 1_1_0-beta_1 only through beta channel and current build is 1_1_0-beta_1`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val manager = UpdateBackupManager(context)
+        val repo = com.example.data.update.ReleaseUpdateRepository(context, manager)
+
+        assertEquals(2, BuildConfig.VERSION_CODE)
+        assertEquals("1.1.0-beta.1", BuildConfig.VERSION_NAME)
+        assertEquals("beta", BuildConfig.BUILD_CHANNEL)
+
+        val currentBetaRelease = com.example.data.model.ApplicationRelease(
+            id = "rel_1_1_0_beta_1_2",
+            versionCode = 2L,
+            versionName = "1.1.0-beta.1",
+            channel = "beta",
+            downloadUrl = "https://example.com/speakcraft_1.1.0-beta.1.apk",
+            sha256Checksum = "d".repeat(64),
+            minSupportedVersion = "1.0.0",
+            enabled = true
+        )
+
+        // Simulating previous APK v1.0.0 (build 1) checking Stable channel -> beta update excluded, prompt mentions Beta
+        val prevOnStable = repo.evaluateReleases(
+            releases = listOf(currentBetaRelease),
+            channel = "stable",
+            currentName = "1.0.0",
+            currentCode = 1L
+        )
+        assertFalse(prevOnStable.isUpdateAvailable)
+        assertTrue(prevOnStable.statusSummary.contains("Beta", ignoreCase = true))
+
+        // Simulating previous APK v1.0.0 (build 1) checking Beta channel -> v1.1.0-beta.1 offered cleanly
+        val prevOnBeta = repo.evaluateReleases(
+            releases = listOf(currentBetaRelease),
+            channel = "beta",
+            currentName = "1.0.0",
+            currentCode = 1L
+        )
+        assertTrue(prevOnBeta.isUpdateAvailable)
+        assertEquals("1.1.0-beta.1", prevOnBeta.latestRelease?.versionName)
+        assertEquals("beta", prevOnBeta.latestRelease?.channel)
+
+        // Current installed v1.1.0-beta.1 (build 2) checking Beta channel -> already up to date
+        val currentOnBeta = repo.evaluateReleases(listOf(currentBetaRelease), "beta")
+        assertFalse(currentOnBeta.isUpdateAvailable)
+    }
+
+    @Test
+    fun `semver orders multi-digit beta pre-releases numerically`() {
+        val beta2 = SemVer.parse("1.1.0-beta.2")!!
+        val beta10 = SemVer.parse("1.1.0-beta.10")!!
+        assertTrue(beta10 > beta2)
+        assertTrue(SemVer.isNewer("1.1.0-beta.10", "1.1.0-beta.2"))
+    }
+
+    @Test
+    fun `github release client parses apk asset, sha256, channel and merges with firestore releases`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val manager = UpdateBackupManager(context)
+        val repo = com.example.data.update.ReleaseUpdateRepository(context, manager)
+
+        assertEquals(
+            "octocat/speakcraft",
+            com.example.data.update.GitHubReleaseClient.normalizeRepoSlug("https://github.com/octocat/speakcraft.git")
+        )
+
+        val sha = "e".repeat(64)
+        val json = """
+            [
+              {
+                "tag_name": "v1.1.0-beta.2-build.3",
+                "name": "SpeakCraft v1.1.0-beta.2",
+                "draft": false,
+                "prerelease": true,
+                "published_at": "2026-11-18T10:00:00Z",
+                "body": "VersionCode: 3\nVersionName: 1.1.0-beta.2\nChannel: beta\nMinSupportedVersion: 1.0.0\nSHA256: $sha\n- Upgraded launch animation\n- Beta OTA check",
+                "assets": [
+                  {
+                    "name": "speakcraft_1.1.0-beta.2.apk",
+                    "size": 12345678,
+                    "browser_download_url": "https://github.com/octocat/speakcraft/releases/download/v1.1.0-beta.2-build.3/speakcraft_1.1.0-beta.2.apk"
+                  }
+                ]
+              }
+            ]
+        """.trimIndent()
+
+        val ghReleases = com.example.data.update.GitHubReleaseClient.parseReleases(json)
+        assertEquals(1, ghReleases.size)
+        val parsed = ghReleases.first()
+        assertEquals("1.1.0-beta.2", parsed.versionName)
+        assertEquals(3L, parsed.versionCode)
+        assertEquals("beta", parsed.channel)
+        assertEquals(sha, parsed.sha256Checksum)
+        assertEquals(2, parsed.features.size)
+
+        val merged = repo.mergeReleases(firestoreReleases = emptyList(), githubReleases = ghReleases)
+        val evalFromV100 = repo.evaluateReleases(merged, "beta", currentName = "1.0.0", currentCode = 1L)
+        assertTrue(evalFromV100.isUpdateAvailable)
+        assertEquals("1.1.0-beta.2", evalFromV100.latestRelease?.versionName)
+    }
 }
+

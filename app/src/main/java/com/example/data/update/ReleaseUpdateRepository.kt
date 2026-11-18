@@ -56,11 +56,10 @@ class ReleaseUpdateRepository(
 
     fun evaluateReleases(
         releases: List<ApplicationRelease>,
-        channel: String
+        channel: String,
+        currentName: String = currentVersionName(),
+        currentCode: Long = currentVersionCode()
     ): UpdateEvaluation {
-        val currentName = currentVersionName()
-        val currentCode = currentVersionCode()
-
         val eligible = releases.filter { rel ->
             rel.enabled &&
                 (channel == "beta" || rel.channel == "stable") &&
@@ -79,8 +78,29 @@ class ReleaseUpdateRepository(
             }
         }
 
+        val newestBetaOnly = if (channel != "beta") {
+            releases.filter {
+                it.enabled &&
+                    it.channel == "beta" &&
+                    it.minSdk <= android.os.Build.VERSION.SDK_INT.toLong()
+            }.maxWithOrNull { a, b ->
+                val va = SemVer.parse(a.versionName)
+                val vb = SemVer.parse(b.versionName)
+                when {
+                    va != null && vb != null -> {
+                        val cmp = va.compareTo(vb)
+                        if (cmp != 0) cmp else a.versionCode.compareTo(b.versionCode)
+                    }
+                    else -> a.versionCode.compareTo(b.versionCode)
+                }
+            }
+        } else null
+
         val hasNewer = newest != null && (
             SemVer.isNewer(newest.versionName, currentName) || newest.versionCode > currentCode
+            )
+        val hasNewerBeta = newestBetaOnly != null && (
+            SemVer.isNewer(newestBetaOnly.versionName, currentName) || newestBetaOnly.versionCode > currentCode
             )
         val forcedByMinVer = newest != null &&
             newest.minSupportedVersion.isNotBlank() &&
@@ -88,19 +108,43 @@ class ReleaseUpdateRepository(
         val mandatory = hasNewer && ((newest?.mandatory == true) || forcedByMinVer)
 
         val summary = when {
-            newest == null -> "You are on SpeakCraft v$currentName (build $currentCode). No newer published releases on '$channel' channel."
-            hasNewer -> "Update available: v${newest.versionName} (build ${newest.versionCode}) on ${newest.channel} channel."
-            else -> "Up to date — SpeakCraft v$currentName (build $currentCode) is the latest $channel release."
+            newest == null && hasNewerBeta ->
+                "You are on SpeakCraft v$currentName (build $currentCode). Beta update v${newestBetaOnly!!.versionName} is available — switch to Beta channel to install."
+            newest == null ->
+                "You are on SpeakCraft v$currentName (build $currentCode). No newer published releases on '$channel' channel."
+            hasNewer ->
+                "Update available: v${newest.versionName} (build ${newest.versionCode}) on ${newest.channel} channel."
+            currentCode > newest.versionCode ->
+                "SpeakCraft v$currentName (build $currentCode) is ahead of the latest $channel release (v${newest.versionName})."
+            hasNewerBeta ->
+                "Latest $channel release v${newest.versionName} installed. Beta v${newestBetaOnly!!.versionName} is available on Beta channel."
+            else ->
+                "Up to date — SpeakCraft v$currentName (build $currentCode) is the latest $channel release."
         }
 
         return UpdateEvaluation(
             currentVersionName = currentName,
             currentVersionCode = currentCode,
-            latestRelease = if (hasNewer) newest else newest,
+            latestRelease = newest,
             isUpdateAvailable = hasNewer,
             isMandatory = mandatory,
             statusSummary = summary
         )
+    }
+
+    fun mergeReleases(
+        firestoreReleases: List<ApplicationRelease>,
+        githubReleases: List<ApplicationRelease>
+    ): List<ApplicationRelease> {
+        val merged = linkedMapOf<String, ApplicationRelease>()
+        (firestoreReleases + githubReleases).forEach { rel ->
+            if (rel.enabled && rel.downloadUrl.startsWith("https://")) {
+                val normalizedVer = SemVer.parse(rel.versionName)?.toString() ?: rel.versionName.trim()
+                val key = "${normalizedVer}_${rel.versionCode}_${rel.channel}"
+                merged.putIfAbsent(key, rel)
+            }
+        }
+        return merged.values.toList()
     }
 
     suspend fun downloadAndVerifyRelease(

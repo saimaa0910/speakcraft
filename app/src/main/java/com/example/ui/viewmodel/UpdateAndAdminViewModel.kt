@@ -13,6 +13,7 @@ import com.example.data.model.YouTubeSource
 import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.update.BackupSnapshotInfo
+import com.example.data.update.GitHubReleaseClient
 import com.example.data.update.ReleaseUpdateRepository
 import com.example.data.update.UpdateBackupManager
 import com.example.data.update.UpdateDownloadState
@@ -33,7 +34,8 @@ class UpdateAndAdminViewModel(
     private val prefsRepo: AppPreferencesRepository,
     private val youtubeClient: YouTubeIntelligenceClient,
     private val geminiCoach: GeminiCoachService,
-    private val currentUserId: String
+    private val currentUserId: String,
+    private val githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient()
 ) : ViewModel() {
 
     val enabledReleases: StateFlow<List<ApplicationRelease>> =
@@ -58,16 +60,23 @@ class UpdateAndAdminViewModel(
 
     val downloadState: StateFlow<UpdateDownloadState> = updateRepository.downloadState
 
+    private val _checkedReleasesOverride = MutableStateFlow<List<ApplicationRelease>?>(null)
+
     val updateEvaluation: StateFlow<UpdateEvaluation> = combine(
         enabledReleases,
+        _checkedReleasesOverride,
         prefsRepo.preferencesFlow
-    ) { releases, prefs ->
-        updateRepository.evaluateReleases(releases, prefs.updateChannel)
+    ) { observed, checkedOverride, prefs ->
+        val source = checkedOverride ?: observed
+        updateRepository.evaluateReleases(source, prefs.updateChannel)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000L),
         updateRepository.evaluateReleases(emptyList(), "stable")
     )
+
+    private val _isCheckingForUpdates = MutableStateFlow(false)
+    val isCheckingForUpdates: StateFlow<Boolean> = _isCheckingForUpdates.asStateFlow()
 
     private val _backups = MutableStateFlow<List<BackupSnapshotInfo>>(backupManager.listBackups())
     val backups: StateFlow<List<BackupSnapshotInfo>> = _backups.asStateFlow()
@@ -92,45 +101,124 @@ class UpdateAndAdminViewModel(
         _interruptedWarning.value = null
     }
 
-    fun checkForUpdatesManual(prefs: AppPreferences) {
+    private suspend fun refreshMergedReleases(githubRepo: String): List<ApplicationRelease> {
+        val firestoreFetched = repository.fetchEnabledReleasesOnce().getOrNull().orEmpty()
+        val githubFetched = if (githubRepo.isNotBlank()) {
+            githubReleaseClient.fetchReleases(githubRepo).getOrNull().orEmpty()
+        } else {
+            emptyList()
+        }
+        val combined = updateRepository.mergeReleases(
+            firestoreReleases = firestoreFetched.ifEmpty { enabledReleases.value },
+            githubReleases = githubFetched
+        )
+        if (combined.isNotEmpty()) {
+            _checkedReleasesOverride.value = combined
+        }
+        return combined.ifEmpty { _checkedReleasesOverride.value ?: enabledReleases.value }
+    }
+
+    fun setGithubReleaseRepo(repoSlug: String, currentPrefs: AppPreferences) {
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            prefsRepo.recordUpdateCheck(now)
-            val eval = updateRepository.evaluateReleases(enabledReleases.value, prefs.updateChannel)
-            repository.logUpdateEvent(
-                fromVersion = eval.currentVersionName,
-                toVersion = eval.latestRelease?.versionName ?: eval.currentVersionName,
-                channel = prefs.updateChannel,
-                status = "CHECKED",
-                detail = eval.statusSummary
-            )
-            _statusMessage.value = eval.statusSummary
+            val normalized = GitHubReleaseClient.normalizeRepoSlug(repoSlug)
+            prefsRepo.setGithubReleaseRepo(normalized)
+            if (normalized.isNotBlank()) {
+                checkForUpdatesManual(currentPrefs.copy(githubReleaseRepo = normalized))
+            } else {
+                _statusMessage.value = "Cleared custom GitHub release repository."
+            }
+        }
+    }
+
+    fun selectUpdateChannel(channel: String, currentPrefs: AppPreferences) {
+        val safeChannel = if (channel == "beta") "beta" else "stable"
+        val currentDl = downloadState.value
+        if (currentDl is UpdateDownloadState.VerifiedReady || currentDl is UpdateDownloadState.Failed) {
+            updateRepository.resetDownloadState()
+        }
+        viewModelScope.launch {
+            prefsRepo.setUpdateChannel(safeChannel)
+            _isCheckingForUpdates.value = true
+            try {
+                val now = System.currentTimeMillis()
+                prefsRepo.recordUpdateCheck(now)
+                val candidateReleases = refreshMergedReleases(currentPrefs.githubReleaseRepo)
+                val eval = updateRepository.evaluateReleases(candidateReleases, safeChannel)
+                _statusMessage.value = if (eval.isUpdateAvailable && eval.latestRelease != null) {
+                    "Switched to ${safeChannel.replaceFirstChar { it.uppercase() }} channel — v${eval.latestRelease.versionName} available."
+                } else {
+                    "Update channel set to ${safeChannel.replaceFirstChar { it.uppercase() }}."
+                }
+            } finally {
+                _isCheckingForUpdates.value = false
+            }
+        }
+    }
+
+    fun checkForUpdatesManual(prefs: AppPreferences) {
+        if (_isCheckingForUpdates.value) return
+        viewModelScope.launch {
+            _isCheckingForUpdates.value = true
+            try {
+                val now = System.currentTimeMillis()
+                prefsRepo.recordUpdateCheck(now)
+                val candidateReleases = refreshMergedReleases(prefs.githubReleaseRepo)
+                val eval = updateRepository.evaluateReleases(candidateReleases, prefs.updateChannel)
+                val latest = eval.latestRelease
+                repository.logUpdateEvent(
+                    fromVersion = eval.currentVersionName,
+                    toVersion = latest?.versionName ?: eval.currentVersionName,
+                    channel = prefs.updateChannel,
+                    status = "CHECKED",
+                    detail = eval.statusSummary
+                )
+                if (eval.isUpdateAvailable && latest != null) {
+                    val currentDl = downloadState.value
+                    if (currentDl !is UpdateDownloadState.Downloading &&
+                        currentDl !is UpdateDownloadState.Verifying &&
+                        currentDl !is UpdateDownloadState.VerifiedReady
+                    ) {
+                        _statusMessage.value = "Update v${latest.versionName} found — downloading & verifying..."
+                        performDownloadAndVerify(latest, prefs)
+                    } else {
+                        _statusMessage.value = "Update v${latest.versionName} is ready."
+                    }
+                } else {
+                    _statusMessage.value = eval.statusSummary
+                }
+            } finally {
+                _isCheckingForUpdates.value = false
+            }
         }
     }
 
     fun downloadAndVerifyRelease(release: ApplicationRelease, prefs: AppPreferences) {
         viewModelScope.launch {
-            val res = updateRepository.downloadAndVerifyRelease(release, prefs)
-            _backups.value = backupManager.listBackups()
-            res.onSuccess {
-                repository.logUpdateEvent(
-                    fromVersion = updateRepository.currentVersionName(),
-                    toVersion = release.versionName,
-                    channel = release.channel,
-                    status = "VERIFIED",
-                    detail = "SHA-256 checksum & signature check completed."
-                )
-                _statusMessage.value = "Verified v${release.versionName}. Ready to install."
-            }.onFailure { err ->
-                repository.logUpdateEvent(
-                    fromVersion = updateRepository.currentVersionName(),
-                    toVersion = release.versionName,
-                    channel = release.channel,
-                    status = "FAILED",
-                    detail = err.message ?: "Download verification failed."
-                )
-                _statusMessage.value = err.message ?: "Update verification failed."
-            }
+            performDownloadAndVerify(release, prefs)
+        }
+    }
+
+    private suspend fun performDownloadAndVerify(release: ApplicationRelease, prefs: AppPreferences) {
+        val res = updateRepository.downloadAndVerifyRelease(release, prefs)
+        _backups.value = backupManager.listBackups()
+        res.onSuccess {
+            repository.logUpdateEvent(
+                fromVersion = updateRepository.currentVersionName(),
+                toVersion = release.versionName,
+                channel = release.channel,
+                status = "VERIFIED",
+                detail = "SHA-256 checksum & signature check completed."
+            )
+            _statusMessage.value = "Verified v${release.versionName}. Ready to install."
+        }.onFailure { err ->
+            repository.logUpdateEvent(
+                fromVersion = updateRepository.currentVersionName(),
+                toVersion = release.versionName,
+                channel = release.channel,
+                status = "FAILED",
+                detail = err.message ?: "Download verification failed."
+            )
+            _statusMessage.value = err.message ?: "Update verification failed."
         }
     }
 
@@ -168,6 +256,20 @@ class UpdateAndAdminViewModel(
                 onSuccess = { "Created local backup snapshot ${it.fileName}." },
                 onFailure = { "Backup failed: ${it.message}" }
             )
+        }
+    }
+
+    fun restoreBackup(fileName: String) {
+        viewModelScope.launch {
+            val res = backupManager.restoreBackupSnapshot(fileName)
+            res.onSuccess { restored ->
+                prefsRepo.setThemeMode(restored.themeMode)
+                prefsRepo.setTtsRate(restored.ttsRate)
+                prefsRepo.setUpdateChannel(restored.updateChannel)
+                _statusMessage.value = "Restored preferences from ${restored.fileName} (v${restored.appVersionName})."
+            }.onFailure { err ->
+                _statusMessage.value = "Restore failed: ${err.message}"
+            }
         }
     }
 
