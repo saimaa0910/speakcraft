@@ -173,7 +173,6 @@ class UniversalEvaluationEngine(
         recommendedNextIds: List<String> = emptyList()
     ): ActivityEvaluationResult {
         val strategy = strategyFor(activity.evaluationConfiguration.strategy)
-        val instructions = strategy.buildEvaluatorInstructions(activity, response)
         val caveat = strategy.honestyCaveat(activity, response)
         val localMetrics = LocalResponseAnalyzer.analyze(response)
         val effectiveNextIds = recommendedNextIds.ifEmpty { activity.nextActivityIds }
