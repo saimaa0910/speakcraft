@@ -114,19 +114,19 @@ class SpeakCraftTabletLayoutTest {
         composeRule.waitForIdle()
 
         val heroAction = composeRule.onNodeWithTag("recommended_action_button").assertIsDisplayed()
-        val routineTitle = composeRule.onNodeWithText("Today's Routine Progress").assertIsDisplayed()
+        val planTitle = composeRule.onNodeWithText("Today's Practice Plan").assertIsDisplayed()
         assertTrue(
-            "Expected hero action left (${heroAction.getBoundsInRoot().left}) < routine left (${routineTitle.getBoundsInRoot().left})",
-            heroAction.getBoundsInRoot().left < routineTitle.getBoundsInRoot().left
+            "Expected hero action left (${heroAction.getBoundsInRoot().left}) < practice plan left (${planTitle.getBoundsInRoot().left})",
+            heroAction.getBoundsInRoot().left < planTitle.getBoundsInRoot().left
         )
 
         val hoursBounds = composeRule.onNodeWithText("Practice Hours").assertIsDisplayed().getBoundsInRoot()
         val wordsBounds = composeRule.onNodeWithText("Words Learned").assertIsDisplayed().getBoundsInRoot()
         val recordingsBounds = composeRule.onNodeWithText("Recordings").assertIsDisplayed().getBoundsInRoot()
-        val todayBounds = composeRule.onNodeWithText("Today & Lessons").assertIsDisplayed().getBoundsInRoot()
+        val lessonsBounds = composeRule.onNodeWithText("Lessons Completed").assertIsDisplayed().getBoundsInRoot()
         assertTrue(hoursBounds.left < wordsBounds.left)
         assertTrue(wordsBounds.left < recordingsBounds.left)
-        assertTrue(recordingsBounds.left < todayBounds.left)
+        assertTrue(recordingsBounds.left < lessonsBounds.left)
     }
 
     @Test

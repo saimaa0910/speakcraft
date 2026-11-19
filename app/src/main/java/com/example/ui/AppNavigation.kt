@@ -18,20 +18,35 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Mic
@@ -39,6 +54,11 @@ import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -128,6 +148,7 @@ import com.example.ui.screens.VocabularyScreen
 import com.example.ui.screens.VoiceTrainingLabScreen
 import com.example.ui.screens.YouTubeIntelligenceScreen
 import com.example.ui.theme.SpeakCraftTheme
+import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.InteractiveCoachViewModel
 import com.example.ui.viewmodel.MainCoachViewModel
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
@@ -533,109 +554,197 @@ private fun AuthenticatedAppShell(
                 }
 
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val useRail = maxWidth >= 600.dp
-                    Scaffold(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        snackbarHost = { SnackbarHost(snackbarHostState) },
-                        topBar = {
-                            Column {
-                                TopAppBar(
-                                    windowInsets = WindowInsets.statusBars,
-                                    colors = TopAppBarDefaults.topAppBarColors(
-                                        containerColor = MaterialTheme.colorScheme.background,
-                                        titleContentColor = MaterialTheme.colorScheme.onBackground
-                                    ),
-                                    title = {
-                                        if (currentRoute == "dashboard") {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                            ) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                                    modifier = Modifier.size(34.dp)
+                    val useSidebar = maxWidth >= 840.dp
+                    val useRail = maxWidth >= 600.dp && !useSidebar
+                    val userInitial = profile.displayName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "S"
+                    val ext = MaterialTheme.speakCraftColors
+
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        if (useSidebar) {
+                            SpeakCraftIndigoSidebar(
+                                currentRoute = currentRoute,
+                                hasUpdateAvailable = updateEvaluation.isUpdateAvailable,
+                                onNavigate = navigateTo
+                            )
+                        }
+
+                        Scaffold(
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.background,
+                            snackbarHost = { SnackbarHost(snackbarHostState) },
+                            topBar = {
+                                Column {
+                                    TopAppBar(
+                                        windowInsets = WindowInsets.statusBars,
+                                        colors = TopAppBarDefaults.topAppBarColors(
+                                            containerColor = MaterialTheme.colorScheme.background,
+                                            titleContentColor = MaterialTheme.colorScheme.onBackground
+                                        ),
+                                        title = {
+                                            if (currentRoute == "dashboard" && !useSidebar) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                 ) {
-                                                    Box(contentAlignment = Alignment.Center) {
-                                                        Icon(
-                                                            imageVector = Icons.Filled.RecordVoiceOver,
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.primary,
-                                                            modifier = Modifier.size(18.dp)
+                                                    Surface(
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(36.dp)
+                                                    ) {
+                                                        Box(contentAlignment = Alignment.Center) {
+                                                            Icon(
+                                                                imageVector = Icons.Filled.RecordVoiceOver,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                                modifier = Modifier.size(19.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    Column {
+                                                        Text(
+                                                            topBarTitle,
+                                                            style = MaterialTheme.typography.titleLarge,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Text(
+                                                            text = "Communication Improvement",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                     }
                                                 }
-                                                Column {
-                                                    Text(topBarTitle, style = MaterialTheme.typography.titleLarge)
-                                                    Text(
-                                                        text = "AI Communication Studio",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            } else if (currentRoute != "dashboard") {
+                                                Text(
+                                                    text = topBarTitle,
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        },
+                                        navigationIcon = {
+                                            if (!isPrimaryRoute) {
+                                                IconButton(onClick = { navController.navigateUp() }) {
+                                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                                }
+                                            }
+                                        },
+                                        actions = {
+                                            IconButton(
+                                                onClick = { navigateTo("app_updates") },
+                                                modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                            ) {
+                                                if (updateEvaluation.isUpdateAvailable) {
+                                                    BadgedBox(badge = { Badge() }) {
+                                                        Icon(Icons.Default.Notifications, contentDescription = "Updates available")
+                                                    }
+                                                } else {
+                                                    Icon(Icons.Default.Notifications, contentDescription = "App updates")
+                                                }
+                                            }
+                                            IconButton(
+                                                onClick = { showFeatureGuideDialog = true },
+                                                modifier = Modifier
+                                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                    .testTag("feature_tutorial_topbar_button")
+                                            ) {
+                                                Icon(
+                                                    Icons.AutoMirrored.Filled.HelpOutline,
+                                                    contentDescription = "Feature guide & what improves",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            if (isAdmin) {
+                                                IconButton(onClick = { navigateTo("admin_console") }) {
+                                                    Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Console")
+                                                }
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .padding(end = 10.dp)
+                                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                    .clip(CircleShape)
+                                                    .clickable { navigateTo("settings") },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(34.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = userInitial,
+                                                            style = MaterialTheme.typography.labelLarge,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimary
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    )
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                                }
+                            },
+                            bottomBar = {
+                                if (!useRail && !useSidebar) {
+                                    Column {
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                                        NavigationBar(
+                                            containerColor = MaterialTheme.colorScheme.surface,
+                                            tonalElevation = 2.dp,
+                                            windowInsets = WindowInsets.navigationBars
+                                        ) {
+                                            primaryNavItems.forEach { item ->
+                                                val isSelected = currentRoute == item.route
+                                                NavigationBarItem(
+                                                    selected = isSelected,
+                                                    onClick = { navigateTo(item.route) },
+                                                    icon = {
+                                                        Icon(
+                                                            if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                                            contentDescription = item.label
+                                                        )
+                                                    },
+                                                    label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
+                                                    colors = NavigationBarItemDefaults.colors(
+                                                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        ) { innerPadding ->
+                            Row(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                                if (useRail) {
+                                    NavigationRail(
+                                        containerColor = ext.sidebarTop,
+                                        header = {
+                                            Spacer(Modifier.size(8.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(14.dp),
+                                                color = ext.sidebarActiveStart,
+                                                modifier = Modifier.size(44.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        Icons.Filled.RecordVoiceOver,
+                                                        contentDescription = "SpeakCraft Studio",
+                                                        tint = ext.onHeroTitle,
+                                                        modifier = Modifier.size(22.dp)
                                                     )
                                                 }
                                             }
-                                        } else {
-                                            Text(
-                                                text = topBarTitle,
-                                                style = MaterialTheme.typography.titleLarge,
-                                                maxLines = 1
-                                            )
+                                            Spacer(Modifier.size(8.dp))
                                         }
-                                    },
-                                    navigationIcon = {
-                                        if (!isPrimaryRoute) {
-                                            IconButton(onClick = { navController.navigateUp() }) {
-                                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                                            }
-                                        }
-                                    },
-                                    actions = {
-                                        IconButton(
-                                            onClick = { showFeatureGuideDialog = true },
-                                            modifier = Modifier
-                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                                .testTag("feature_tutorial_topbar_button")
-                                        ) {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.HelpOutline,
-                                                contentDescription = "Feature guide & what improves",
-                                                tint = MaterialTheme.colorScheme.secondary
-                                            )
-                                        }
-                                        if (isAdmin) {
-                                            IconButton(onClick = { navigateTo("admin_console") }) {
-                                                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Console")
-                                            }
-                                        }
-                                        IconButton(onClick = { navigateTo("app_updates") }) {
-                                            if (updateEvaluation.isUpdateAvailable) {
-                                                BadgedBox(badge = { Badge() }) {
-                                                    Icon(Icons.Default.SystemUpdate, contentDescription = "Updates available")
-                                                }
-                                            } else {
-                                                Icon(Icons.Default.SystemUpdate, contentDescription = "App updates")
-                                            }
-                                        }
-                                        IconButton(onClick = { navigateTo("settings") }) {
-                                            Icon(Icons.Default.Settings, contentDescription = "Settings")
-                                        }
-                                    }
-                                )
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-                            }
-                        },
-                        bottomBar = {
-                            if (!useRail) {
-                                Column {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                                    NavigationBar(
-                                        containerColor = MaterialTheme.colorScheme.surface,
-                                        tonalElevation = 2.dp,
-                                        windowInsets = WindowInsets.navigationBars
                                     ) {
                                         primaryNavItems.forEach { item ->
                                             val isSelected = currentRoute == item.route
-                                            NavigationBarItem(
+                                            NavigationRailItem(
                                                 selected = isSelected,
                                                 onClick = { navigateTo(item.route) },
                                                 icon = {
@@ -644,63 +753,18 @@ private fun AuthenticatedAppShell(
                                                         contentDescription = item.label
                                                     )
                                                 },
-                                                label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
-                                                colors = NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                                label = { Text(item.label) },
+                                                colors = NavigationRailItemDefaults.colors(
+                                                    selectedIconColor = ext.onHeroTitle,
+                                                    selectedTextColor = ext.onHeroTitle,
+                                                    unselectedIconColor = ext.sidebarTextIdle,
+                                                    unselectedTextColor = ext.sidebarTextIdle,
+                                                    indicatorColor = ext.sidebarActiveStart
                                                 )
                                             )
                                         }
                                     }
                                 }
-                            }
-                        }
-                    ) { innerPadding ->
-                        Row(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                            if (useRail) {
-                                NavigationRail(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    header = {
-                                        Spacer(Modifier.size(8.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                            modifier = Modifier.size(42.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    Icons.Filled.RecordVoiceOver,
-                                                    contentDescription = "SpeakCraft Studio",
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                        }
-                                        Spacer(Modifier.size(8.dp))
-                                    }
-                                ) {
-                                    primaryNavItems.forEach { item ->
-                                        val isSelected = currentRoute == item.route
-                                        NavigationRailItem(
-                                            selected = isSelected,
-                                            onClick = { navigateTo(item.route) },
-                                            icon = {
-                                                Icon(
-                                                    if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                                    contentDescription = item.label
-                                                )
-                                            },
-                                            label = { Text(item.label) },
-                                            colors = NavigationRailItemDefaults.colors(
-                                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                            )
-                                        )
-                                    }
-                                }
-                            }
                             NavHost(
                                 navController = navController,
                                 startDestination = "dashboard",
@@ -916,6 +980,7 @@ private fun AuthenticatedAppShell(
                                         }
                                     )
                                 }
+                                }
                             }
                         }
                     }
@@ -985,3 +1050,229 @@ private fun AuthenticatedAppShell(
         }
     }
 }
+
+private data class SidebarDestination(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+)
+
+@Composable
+private fun SpeakCraftIndigoSidebar(
+    currentRoute: String,
+    hasUpdateAvailable: Boolean,
+    onNavigate: (String) -> Unit
+) {
+    val ext = MaterialTheme.speakCraftColors
+    val destinations = remember {
+        listOf(
+            SidebarDestination("dashboard", "Home", Icons.Default.Home),
+            SidebarDestination("daily_practice", "Practice", Icons.Default.TrackChanges),
+            SidebarDestination("ai_mentor", "AI Mentor", Icons.Default.Psychology),
+            SidebarDestination("learning_paths", "Learn", Icons.Default.MenuBook),
+            SidebarDestination("speaking_lab", "Record & Review", Icons.Default.Mic),
+            SidebarDestination("youtube_library", "YouTube Intelligence", Icons.Default.PlayCircle),
+            SidebarDestination("vocabulary", "Tools", Icons.Default.GridView),
+            SidebarDestination("analytics", "Progress", Icons.Default.Analytics),
+            SidebarDestination("settings", "Settings", Icons.Default.Settings)
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .width(232.dp)
+            .fillMaxHeight()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(ext.sidebarTop, ext.sidebarBottom)
+                )
+            )
+            .testTag("speakcraft_indigo_sidebar")
+    ) {
+        // Decorative violet studio wave near bottom of sidebar
+        Canvas(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(210.dp)
+        ) {
+            val wave1 = Path().apply {
+                moveTo(0f, size.height * 0.25f)
+                cubicTo(
+                    size.width * 0.35f, size.height * 0.05f,
+                    size.width * 0.7f, size.height * 0.45f,
+                    size.width, size.height * 0.22f
+                )
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(
+                path = wave1,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        ext.sidebarWaveAccent.copy(alpha = 0.28f),
+                        ext.sidebarActiveStart.copy(alpha = 0.08f)
+                    )
+                )
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 22.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Brand Header
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = ext.sidebarActiveStart.copy(alpha = 0.32f),
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.RecordVoiceOver,
+                                contentDescription = "SpeakCraft Logo",
+                                tint = ext.onHeroTitle,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "SpeakCraft",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = ext.onHeroTitle
+                    )
+                    Text(
+                        text = "Communication Improvement",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ext.sidebarTextIdle.copy(alpha = 0.8f)
+                    )
+                }
+
+                // Navigation Destinations
+                destinations.forEach { dest ->
+                    val isSelected = currentRoute == dest.route
+                    val itemModifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .then(
+                            if (isSelected) {
+                                Modifier.background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(ext.sidebarActiveStart, ext.sidebarActiveEnd)
+                                    )
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .clickable { onNavigate(dest.route) }
+                        .padding(horizontal = 14.dp, vertical = 11.dp)
+
+                    Row(
+                        modifier = itemModifier,
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = dest.icon,
+                            contentDescription = dest.label,
+                            tint = if (isSelected) ext.onHeroTitle else ext.sidebarTextIdle,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = dest.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (isSelected) ext.onHeroTitle else ext.sidebarTextIdle,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+
+            // Functional Bottom Studio Utility Card (App Updates & Backups — real feature, no dead-end upsell)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = ext.onHeroTitle.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SystemUpdate,
+                            contentDescription = null,
+                            tint = ext.onHeroBadge,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = if (hasUpdateAvailable) "Update Ready" else "Studio Sync",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = ext.onHeroTitle
+                        )
+                    }
+                    Text(
+                        text = if (hasUpdateAvailable) {
+                            "A verified new SpeakCraft release is ready to install."
+                        } else {
+                            "Check OTA releases, verify signatures & manage backups."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ext.sidebarTextIdle
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = ext.onHeroTitle,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(50))
+                            .clickable { onNavigate("app_updates") }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (hasUpdateAvailable) "Install Update" else "Check Updates",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = ext.sidebarTop
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = ext.sidebarTop,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

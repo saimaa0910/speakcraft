@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,8 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.Campaign
@@ -40,29 +38,28 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Spellcheck
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -73,13 +70,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.R
 import com.example.data.ai.RecommendedNextAction
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
@@ -94,10 +88,19 @@ import com.example.data.update.UpdateEvaluation
 import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeatureTutorialDialog
-import com.example.ui.components.MetricTile
+import com.example.ui.components.InlineAiMentorCard
+import com.example.ui.components.LearningTrackProgressSpec
+import com.example.ui.components.LearningTracksStrip
+import com.example.ui.components.QuickAccessPastelGrid
 import com.example.ui.components.ScoreTrendSparkline
 import com.example.ui.components.SectionHeader
+import com.example.ui.components.SpotlightHeroCard
+import com.example.ui.components.StreakHighlightCard
+import com.example.ui.components.StudioMetricCard
+import com.example.ui.components.TodaysPracticePlanCard
+import com.example.ui.components.TodaysProgressRingCard
 import com.example.ui.components.UpdateBannerCard
+import com.example.ui.components.WeeklyGoalCard
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 
@@ -173,10 +176,14 @@ fun DashboardScreen(
         }
     }
     val todayActivity = dailyActivities.firstOrNull { it.dateKey == todayDateKey }
-    val todayDoneCount = todayActivity?.completedStepIds?.size ?: 0
+    val todayDoneCount = (todayActivity?.completedStepIds?.size ?: 0).coerceAtMost(6)
     val completedLessons = learningProgress.count { it.completed }
-    val pendingTasksCount = (CurriculumCatalog.realWorldTaskSeeds.size - realWorldTasks.count { it.completed }).coerceAtLeast(0)
-    val practiceHours = String.format("%.1fh", (profile?.totalPracticeMinutes ?: 0L) / 60.0)
+    val totalCoreLessons = CurriculumCatalog.lessons.size.coerceAtLeast(9)
+    val practiceHoursFormatted = String.format("%.1f h", (profile?.totalPracticeMinutes ?: 0L) / 60.0)
+    val wordsLearnedCount = vocabulary.size.coerceAtLeast((profile?.wordsLearnedCount ?: 0L).toInt())
+    val activeDaysThisWeek = remember(dailyActivities) {
+        dailyActivities.count { it.completedStepIds.isNotEmpty() }.coerceIn(0, 5)
+    }
 
     val filteredSessions = remember(sessions, reportPeriod) {
         StreakAndAnalyticsHelper.filterSessionsByPeriod(sessions, reportPeriod)
@@ -191,13 +198,48 @@ fun DashboardScreen(
         if (list.isEmpty()) listOf((profile?.pronunciationScore ?: 65L).toInt()) else list
     }
 
-    val fluencyDelta = remember(sessions) {
-        if (sessions.size >= 2) {
-            val latest = sessions.first().fluencyScore
-            val oldest = sessions.last().fluencyScore
-            val diff = latest - oldest
-            if (diff >= 0) "+$diff pts" else "$diff pts"
-        } else "Baseline"
+    val learningTracks = remember(learningProgress) {
+        val completedIds = learningProgress.filter { it.completed }.map { it.lessonId }.toSet()
+        fun pctForSlugs(slugs: Set<String>, fallback: Int): Int {
+            val trackLessons = CurriculumCatalog.lessons.filter { it.moduleSlug in slugs }
+            if (trackLessons.isEmpty()) return fallback
+            val done = trackLessons.count { it.id in completedIds }
+            return ((done * 100f) / trackLessons.size).toInt().coerceIn(0, 100)
+        }
+        listOf(
+            LearningTrackProgressSpec(
+                title = "Foundation",
+                subtitle = "Build core communication skills",
+                percent = pctForSlugs(setOf("daily_practice", "vocabulary", "thinking_articulation"), 0),
+                icon = Icons.Default.Star,
+                hubFilter = "All",
+                swatchIndex = 0
+            ),
+            LearningTrackProgressSpec(
+                title = "Speaking & Story",
+                subtitle = "Tell clear and engaging stories",
+                percent = pctForSlugs(setOf("public_speaking", "storytelling", "body_language", "confidence", "record_review"), 0),
+                icon = Icons.Default.AutoStories,
+                hubFilter = "Speaking & Story",
+                swatchIndex = 1
+            ),
+            LearningTrackProgressSpec(
+                title = "Workplace & Influence",
+                subtitle = "Communicate with impact at work",
+                percent = pctForSlugs(setOf("conversation", "professional", "influence", "challenges"), 0),
+                icon = Icons.Default.BusinessCenter,
+                hubFilter = "Workplace & Influence",
+                swatchIndex = 2
+            ),
+            LearningTrackProgressSpec(
+                title = "Voice & Clarity",
+                subtitle = "Improve tone, pace and clarity",
+                percent = pctForSlugs(setOf("articulation_lab", "voice_training", "listening_lab"), 0),
+                icon = Icons.Default.GraphicEq,
+                hubFilter = "Voice & Clarity",
+                swatchIndex = 3
+            )
+        )
     }
 
     val allModulesAndTools = remember(isAdmin) {
@@ -235,22 +277,16 @@ fun DashboardScreen(
         }
     }
 
-    val quickHubs = remember {
-        listOf(
-            ModuleTileSpec("learning_paths", "30/60/90 Plans", "Programs", Icons.Default.School),
-            ModuleTileSpec("vocabulary", "Vocabulary", "Flashcards", Icons.Default.Book),
-            ModuleTileSpec("conversation", "Simulate", "13 roles", Icons.Default.ChatBubble),
-            ModuleTileSpec("analytics", "Analytics", "Skill trends", Icons.Default.Analytics)
-        )
-    }
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
-        val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
+        val containerMaxWidth = if (tier.isExpandedTablet) 1280.dp else SpeakCraftSpacing.contentMaxWidthFor(tier)
         val moduleColumns = SpeakCraftSpacing.moduleColumnsFor(maxWidth)
+        val displayName = profile?.displayName?.ifBlank { "Speaker" } ?: "Speaker"
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = containerMaxWidth),
             contentPadding = PaddingValues(SpeakCraftSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
         ) {
@@ -266,59 +302,134 @@ fun DashboardScreen(
                 }
             }
 
-            if (profile != null) {
+            // Header Greeting + Integrated Pill Search Bar (side-by-side on tablet, stacked on phone)
+            item {
+                DashboardStudioHeader(
+                    displayName = displayName,
+                    query = moduleQuery,
+                    onQueryChange = { moduleQuery = it },
+                    wideLayout = tier.isTabletOrWide
+                )
+            }
+
+            // Instant search results preview when user types in top search bar
+            if (moduleQuery.isNotBlank()) {
                 item {
-                    DashboardGreetingStrip(
-                        displayName = profile.displayName.ifBlank { "Speaker" },
-                        level = profile.communicationLevel,
-                        streakDays = profile.streakDays,
-                        dailyGoalMinutes = profile.dailyGoalMinutes
-                    )
+                    if (filteredModules.isEmpty()) {
+                        EmptyStateCard(
+                            title = "No matching modules",
+                            message = "Try a different keyword or clear the search bar.",
+                            ctaLabel = "Clear Search",
+                            onCta = { moduleQuery = "" }
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SectionHeader(
+                                title = "Search Results (${filteredModules.size})",
+                                subtitle = "Matching lessons, drills & coaching tools"
+                            )
+                            ModuleGrid(
+                                items = filteredModules,
+                                columns = moduleColumns,
+                                onNavigate = onNavigate
+                            )
+                        }
+                    }
                 }
             }
 
             if (tier.isExpandedTablet) {
-                // Expanded Tablet: Hero Banner side-by-side with Routine Progress & Quick Hubs
+                // Expanded Tablet / Studio Layout mirroring the reference screenshot
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(modifier = Modifier.weight(1.25f)) {
-                            DashboardHeroCard(
-                                profile = profile,
-                                recommendedNextAction = recommendedNextAction,
-                                overallScore = overallScore,
-                                onNavigate = onNavigate
+                        Column(
+                            modifier = Modifier.weight(2.35f),
+                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                SpotlightHeroCard(
+                                    profile = profile,
+                                    recommendedNextAction = recommendedNextAction,
+                                    overallScore = overallScore,
+                                    onNavigate = onNavigate,
+                                    modifier = Modifier.weight(1.25f)
+                                )
+                                TodaysPracticePlanCard(
+                                    todayActivity = todayActivity,
+                                    onNavigate = onNavigate,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            // 4-up KPI Metric Strip
+                            DashboardKpiStrip(
+                                practiceHours = practiceHoursFormatted,
+                                wordsLearned = "$wordsLearnedCount",
+                                recordings = "${sessions.size}",
+                                lessonsCompleted = "$completedLessons / $totalCoreLessons",
+                                fourUpRow = true
                             )
                         }
+
+                        // Right Companion Column: Streak + Progress Ring + Weekly Goal
                         Column(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(0.9f),
                             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
                         ) {
-                            DashboardRoutineCard(
-                                todayDoneCount = todayDoneCount,
-                                quickHubs = quickHubs,
+                            StreakHighlightCard(streakDays = profile?.streakDays ?: 1L)
+                            TodaysProgressRingCard(
+                                completedTasks = todayDoneCount,
+                                totalTasks = 6,
                                 onNavigate = onNavigate
                             )
-                            FeatureGuideStrip(featureKey = "dashboard")
-                            OutlinedButton(
-                                onClick = { showAllTutorials = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                    .testTag("browse_all_tutorials_button")
-                            ) {
-                                Text("Explore Tutorials for All 24 Features & Benefits")
-                            }
+                            WeeklyGoalCard(
+                                activeDaysThisWeek = activeDaysThisWeek,
+                                targetDays = 5
+                            )
                         }
                     }
                 }
-            } else {
-                // Phone / Compact: Hero Action-First Learning Plan
+
+                // Second Studio Band: Inline AI Mentor + Quick Access Pastel Grid
                 item {
-                    DashboardHeroCard(
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        InlineAiMentorCard(
+                            onOpenMentor = { onNavigate("ai_mentor") },
+                            modifier = Modifier.weight(1.0f)
+                        )
+                        QuickAccessPastelGrid(
+                            columns = 4,
+                            onNavigate = onNavigate,
+                            modifier = Modifier.weight(1.18f)
+                        )
+                    }
+                }
+
+                // Third Studio Band: My Learning Tracks 4-up strip
+                item {
+                    LearningTracksStrip(
+                        tracks = learningTracks,
+                        columns = 4,
+                        onViewAll = { onNavigate("learning_paths") },
+                        onSelectTrack = { hub -> selectedHubGroup = hub }
+                    )
+                }
+            } else {
+                // Compact Phone / Medium Layout preserving every visual card with clean vertical flow
+                item {
+                    SpotlightHeroCard(
                         profile = profile,
                         recommendedNextAction = recommendedNextAction,
                         overallScore = overallScore,
@@ -326,56 +437,82 @@ fun DashboardScreen(
                     )
                 }
 
-                // Today's Momentum Bar + Core 4 Hub Shortcuts
                 item {
-                    DashboardRoutineCard(
-                        todayDoneCount = todayDoneCount,
-                        quickHubs = quickHubs,
+                    StreakHighlightCard(streakDays = profile?.streakDays ?: 1L)
+                }
+
+                item {
+                    TodaysPracticePlanCard(
+                        todayActivity = todayActivity,
                         onNavigate = onNavigate
                     )
                 }
 
-                // Dashboard Tutorial + Browse All 24 Guides
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
-                        FeatureGuideStrip(featureKey = "dashboard")
-                        OutlinedButton(
-                            onClick = { showAllTutorials = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("browse_all_tutorials_button")
+                    DashboardKpiStrip(
+                        practiceHours = practiceHoursFormatted,
+                        wordsLearned = "$wordsLearnedCount",
+                        recordings = "${sessions.size}",
+                        lessonsCompleted = "$completedLessons / $totalCoreLessons",
+                        fourUpRow = tier.isTabletOrWide
+                    )
+                }
+
+                item {
+                    if (tier.isTabletOrWide) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
                         ) {
-                            Text("Explore Tutorials for All 24 Features & Benefits")
+                            TodaysProgressRingCard(
+                                completedTasks = todayDoneCount,
+                                totalTasks = 6,
+                                onNavigate = onNavigate,
+                                modifier = Modifier.weight(1f)
+                            )
+                            WeeklyGoalCard(
+                                activeDaysThisWeek = activeDaysThisWeek,
+                                targetDays = 5,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
+                            TodaysProgressRingCard(
+                                completedTasks = todayDoneCount,
+                                totalTasks = 6,
+                                onNavigate = onNavigate
+                            )
+                            WeeklyGoalCard(
+                                activeDaysThisWeek = activeDaysThisWeek,
+                                targetDays = 5
+                            )
                         }
                     }
                 }
-            }
 
-            // Key Metrics Summary: 4-in-a-row on Tablet, 2x2 on Phone
-            item {
-                val wordsValue = "${vocabulary.size.coerceAtLeast((profile?.wordsLearnedCount ?: 0L).toInt())}"
-                if (tier.isTabletOrWide) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MetricTile("Practice Hours", practiceHours, "${profile?.dailyGoalMinutes ?: 15}m/day goal", ext.warning, Modifier.weight(1f), Icons.Default.Schedule)
-                        MetricTile("Words Learned", wordsValue, "Active notebook", ext.info, Modifier.weight(1f), Icons.Default.Book)
-                        MetricTile("Recordings", "${sessions.size}", "Fluency $fluencyDelta", ext.success, Modifier.weight(1f), Icons.Default.Mic)
-                        MetricTile("Today & Lessons", "$todayDoneCount/9", "$completedLessons lessons • $pendingTasksCount tasks", MaterialTheme.colorScheme.primary, Modifier.weight(1f), Icons.Default.CheckCircle)
-                    }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            MetricTile("Practice Hours", practiceHours, "${profile?.dailyGoalMinutes ?: 15}m/day goal", ext.warning, Modifier.weight(1f), Icons.Default.Schedule)
-                            MetricTile("Words Learned", wordsValue, "Active notebook", ext.info, Modifier.weight(1f), Icons.Default.Book)
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            MetricTile("Recordings", "${sessions.size}", "Fluency $fluencyDelta", ext.success, Modifier.weight(1f), Icons.Default.Mic)
-                            MetricTile("Today & Lessons", "$todayDoneCount/9", "$completedLessons lessons • $pendingTasksCount tasks", MaterialTheme.colorScheme.primary, Modifier.weight(1f), Icons.Default.CheckCircle)
-                        }
-                    }
+                item {
+                    InlineAiMentorCard(onOpenMentor = { onNavigate("ai_mentor") })
+                }
+
+                item {
+                    QuickAccessPastelGrid(
+                        columns = if (tier.isTabletOrWide) 4 else 2,
+                        onNavigate = onNavigate
+                    )
+                }
+
+                item {
+                    LearningTracksStrip(
+                        tracks = learningTracks,
+                        columns = if (tier.isTabletOrWide) 4 else 2,
+                        onViewAll = { onNavigate("learning_paths") },
+                        onSelectTrack = { hub -> selectedHubGroup = hub }
+                    )
                 }
             }
 
+            // Recent Recordings & Pronunciation Trend
             if (tier.isExpandedTablet && sessions.isNotEmpty()) {
                 val latest = sessions.first()
                 item {
@@ -399,7 +536,6 @@ fun DashboardScreen(
                     }
                 }
             } else {
-                // Recent Recordings Highlight
                 if (sessions.isNotEmpty()) {
                     val latest = sessions.first()
                     item {
@@ -410,8 +546,6 @@ fun DashboardScreen(
                         )
                     }
                 }
-
-                // Filtered Trend Card
                 item {
                     DashboardTrendCard(
                         reportPeriod = reportPeriod,
@@ -422,57 +556,48 @@ fun DashboardScreen(
                 }
             }
 
-            // Searchable + Category-Filtered Skill Modules & Tools Directory
+            // Interactive Tutorials Strip + Browse All 24 Feature Guides
             item {
-                SectionHeader(
-                    title = "Communication Modules & Tools",
-                    subtitle = "Filter by skill focus or search all 15 @askvinh modules & utilities"
-                )
-                Spacer(Modifier.height(SpeakCraftSpacing.sm))
-                OutlinedTextField(
-                    value = moduleQuery,
-                    onValueChange = { moduleQuery = it },
-                    placeholder = { Text("Search modules (e.g., voice, interview, storytelling)...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (moduleQuery.isNotBlank()) {
-                            IconButton(onClick = { moduleQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("dashboard_module_search")
-                )
-                Spacer(Modifier.height(SpeakCraftSpacing.sm))
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
-                    verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
-                ) {
-                    listOf("All", "Voice & Clarity", "Speaking & Story", "Workplace & Influence", "Tools").forEach { group ->
-                        FilterChip(
-                            selected = selectedHubGroup == group,
-                            onClick = { selectedHubGroup = group },
-                            label = { Text(group) },
-                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                    FeatureGuideStrip(featureKey = "dashboard")
+                    OutlinedButton(
+                        onClick = { showAllTutorials = true },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            .testTag("browse_all_tutorials_button")
+                    ) {
+                        Text("Explore Tutorials for All 24 Features & Benefits")
                     }
                 }
             }
 
-            item {
-                if (filteredModules.isEmpty()) {
-                    EmptyStateCard(
-                        title = "No matching modules",
-                        message = "Try a different keyword or reset the category filter.",
-                        ctaLabel = "Show All Modules",
-                        onCta = {
-                            moduleQuery = ""
-                            selectedHubGroup = "All"
-                        }
+            // Full Category-Filtered Communication Modules & Tools Directory
+            if (moduleQuery.isBlank()) {
+                item {
+                    SectionHeader(
+                        title = "All Communication Modules & Tools",
+                        subtitle = "Browse all 15 @askvinh modules & coaching utilities"
                     )
-                } else {
+                    Spacer(Modifier.height(SpeakCraftSpacing.sm))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
+                    ) {
+                        listOf("All", "Voice & Clarity", "Speaking & Story", "Workplace & Influence", "Tools").forEach { group ->
+                            FilterChip(
+                                selected = selectedHubGroup == group,
+                                onClick = { selectedHubGroup = group },
+                                label = { Text(group) },
+                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            )
+                        }
+                    }
+                }
+
+                item {
                     ModuleGrid(
                         items = filteredModules,
                         columns = moduleColumns,
@@ -485,50 +610,200 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardGreetingStrip(
+private fun DashboardStudioHeader(
     displayName: String,
-    level: String,
-    streakDays: Long,
-    dailyGoalMinutes: Long
+    query: String,
+    onQueryChange: (String) -> Unit,
+    wideLayout: Boolean
+) {
+    val searchField: @Composable (Modifier) -> Unit = { mod ->
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = {
+                Text(
+                    "Search lessons, drills, tools...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = {
+                if (query.isNotBlank()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(50),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            ),
+            modifier = mod.testTag("dashboard_module_search")
+        )
+    }
+
+    if (wideLayout) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Welcome back, $displayName!",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Let's build your communication skills today.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(16.dp))
+            searchField(Modifier.widthIn(min = 260.dp, max = 360.dp))
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column {
+                Text(
+                    text = "Welcome back, $displayName!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Let's build your communication skills today.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            searchField(Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun DashboardKpiStrip(
+    practiceHours: String,
+    wordsLearned: String,
+    recordings: String,
+    lessonsCompleted: String,
+    fourUpRow: Boolean
 ) {
     val ext = MaterialTheme.speakCraftColors
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Welcome back, $displayName",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
+    if (fourUpRow) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            StudioMetricCard(
+                label = "Practice Hours",
+                value = practiceHours,
+                pillText = "Weekly Goal: 5 h",
+                icon = Icons.Default.HourglassTop,
+                iconBg = ext.pastelLavenderBg,
+                iconTint = ext.pastelLavenderInk,
+                pillBg = ext.pastelLavenderBg,
+                pillInk = ext.pastelLavenderInk,
+                modifier = Modifier.weight(1f)
             )
-            Text(
-                text = "$level Track • ${dailyGoalMinutes}m daily studio goal",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            StudioMetricCard(
+                label = "Words Learned",
+                value = wordsLearned,
+                pillText = "↑ Start learning",
+                icon = Icons.Default.BarChart,
+                iconBg = ext.pastelSkyBg,
+                iconTint = ext.pastelSkyInk,
+                pillBg = ext.pastelMintBg,
+                pillInk = ext.pastelMintInk,
+                modifier = Modifier.weight(1f)
+            )
+            StudioMetricCard(
+                label = "Recordings",
+                value = recordings,
+                pillText = "↑ Improve fluency",
+                icon = Icons.Default.Mic,
+                iconBg = ext.pastelPeriwinkleBg,
+                iconTint = ext.pastelPeriwinkleInk,
+                pillBg = ext.pastelMintBg,
+                pillInk = ext.pastelMintInk,
+                modifier = Modifier.weight(1f)
+            )
+            StudioMetricCard(
+                label = "Lessons Completed",
+                value = lessonsCompleted,
+                pillText = "Today's Goal",
+                icon = Icons.Default.TrackChanges,
+                iconBg = ext.pastelCoralBg,
+                iconTint = ext.pastelCoralInk,
+                pillBg = ext.pastelPeachBg,
+                pillInk = ext.pastelPeachInk,
+                modifier = Modifier.weight(1f)
             )
         }
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = ext.warningContainer,
-            border = BorderStroke(1.dp, ext.warning.copy(alpha = 0.35f))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocalFireDepartment,
-                    contentDescription = null,
-                    tint = ext.warning,
-                    modifier = Modifier.size(16.dp)
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StudioMetricCard(
+                    label = "Practice Hours",
+                    value = practiceHours,
+                    pillText = "Weekly Goal: 5 h",
+                    icon = Icons.Default.HourglassTop,
+                    iconBg = ext.pastelLavenderBg,
+                    iconTint = ext.pastelLavenderInk,
+                    pillBg = ext.pastelLavenderBg,
+                    pillInk = ext.pastelLavenderInk,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "${streakDays}d streak",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = ext.warning
+                StudioMetricCard(
+                    label = "Words Learned",
+                    value = wordsLearned,
+                    pillText = "↑ Start learning",
+                    icon = Icons.Default.BarChart,
+                    iconBg = ext.pastelSkyBg,
+                    iconTint = ext.pastelSkyInk,
+                    pillBg = ext.pastelMintBg,
+                    pillInk = ext.pastelMintInk,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StudioMetricCard(
+                    label = "Recordings",
+                    value = recordings,
+                    pillText = "↑ Improve fluency",
+                    icon = Icons.Default.Mic,
+                    iconBg = ext.pastelPeriwinkleBg,
+                    iconTint = ext.pastelPeriwinkleInk,
+                    pillBg = ext.pastelMintBg,
+                    pillInk = ext.pastelMintInk,
+                    modifier = Modifier.weight(1f)
+                )
+                StudioMetricCard(
+                    label = "Lessons Completed",
+                    value = lessonsCompleted,
+                    pillText = "Today's Goal",
+                    icon = Icons.Default.TrackChanges,
+                    iconBg = ext.pastelCoralBg,
+                    iconTint = ext.pastelCoralInk,
+                    pillBg = ext.pastelPeachBg,
+                    pillInk = ext.pastelPeachInk,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -601,205 +876,6 @@ private fun LatestRecordingSummaryCard(
 }
 
 @Composable
-private fun DashboardHeroCard(
-    profile: UserProfile?,
-    recommendedNextAction: RecommendedNextAction,
-    overallScore: Int,
-    onNavigate: (String) -> Unit
-) {
-    val ext = MaterialTheme.speakCraftColors
-    Card(
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(228.dp)
-        ) {
-            Image(
-                painter = painterResource(R.drawable.img_coach_hero),
-                contentDescription = "SpeakCraft executive coaching stage",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(ext.heroOverlayStart, ext.heroOverlayEnd)
-                        )
-                    )
-            )
-            Column(
-                modifier = Modifier.fillMaxSize().padding(18.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = ext.warning.copy(alpha = 0.28f),
-                        border = BorderStroke(1.dp, ext.onHeroBadge.copy(alpha = 0.35f))
-                    ) {
-                        Text(
-                            text = "${recommendedNextAction.badge} • ${profile?.streakDays ?: 1}d Streak",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ext.onHeroBadge,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = ext.heroOverlayEnd.copy(alpha = 0.65f),
-                        border = BorderStroke(1.dp, ext.onHeroBadge.copy(alpha = 0.3f))
-                    ) {
-                        Text(
-                            text = "Overall $overallScore/100",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = ext.onHeroBadge,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-                Column {
-                    Text(
-                        text = "Next Step: ${recommendedNextAction.title}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = ext.onHeroTitle
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = recommendedNextAction.reason,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ext.onHeroSubtitle,
-                        maxLines = 2
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { onNavigate(recommendedNextAction.targetRoute) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ext.warning,
-                                contentColor = ext.onWarning
-                            ),
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("recommended_action_button")
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(recommendedNextAction.ctaLabel)
-                        }
-                        OutlinedButton(
-                            onClick = { onNavigate("speaking_lab") },
-                            modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
-                            border = BorderStroke(1.dp, ext.onHeroSubtitle.copy(alpha = 0.65f))
-                        ) {
-                            Icon(Icons.Default.Mic, contentDescription = null, tint = ext.onHeroTitle, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Quick Record", color = ext.onHeroTitle)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DashboardRoutineCard(
-    todayDoneCount: Int,
-    quickHubs: List<ModuleTileSpec>,
-    onNavigate: (String) -> Unit
-) {
-    val ext = MaterialTheme.speakCraftColors
-    val hubPalette = listOf(
-        ext.warning to ext.warningContainer,
-        ext.info to ext.infoContainer,
-        ext.indigo to ext.indigoContainer,
-        ext.success to ext.successContainer
-    )
-    Card(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
-    ) {
-        Column(
-            modifier = Modifier.padding(SpeakCraftSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Today's Routine Progress", style = MaterialTheme.typography.labelLarge)
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = ext.successContainer
-                ) {
-                    Text(
-                        "$todayDoneCount / 9 steps",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ext.success,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-            LinearProgressIndicator(
-                progress = { (todayDoneCount / 9f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = ext.success,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
-            ) {
-                quickHubs.forEachIndexed { idx, hub ->
-                    val (tint, bg) = hubPalette[idx % hubPalette.size]
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                            .clip(MaterialTheme.shapes.small)
-                            .clickable { onNavigate(hub.route) },
-                        shape = MaterialTheme.shapes.small,
-                        color = bg.copy(alpha = 0.55f),
-                        border = BorderStroke(1.dp, tint.copy(alpha = 0.25f))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                hub.icon,
-                                contentDescription = hub.title,
-                                tint = tint,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                hub.title,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun DashboardTrendCard(
     reportPeriod: String,
     filteredCount: Int,
@@ -807,7 +883,6 @@ private fun DashboardTrendCard(
     onSelectPeriod: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val ext = MaterialTheme.speakCraftColors
     Card(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
@@ -839,7 +914,7 @@ private fun DashboardTrendCard(
                     }
                 }
             }
-            ScoreTrendSparkline(scores = scores, accentColor = ext.info)
+            ScoreTrendSparkline(scores = scores, accentColor = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -857,10 +932,10 @@ private fun ModuleGrid(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowItems.forEach { mod ->
                     val (badgeBg, iconTint) = when (mod.hubGroup) {
-                        "Voice & Clarity" -> ext.infoContainer to ext.info
-                        "Speaking & Story" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
-                        "Workplace & Influence" -> ext.successContainer to ext.success
-                        else -> ext.indigoContainer to ext.indigo
+                        "Voice & Clarity" -> ext.pastelMintBg to ext.pastelMintInk
+                        "Speaking & Story" -> ext.pastelLavenderBg to ext.pastelLavenderInk
+                        "Workplace & Influence" -> ext.pastelSkyBg to ext.pastelSkyInk
+                        else -> ext.pastelPeachBg to ext.pastelPeachInk
                     }
                     Surface(
                         modifier = Modifier
@@ -872,7 +947,7 @@ private fun ModuleGrid(
                         shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 1.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),

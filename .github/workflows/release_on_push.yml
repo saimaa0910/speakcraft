@@ -73,12 +73,12 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON || secrets.GOOGLESERVICES }}
         run: |
           set -euo pipefail
-          if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
-          elif [ ! -s app/google-services.json ]; then
-            echo "::error::Missing GOOGLE_SERVICES_JSON (or GOOGLESERVICES) repository secret and no committed app/google-services.json found."
+          if [ -z "${GOOGLE_SERVICES_JSON:-}" ]; then
+            echo "::error::Missing required GOOGLE_SERVICES_JSON repository secret (or legacy GOOGLESERVICES alias) containing Firebase app/google-services.json."
             exit 1
           fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          chmod 600 app/google-services.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -235,6 +235,7 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
           REQUESTED_MODE="auto"
@@ -268,39 +269,61 @@ jobs:
               exit 1
             fi
 
-            printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > my-upload-key.jks
-            if [ ! -s my-upload-key.jks ]; then
-              echo "::error::Restored my-upload-key.jks is empty. Verify ANDROID_KEYSTORE_BASE64 contains valid base64."
+            if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > my-upload-key.jks 2>/dev/null || [ ! -s my-upload-key.jks ]; then
+              echo "::error::Failed to decode ANDROID_KEYSTORE_BASE64 into my-upload-key.jks. Verify ANDROID_KEYSTORE_BASE64 contains valid base64."
               exit 1
             fi
+            chmod 600 my-upload-key.jks
 
-            if ! keytool -list -keystore my-upload-key.jks -alias upload -storepass:env STORE_PASSWORD >/dev/null 2>&1; then
+            if ! KEYTOOL_OUT="$(LC_ALL=C keytool -list -v -keystore my-upload-key.jks -alias upload -storepass:env STORE_PASSWORD 2>/dev/null)"; then
               echo "::error::Keystore validation failed for alias 'upload'. Verify ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and key alias 'upload'."
               exit 1
             fi
 
-            echo "gradle_task=assembleRelease" >> "$GITHUB_OUTPUT"
-            echo "apk_path=app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_OUTPUT"
-            echo "signing_mode=release" >> "$GITHUB_OUTPUT"
-          else
-            # Deterministic debug keystore restoration ONLY — NEVER run keytool -genkeypair
-            # (generating a random key on the runner causes INSTALL_FAILED_UPDATE_INCOMPATIBLE
-            # conflicts with previously installed APKs and breaks Google Sign-In OAuth).
-            if [ ! -s debug.keystore ]; then
-              if [ ! -s debug.keystore.base64 ]; then
-                echo "::error::Missing deterministic debug.keystore.base64 in repository. Refusing to generate an ephemeral random keystore that would break in-place APK upgrades."
-                exit 1
-              fi
-              tr -d '[:space:]' < debug.keystore.base64 | base64 --decode > debug.keystore
-            fi
-            if ! keytool -list -keystore debug.keystore -alias androiddebugkey -storepass android >/dev/null 2>&1; then
-              echo "::error::Restored debug.keystore failed validation for alias 'androiddebugkey'."
+            EXPECTED_CERT_SHA256="$(printf '%s\n' "$KEYTOOL_OUT" | grep -m1 -E '^\s*SHA256:' | awk '{print $NF}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            if ! [[ "$EXPECTED_CERT_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+              echo "::error::Failed to extract SHA-256 certificate fingerprint from my-upload-key.jks alias 'upload'."
               exit 1
             fi
-            echo "::warning::Building beta APK with the deterministic repository debug.keystore (in-place compatible with debug installs only; configure ANDROID_KEYSTORE_BASE64 for release-signed updates)."
-            echo "gradle_task=assembleDebug" >> "$GITHUB_OUTPUT"
-            echo "apk_path=app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_OUTPUT"
-            echo "signing_mode=debug" >> "$GITHUB_OUTPUT"
+
+            {
+              echo "gradle_task=assembleRelease"
+              echo "apk_path=app/build/outputs/apk/release/app-release.apk"
+              echo "signing_mode=release"
+              echo "expected_cert_sha256=$EXPECTED_CERT_SHA256"
+            } >> "$GITHUB_OUTPUT"
+          else
+            # Deterministic debug keystore decoded strictly from GitHub Actions secret
+            # DEBUG_KEYSTORE_BASE64 only during the job (never committed or randomly generated).
+            if [ -z "${DEBUG_KEYSTORE_BASE64:-}" ]; then
+              echo "::error::Missing required DEBUG_KEYSTORE_BASE64 repository secret for deterministic debug signing (or configure ANDROID_KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD for release signing)."
+              exit 1
+            fi
+
+            if ! printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > debug.keystore 2>/dev/null || [ ! -s debug.keystore ]; then
+              echo "::error::Failed to decode DEBUG_KEYSTORE_BASE64 into debug.keystore. Verify DEBUG_KEYSTORE_BASE64 contains valid base64."
+              exit 1
+            fi
+            chmod 600 debug.keystore
+
+            if ! KEYTOOL_OUT="$(LC_ALL=C keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android 2>/dev/null)"; then
+              echo "::error::Restored debug.keystore failed validation for alias 'androiddebugkey' with standard debug store password."
+              exit 1
+            fi
+
+            EXPECTED_CERT_SHA256="$(printf '%s\n' "$KEYTOOL_OUT" | grep -m1 -E '^\s*SHA256:' | awk '{print $NF}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            if ! [[ "$EXPECTED_CERT_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+              echo "::error::Failed to extract SHA-256 certificate fingerprint from debug.keystore alias 'androiddebugkey'."
+              exit 1
+            fi
+
+            echo "::warning::Building beta APK with deterministic debug.keystore decoded from DEBUG_KEYSTORE_BASE64 (in-place compatible with debug installs only; configure ANDROID_KEYSTORE_BASE64 for release-signed updates)."
+            {
+              echo "gradle_task=assembleDebug"
+              echo "apk_path=app/build/outputs/apk/debug/app-debug.apk"
+              echo "signing_mode=debug"
+              echo "expected_cert_sha256=$EXPECTED_CERT_SHA256"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build & sign Android APK
@@ -333,6 +356,7 @@ jobs:
         env:
           SRC_APK: ${{ steps.sign.outputs.apk_path }}
           SIGNING_MODE: ${{ steps.sign.outputs.signing_mode }}
+          EXPECTED_CERT_SHA256: ${{ steps.sign.outputs.expected_cert_sha256 }}
           CHANNEL: ${{ steps.meta.outputs.channel }}
           VERSION_NAME: ${{ steps.meta.outputs.version_name }}
           VERSION_CODE: ${{ steps.meta.outputs.version_code }}
@@ -374,9 +398,8 @@ jobs:
             exit 1
           fi
 
-          KNOWN_DEBUG_CERT_SHA256="3f7d14b32df7635fe1b48db5d09857df02a000e2204568323d9a60025fa75f9f"
-          if [ "$SIGNING_MODE" = "release" ] && [ "$CERT_SHA256" = "$KNOWN_DEBUG_CERT_SHA256" ]; then
-            echo "::error::Release APK was unexpectedly signed with the repository debug certificate. Check signingConfigs.release and ANDROID_KEYSTORE_BASE64."
+          if [ -n "${EXPECTED_CERT_SHA256:-}" ] && [ "$CERT_SHA256" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error::Built APK signing certificate ($CERT_SHA256) does not match expected ${SIGNING_MODE} keystore certificate ($EXPECTED_CERT_SHA256)."
             exit 1
           fi
 
@@ -476,3 +499,9 @@ jobs:
         if: ${{ env.FIREBASE_PUBLISH_ENABLED != 'true' }}
         run: |
           echo "::warning::FIREBASE_SERVICE_ACCOUNT_JSON secret is not configured. GitHub Release was published, but Firestore applicationReleases was NOT updated for previously installed APKs."
+
+      - name: Clean up temporary signing & credential files
+        if: always()
+        shell: bash
+        run: |
+          rm -f my-upload-key.jks debug.keystore app/google-services.json
