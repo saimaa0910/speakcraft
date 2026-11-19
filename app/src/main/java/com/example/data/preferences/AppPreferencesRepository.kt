@@ -34,7 +34,9 @@ data class AppPreferences(
     val completedTutorialKeys: Set<String> = emptySet(),
     val firstUseTutorialsEnabled: Boolean = true,
     val hasCompletedInitialLaunch: Boolean = false,
-    val githubReleaseRepo: String = ""
+    val githubReleaseRepo: String = "",
+    val fontScalePreference: Float = 1.0f,
+    val reducedMotion: Boolean = false
 )
 
 private object KeystoreCipherHelper {
@@ -103,6 +105,8 @@ class AppPreferencesRepository(private val context: Context) {
     private val firstUseTutorialsEnabledKey = booleanPreferencesKey("first_use_tutorials_enabled")
     private val initialLaunchCompletedKey = booleanPreferencesKey("initial_launch_completed")
     private val githubReleaseRepoKey = stringPreferencesKey("github_release_repo")
+    private val fontScaleKey = floatPreferencesKey("font_scale_preference")
+    private val reducedMotionKey = booleanPreferencesKey("reduced_motion")
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
         val theme = enumValues<ThemePreference>().firstOrNull { it.name == prefs[themeKey] }
@@ -124,7 +128,9 @@ class AppPreferencesRepository(private val context: Context) {
             completedTutorialKeys = prefs[completedTutorialsKey] ?: emptySet(),
             firstUseTutorialsEnabled = prefs[firstUseTutorialsEnabledKey] ?: true,
             hasCompletedInitialLaunch = prefs[initialLaunchCompletedKey] ?: false,
-            githubReleaseRepo = storedRepo
+            githubReleaseRepo = storedRepo,
+            fontScalePreference = (prefs[fontScaleKey] ?: 1.0f).coerceIn(0.85f, 1.3f),
+            reducedMotion = prefs[reducedMotionKey] ?: false
         )
     }
 
@@ -194,6 +200,18 @@ class AppPreferencesRepository(private val context: Context) {
     suspend fun setGithubReleaseRepo(repoSlug: String) {
         context.dataStore.edit { prefs ->
             prefs[githubReleaseRepoKey] = com.example.data.update.GitHubReleaseClient.normalizeRepoSlug(repoSlug)
+        }
+    }
+
+    suspend fun setFontScalePreference(scale: Float) {
+        context.dataStore.edit { prefs ->
+            prefs[fontScaleKey] = scale.coerceIn(0.85f, 1.3f)
+        }
+    }
+
+    suspend fun setReducedMotion(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[reducedMotionKey] = enabled
         }
     }
 }

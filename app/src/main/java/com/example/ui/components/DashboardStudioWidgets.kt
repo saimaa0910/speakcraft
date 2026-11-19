@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -21,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -65,9 +70,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +87,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -89,18 +98,150 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.ai.RecommendedNextAction
+import com.example.data.learning.LearningStreakState
+import com.example.data.learning.PersonalizedDailyPlan
 import com.example.data.model.DailyActivity
 import com.example.data.model.UserProfile
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
+import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
 private data class SpotlightSlide(
+    val id: String,
     val badge: String,
     val title: String,
     val subtitle: String,
     val primaryCta: String,
-    val primaryRoute: String
+    val primaryRoute: String,
+    val quickPracticeRoute: String
 )
+
+@Composable
+fun WelcomeBackBanner(
+    displayName: String,
+    learningTrack: String,
+    learningDay: Int,
+    overallScore: Int,
+    personalizedCue: String,
+    reducedMotion: Boolean = false,
+    onAvatarClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val ext = MaterialTheme.speakCraftColors
+    var hasAnimated by rememberSaveable { mutableStateOf(false) }
+    val progress = remember { Animatable(if (reducedMotion || hasAnimated) 1f else 0f) }
+
+    LaunchedEffect(reducedMotion) {
+        if (reducedMotion || hasAnimated) {
+            progress.snapTo(1f)
+            hasAnimated = true
+        } else {
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
+            )
+            hasAnimated = true
+        }
+    }
+
+    val p = progress.value
+    val initials = remember(displayName) {
+        displayName.trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .take(2)
+            .joinToString("") { it.first().uppercase() }
+            .ifBlank { "S" }
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = 0.2f + 0.8f * p
+                translationY = (1f - p) * 20f
+                val s = 0.97f + 0.03f * p
+                scaleX = s
+                scaleY = s
+            }
+            .testTag("welcome_back_banner"),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onAvatarClick)
+                    .testTag("welcome_avatar_button")
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = initials,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = "Welcome back, $displayName!",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = personalizedCue,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = ext.pastelLavenderBg
+                    ) {
+                        Text(
+                            text = "$learningTrack • Day $learningDay",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = ext.pastelLavenderInk,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = ext.pastelMintBg
+                    ) {
+                        Text(
+                            text = "Score $overallScore/100",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = ext.pastelMintInk,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun SpotlightHeroCard(
@@ -108,238 +249,282 @@ fun SpotlightHeroCard(
     recommendedNextAction: RecommendedNextAction,
     overallScore: Int,
     onNavigate: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    learningDay: Int = ((profile?.streakDays ?: 1L).coerceAtLeast(1L)).toInt(),
+    reducedMotion: Boolean = false
 ) {
     val ext = MaterialTheme.speakCraftColors
-    val streakDay = ((profile?.streakDays ?: 1L).coerceIn(1L, 7L))
+    val scope = rememberCoroutineScope()
     val levelLabel = profile?.communicationLevel?.ifBlank { "Foundation" } ?: "Foundation"
-    val slides = remember(recommendedNextAction, levelLabel, streakDay) {
-        listOf(
+    val slides = remember(recommendedNextAction, levelLabel, learningDay, overallScore) {
+        val baseSlides = listOf(
             SpotlightSlide(
-                badge = "$levelLabel Track • Day $streakDay of 7",
-                title = recommendedNextAction.title.ifBlank { "The 3Vs of Communication" },
+                id = "slide_3vs",
+                badge = "$levelLabel Track • Day $learningDay",
+                title = "The 3 Vs of Communication",
+                subtitle = "Build a strong foundation with Visual, Vocal and Verbal communication.",
+                primaryCta = "Start Lesson",
+                primaryRoute = "lesson_detail/lesson_vinh_3stage_audit",
+                quickPracticeRoute = "speaking_lab"
+            ),
+            SpotlightSlide(
+                id = "slide_clarity",
+                badge = "Articulation & Pace • Day $learningDay",
+                title = "Speak with Clarity",
+                subtitle = "Improve your articulation, vocal projection, and natural speaking pace.",
+                primaryCta = "Start Lesson",
+                primaryRoute = "articulation_lab",
+                quickPracticeRoute = "voice_training"
+            ),
+            SpotlightSlide(
+                id = "slide_confidence",
+                badge = "Everyday Fluency • Score $overallScore",
+                title = "Speak with Confidence",
+                subtitle = "Practice speaking naturally in real conversations and daily scenarios.",
+                primaryCta = "Start Lesson",
+                primaryRoute = "conversation",
+                quickPracticeRoute = "challenges"
+            ),
+            SpotlightSlide(
+                id = "slide_recommended",
+                badge = "Recommended Next • $levelLabel",
+                title = recommendedNextAction.title.ifBlank { "Vocabulary Speaking Drill" },
                 subtitle = recommendedNextAction.reason.ifBlank {
-                    "Build a strong foundation with Visual, Vocal and Verbal communication."
+                    "Complete your 5-stage spoken vocabulary workflow and contextual sentences."
                 },
                 primaryCta = recommendedNextAction.ctaLabel.ifBlank { "Continue Lesson" },
-                primaryRoute = recommendedNextAction.targetRoute
-            ),
-            SpotlightSlide(
-                badge = "@askvinh Framework • Core Mastery",
-                title = "The 3Vs of Communication",
-                subtitle = "Master Visual presence, Vocal variety, and Verbal clarity across every room.",
-                primaryCta = "Start 3Vs Lesson",
-                primaryRoute = "lesson_detail/lesson_vinh_3stage_audit"
-            ),
-            SpotlightSlide(
-                badge = "Studio Audit • Overall $overallScore/100",
-                title = "3-Stage Video Audit",
-                subtitle = "Record 60 seconds and audit gestures, vocal melody, and message structure.",
-                primaryCta = "Open Record Lab",
-                primaryRoute = "speaking_lab"
+                primaryRoute = recommendedNextAction.targetRoute.ifBlank { "vocabulary" },
+                quickPracticeRoute = "speaking_lab"
             )
         )
+        baseSlides
     }
-    var activeSlideIdx by remember { mutableIntStateOf(0) }
-    val slide = slides[activeSlideIdx % slides.size]
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { slides.size })
 
-    Card(
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = modifier.fillMaxWidth()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("welcome_carousel_container"),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Box(
+        HorizontalPager(
+            state = pagerState,
+            pageSpacing = 12.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(248.dp)
-        ) {
-            Image(
-                painter = painterResource(R.drawable.img_coach_hero),
-                contentDescription = "SpeakCraft studio microphone stage",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            // Deep indigo-to-violet editorial gradient overlay matching studio hero
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                ext.heroOverlayStart,
-                                ext.heroOverlayMid,
-                                ext.heroOverlayEnd
-                            )
-                        )
-                    )
-            )
-            // Luminous glowing acoustic waveform accent on right
-            Canvas(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 22.dp)
-                    .size(width = 88.dp, height = 96.dp)
-            ) {
-                val heights = listOf(0.22f, 0.44f, 0.72f, 0.96f, 0.58f, 0.84f, 0.40f, 0.24f)
-                val gap = size.width / heights.size
-                val barW = (gap * 0.46f).coerceAtLeast(4f)
-                val midY = size.height / 2f
-                heights.forEachIndexed { idx, frac ->
-                    val h = size.height * frac
-                    val x = idx * gap + (gap - barW) / 2f
-                    drawRoundRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(ext.sidebarActiveEnd, ext.onHeroBadge)
-                        ),
-                        topLeft = Offset(x, midY - h / 2f),
-                        size = Size(barW, h),
-                        cornerRadius = CornerRadius(barW / 2f, barW / 2f),
-                        alpha = 0.72f
-                    )
-                }
-            }
+                .testTag("welcome_hero_pager")
+        ) { pageIdx ->
+            val slide = slides[pageIdx]
+            val pageOffset = ((pagerState.currentPage - pageIdx) + pagerState.currentPageOffsetFraction).absoluteValue
+            val cardScale = if (reducedMotion) 1f else (1f - (pageOffset.coerceIn(0f, 1f) * 0.04f))
+            val cardAlpha = if (reducedMotion) 1f else (1f - (pageOffset.coerceIn(0f, 1f) * 0.16f))
 
-            Column(
+            Card(
+                shape = MaterialTheme.shapes.large,
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        scaleX = cardScale
+                        scaleY = cardScale
+                        alpha = cardAlpha
+                    }
+                    .testTag("hero_slide_$pageIdx")
             ) {
-                // Top pill badge + overall studio score pill
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(252.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = ext.onHeroTitle.copy(alpha = 0.16f),
-                        border = BorderStroke(1.dp, ext.onHeroTitle.copy(alpha = 0.25f))
+                    Image(
+                        painter = painterResource(R.drawable.img_coach_hero),
+                        contentDescription = "SpeakCraft studio microphone stage",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        ext.heroOverlayStart,
+                                        ext.heroOverlayMid,
+                                        ext.heroOverlayEnd
+                                    )
+                                )
+                            )
+                    )
+                    Canvas(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 22.dp)
+                            .size(width = 88.dp, height = 96.dp)
+                    ) {
+                        val heights = listOf(0.22f, 0.44f, 0.72f, 0.96f, 0.58f, 0.84f, 0.40f, 0.24f)
+                        val gap = size.width / heights.size
+                        val barW = (gap * 0.46f).coerceAtLeast(4f)
+                        val midY = size.height / 2f
+                        heights.forEachIndexed { idx, frac ->
+                            val h = size.height * frac
+                            val x = idx * gap + (gap - barW) / 2f
+                            drawRoundRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(ext.sidebarActiveEnd, ext.onHeroBadge)
+                                ),
+                                topLeft = Offset(x, midY - h / 2f),
+                                size = Size(barW, h),
+                                cornerRadius = CornerRadius(barW / 2f, barW / 2f),
+                                alpha = 0.72f
+                            )
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                tint = ext.onHeroBadge,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Text(
-                                text = slide.badge,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = ext.onHeroBadge
-                            )
-                        }
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = ext.heroOverlayStart.copy(alpha = 0.72f),
-                        border = BorderStroke(1.dp, ext.onHeroTitle.copy(alpha = 0.25f))
-                    ) {
-                        Text(
-                            text = "Score $overallScore",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ext.onHeroTitle,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        )
-                    }
-                }
-
-                // Title & subtitle
-                Column(modifier = Modifier.fillMaxWidth(0.78f)) {
-                    Text(
-                        text = slide.title,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = ext.onHeroTitle,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = slide.subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ext.onHeroSubtitle,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Action pills + carousel dots
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = { onNavigate(slide.primaryRoute) },
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ext.onHeroTitle,
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("recommended_action_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = slide.primaryCta,
-                                style = MaterialTheme.typography.labelLarge,
-                                maxLines = 1
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { onNavigate("speaking_lab") },
-                            shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.dp, ext.onHeroTitle.copy(alpha = 0.65f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = ext.onHeroTitle.copy(alpha = 0.12f),
-                                contentColor = ext.onHeroTitle
-                            ),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("hero_quick_practice_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text("Quick Practice", maxLines = 1)
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        slides.indices.forEach { idx ->
-                            val selected = idx == activeSlideIdx
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 3.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (selected) ext.onHeroTitle else ext.onHeroTitle.copy(alpha = 0.4f)
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = ext.onHeroTitle.copy(alpha = 0.16f),
+                                border = BorderStroke(1.dp, ext.onHeroTitle.copy(alpha = 0.25f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = ext.onHeroBadge,
+                                        modifier = Modifier.size(13.dp)
                                     )
-                                    .size(width = if (selected) 16.dp else 6.dp, height = 6.dp)
-                                    .clickable { activeSlideIdx = idx }
+                                    Text(
+                                        text = slide.badge,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = ext.onHeroBadge
+                                    )
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = ext.heroOverlayStart.copy(alpha = 0.72f),
+                                border = BorderStroke(1.dp, ext.onHeroTitle.copy(alpha = 0.25f))
+                            ) {
+                                Text(
+                                    text = "Score $overallScore",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = ext.onHeroTitle,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+
+                        Column(modifier = Modifier.fillMaxWidth(0.78f)) {
+                            Text(
+                                text = slide.title,
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = ext.onHeroTitle,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = slide.subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ext.onHeroSubtitle,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { onNavigate(slide.primaryRoute) },
+                                shape = RoundedCornerShape(50),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ext.onHeroTitle,
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                ),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag(if (pageIdx == pagerState.currentPage) "recommended_action_button" else "recommended_action_button_$pageIdx")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = slide.primaryCta,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    maxLines = 1
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { onNavigate(slide.quickPracticeRoute) },
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.dp, ext.onHeroTitle.copy(alpha = 0.65f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = ext.onHeroTitle.copy(alpha = 0.14f),
+                                    contentColor = ext.onHeroTitle
+                                ),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag(if (pageIdx == pagerState.currentPage) "hero_quick_practice_button" else "hero_quick_practice_button_$pageIdx")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text("Quick Practice", maxLines = 1)
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        // Swipe indicator dots (tappable to jump cleanly)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("welcome_carousel_dots"),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            slides.indices.forEach { idx ->
+                val selected = idx == pagerState.currentPage
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+                        )
+                        .size(width = if (selected) 20.dp else 7.dp, height = 7.dp)
+                        .clickable {
+                            scope.launch { pagerState.animateScrollToPage(idx) }
+                        }
+                        .testTag("carousel_dot_$idx")
+                )
             }
         }
     }
@@ -358,22 +543,54 @@ private data class PracticePlanRowSpec(
 fun TodaysPracticePlanCard(
     todayActivity: DailyActivity?,
     onNavigate: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    personalizedPlan: PersonalizedDailyPlan? = null,
+    onCompleteDailyTask: ((String) -> Unit)? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
     val completedIds = todayActivity?.completedStepIds.orEmpty().toSet()
-    val rows = remember {
-        listOf(
-            PracticePlanRowSpec("vocab_3_words", "Learn 3 New Vocabulary Words", "5 min", "vocabulary", Icons.Default.Book, 0),
-            PracticePlanRowSpec("articulation_drill", "Articulation & Enunciation Drill", "7 min", "articulation_lab", Icons.Default.GraphicEq, 2),
-            PracticePlanRowSpec("sentence_builder", "Contextual Sentence Construction", "5 min", "grammar_speaking", Icons.Default.FormatQuote, 5),
-            PracticePlanRowSpec("vocal_warmup", "Vocal Foundations Practice", "8 min", "voice_training", Icons.Default.Mic, 6),
-            PracticePlanRowSpec("listening_shadow", "Active Listening Exercise", "6 min", "listening_lab", Icons.Default.Headphones, 4),
-            PracticePlanRowSpec("daily_reflection", "Daily Reflection", "3 min", "daily_practice", Icons.Default.EditNote, 3)
-        )
+
+    val rows = remember(personalizedPlan) {
+        if (personalizedPlan != null && personalizedPlan.tasks.isNotEmpty()) {
+            personalizedPlan.tasks.mapIndexed { idx, task ->
+                val icon = when {
+                    task.category.contains("Vocab", ignoreCase = true) -> Icons.Default.Book
+                    task.category.contains("Pronun", ignoreCase = true) -> Icons.Default.GraphicEq
+                    task.category.contains("Grammar", ignoreCase = true) -> Icons.Default.FormatQuote
+                    task.category.contains("Listen", ignoreCase = true) -> Icons.Default.Headphones
+                    task.category.contains("Reflec", ignoreCase = true) -> Icons.Default.EditNote
+                    else -> Icons.Default.Mic
+                }
+                PracticePlanRowSpec(
+                    stepId = task.id,
+                    title = task.title,
+                    duration = "${task.durationMinutes} min",
+                    route = task.targetRoute.ifBlank { "daily_practice" },
+                    icon = icon,
+                    swatchIndex = idx % 7
+                )
+            }
+        } else {
+            listOf(
+                PracticePlanRowSpec("vocab_3_words", "Learn 3 New Vocabulary Words", "5 min", "vocabulary", Icons.Default.Book, 0),
+                PracticePlanRowSpec("articulation_drill", "Articulation & Enunciation Drill", "7 min", "articulation_lab", Icons.Default.GraphicEq, 2),
+                PracticePlanRowSpec("sentence_builder", "Contextual Sentence Construction", "5 min", "grammar_speaking", Icons.Default.FormatQuote, 5),
+                PracticePlanRowSpec("vocal_warmup", "Vocal Foundations Practice", "8 min", "voice_training", Icons.Default.Mic, 6),
+                PracticePlanRowSpec("listening_shadow", "Active Listening Exercise", "6 min", "listening_lab", Icons.Default.Headphones, 4),
+                PracticePlanRowSpec("daily_reflection", "Daily Reflection", "3 min", "daily_practice", Icons.Default.EditNote, 3)
+            )
+        }
     }
-    val completedCount = rows.count { it.stepId in completedIds }
-        .coerceAtLeast((todayActivity?.completedStepIds?.size ?: 0).coerceAtMost(rows.size))
+
+    val planDoneIds = remember(personalizedPlan) {
+        personalizedPlan?.tasks?.filter { it.isCompleted }?.map { it.id }?.toSet().orEmpty()
+    }
+    val completedCount = if (personalizedPlan != null) {
+        personalizedPlan.completedCount
+    } else {
+        rows.count { it.stepId in completedIds }
+            .coerceAtLeast((todayActivity?.completedStepIds?.size ?: 0).coerceAtMost(rows.size))
+    }
 
     val swatches = listOf(
         ext.pastelLavenderBg to ext.pastelLavenderInk,
@@ -403,11 +620,24 @@ fun TodaysPracticePlanCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Today's Practice Plan",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Today's Practice Plan",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (personalizedPlan != null) {
+                        Text(
+                            text = if (personalizedPlan.isRecoveryPlan) {
+                                "Gentle Recovery Plan • ${personalizedPlan.targetMinutes} min"
+                            } else {
+                                "${personalizedPlan.level.label} • ${personalizedPlan.targetMinutes} min target"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Text(
                     text = "$completedCount / ${rows.size} completed",
                     style = MaterialTheme.typography.labelMedium,
@@ -416,9 +646,15 @@ fun TodaysPracticePlanCard(
             }
 
             rows.forEachIndexed { idx, row ->
-                val isDone = row.stepId in completedIds || idx < completedCount
+                val isDone = if (personalizedPlan != null) {
+                    row.stepId in planDoneIds
+                } else {
+                    row.stepId in completedIds || idx < completedCount
+                }
                 val (bg, tint) = swatches[row.swatchIndex % swatches.size]
-                val isHighlighted = idx == 0 && !isDone
+                val isHighlighted = !isDone && rows.indexOfFirst { r ->
+                    if (personalizedPlan != null) r.stepId !in planDoneIds else r.stepId !in completedIds
+                } == idx
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = if (isHighlighted) {
@@ -441,7 +677,7 @@ fun TodaysPracticePlanCard(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(20.dp)
+                                .size(24.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (isDone) MaterialTheme.colorScheme.primary else Color.Transparent
@@ -454,7 +690,11 @@ fun TodaysPracticePlanCard(
                                         MaterialTheme.colorScheme.outline
                                     },
                                     shape = CircleShape
-                                ),
+                                )
+                                .clickable(enabled = !isDone && onCompleteDailyTask != null) {
+                                    onCompleteDailyTask?.invoke(row.stepId)
+                                }
+                                .testTag("daily_task_check_${row.stepId}"),
                             contentAlignment = Alignment.Center
                         ) {
                             if (isDone) {
@@ -462,7 +702,7 @@ fun TodaysPracticePlanCard(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Completed",
                                     tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(13.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
                         }
@@ -511,12 +751,22 @@ fun TodaysPracticePlanCard(
 @Composable
 fun StreakHighlightCard(
     streakDays: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    streakState: LearningStreakState? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
-    val displayDays = streakDays.coerceAtLeast(1L)
+    val displayDays = streakState?.currentStreakDays?.toLong() ?: streakDays.coerceAtLeast(1L)
+    val longestDays = streakState?.longestStreakDays?.toLong()?.coerceAtLeast(displayDays) ?: displayDays
+    val subtitle = when {
+        streakState == null -> "Keep practicing daily!"
+        streakState.todayRequirementMet -> "Today's goal met! Best streak: $longestDays days"
+        displayDays > 0 -> "Complete 2 tasks today to extend • Best: ${longestDays}d"
+        else -> "Complete 2 tasks today to start your streak!"
+    }
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("streak_highlight_card"),
         shape = MaterialTheme.shapes.large,
         color = ext.streakSurface,
         border = BorderStroke(1.dp, ext.warning.copy(alpha = 0.25f))
@@ -540,7 +790,7 @@ fun StreakHighlightCard(
                     )
                 }
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "$displayDays Day Streak",
                     style = MaterialTheme.typography.titleMedium,
@@ -548,10 +798,24 @@ fun StreakHighlightCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Keep practicing daily!",
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            streakState?.latestMilestoneUnlocked?.let { milestone ->
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = ext.warningContainer
+                ) {
+                    Text(
+                        text = "${milestone}d ★",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ext.warning,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
     }
@@ -679,10 +943,19 @@ fun TodaysProgressRingCard(
 fun WeeklyGoalCard(
     activeDaysThisWeek: Int,
     targetDays: Int = 5,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    weeklyCompletionMap: Map<String, Boolean>? = null
 ) {
-    val doneDays = activeDaysThisWeek.coerceIn(0, targetDays)
-    val dayLetters = listOf("M", "T", "W", "T", "F")
+    val dayEntries = remember(weeklyCompletionMap, activeDaysThisWeek) {
+        if (!weeklyCompletionMap.isNullOrEmpty()) {
+            listOf("Mon" to "M", "Tue" to "T", "Wed" to "W", "Thu" to "T", "Fri" to "F", "Sat" to "S", "Sun" to "S")
+                .map { (key, letter) -> letter to (weeklyCompletionMap[key] == true) }
+        } else {
+            val doneDays = activeDaysThisWeek.coerceIn(0, 5)
+            listOf("M", "T", "W", "T", "F").mapIndexed { idx, letter -> letter to (idx < doneDays) }
+        }
+    }
+    val doneDays = dayEntries.count { it.second }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -725,8 +998,7 @@ fun WeeklyGoalCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                dayLetters.forEachIndexed { idx, letter ->
-                    val done = idx < doneDays
+                dayEntries.forEach { (letter, done) ->
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp)

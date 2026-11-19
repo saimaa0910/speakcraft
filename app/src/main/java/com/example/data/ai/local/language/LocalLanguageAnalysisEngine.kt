@@ -1,18 +1,11 @@
 package com.example.data.ai.local.language
 
 // ---------------------------------------------------------------------------
-// Data Classes (Stage 1.2: Modular Grammar & Language Intelligence)
+// Data Classes (Modular On-Device Grammar & Language Intelligence)
 // ---------------------------------------------------------------------------
 
 /**
  * Represents a single grammar or syntactic issue detected locally.
- *
- * @param originalText        The erroneous phrase found in the transcript.
- * @param correctedText       The suggested correction.
- * @param issueType           Short category label (e.g. "Subject-Verb Agreement").
- * @param explanation         Actionable, plain-English explanation.
- * @param ruleId              Unique rule identifier (e.g. "SVA_001", "ART_002").
- * @param confidenceLevel     Rule confidence score (0.0 to 1.0).
  */
 data class GrammarIssue(
     val originalText: String,
@@ -53,6 +46,7 @@ data class ModularRule(
     val category: String,
     val pattern: Regex,
     val confidence: Float,
+    val validator: (MatchResult) -> Boolean = { true },
     val correctionFn: (MatchResult) -> String,
     val explanationFn: (MatchResult) -> String
 )
@@ -63,16 +57,21 @@ data class ModularRule(
 
 /**
  * 100% on-device modular language and grammar engine.
- * Uses deterministic rules with rule IDs, confidence scores, and conservative filtering
- * to avoid over-correcting natural spoken English or uncertain ASR transcripts.
+ * Uses deterministic rules with rule IDs, confidence scores, phonetic article exception guards,
+ * and conservative filtering so natural spoken English is never falsely penalized.
  */
 object LocalLanguageAnalysisEngine {
 
     private const val RUN_ON_WORD_THRESHOLD = 45
 
-    // -----------------------------------------------------------------------
-    // Modular Grammar Rules Catalogue (11 Distinct Categories)
-    // -----------------------------------------------------------------------
+    private val VOWEL_LETTER_CONSONANT_SOUND_PREFIXES = listOf(
+        "uni", "use", "usu", "eur", "one", "once", "ute", "ubi", "eup", "eul"
+    )
+
+    private val SILENT_H_WORDS = setOf(
+        "hour", "hours", "hourly", "honest", "honestly", "honesty",
+        "honor", "honour", "honorable", "honourable", "heir", "heiress", "herb"
+    )
 
     private val MODULAR_RULES = listOf(
         // 1. Subject-Verb Agreement (SVA)
@@ -116,64 +115,113 @@ object LocalLanguageAnalysisEngine {
             correctionFn = { m -> "there are ${m.groupValues[2]} ${m.groupValues[3]}" },
             explanationFn = { "Use 'there are' before plural nouns." }
         ),
+        ModularRule(
+            ruleId = "SVA_006",
+            category = "Subject-Verb Agreement",
+            pattern = Regex("\\b(he|she|it)\\s+(have|are|were|go|do)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.94f,
+            correctionFn = { m ->
+                val fixed = when (m.groupValues[2].lowercase()) {
+                    "have" -> "has"
+                    "are" -> "is"
+                    "were" -> "was"
+                    "go" -> "goes"
+                    else -> "does"
+                }
+                "${m.groupValues[1]} $fixed"
+            },
+            explanationFn = { m -> "Third-person singular '${m.groupValues[1]}' takes the singular verb form." }
+        ),
+        ModularRule(
+            ruleId = "SVA_007",
+            category = "Subject-Verb Agreement",
+            pattern = Regex("\\b(i)\\s+(is|are)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.96f,
+            correctionFn = { "I am" },
+            explanationFn = { "Use 'I am' rather than 'I is' or 'I are'." }
+        ),
+        ModularRule(
+            ruleId = "SVA_008",
+            category = "Subject-Verb Agreement",
+            pattern = Regex("\\b(we|they|you)\\s+(is|has)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.95f,
+            correctionFn = { m ->
+                val fixed = if (m.groupValues[2].equals("is", ignoreCase = true)) "are" else "have"
+                "${m.groupValues[1]} $fixed"
+            },
+            explanationFn = { m -> "Use plural verb forms ('are'/'have') with '${m.groupValues[1]}'." }
+        ),
 
-        // 2. Tense Consistency (TNS)
+        // 2. Tense Consistency & Auxiliaries (TNS)
         ModularRule(
             ruleId = "TNS_001",
             category = "Tense Consistency",
-            pattern = Regex("\\b(did|didn't)\\s+(went|saw|ate|bought|wrote|spoke)\\b", RegexOption.IGNORE_CASE),
+            pattern = Regex("\\b(did|didn't)\\s+(went|saw|ate|bought|wrote|spoke|came|took|made|gave|said|told)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.95f,
             correctionFn = { m ->
                 val base = when (m.groupValues[2].lowercase()) {
                     "went" -> "go"; "saw" -> "see"; "ate" -> "eat"
-                    "bought" -> "buy"; "wrote" -> "write"; else -> "speak"
+                    "bought" -> "buy"; "wrote" -> "write"; "spoke" -> "speak"
+                    "came" -> "come"; "took" -> "take"; "made" -> "make"
+                    "gave" -> "give"; "said" -> "say"; else -> "tell"
                 }
                 "${m.groupValues[1]} $base"
             },
-            explanationFn = { m -> "The auxiliary verb '${m.groupValues[1]}' takes the base form of the verb, not the past tense." }
+            explanationFn = { m -> "The auxiliary verb '${m.groupValues[1]}' takes the base form of the verb, not past tense." }
         ),
         ModularRule(
             ruleId = "TNS_002",
             category = "Tense Consistency",
-            pattern = Regex("\\b(yesterday|last\\s+(?:week|month|year))\\s+(?:i|he|she|we|they)\\s+(is|am|are|go|see)\\b", RegexOption.IGNORE_CASE),
-            confidence = 0.85f,
+            pattern = Regex("\\b(yesterday|last\\s+(?:week|month|year))\\s+(i|he|she|we|they)\\s+(is|am|are|go|see|speak|walk)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.88f,
             correctionFn = { m ->
-                val past = when (m.groupValues[2].lowercase()) {
-                    "is", "am" -> "was"; "are" -> "were"; "go" -> "went"; else -> "saw"
+                val past = when (m.groupValues[3].lowercase()) {
+                    "is", "am" -> "was"; "are" -> "were"; "go" -> "went"
+                    "see" -> "saw"; "speak" -> "spoke"; else -> "walked"
                 }
-                "${m.groupValues[1]} ... $past"
+                "${m.groupValues[1]} ${m.groupValues[2]} $past"
             },
-            explanationFn = { "Past time markers require past-tense verbs for temporal consistency." }
+            explanationFn = { "Past time markers ('yesterday', 'last week') require past-tense verbs." }
+        ),
+        ModularRule(
+            ruleId = "TNS_003",
+            category = "Tense Consistency",
+            pattern = Regex("\\b(can|could|should|would|will|must)\\s+(went|spoke|ate|saw|did|had|was|were)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.93f,
+            correctionFn = { m ->
+                val base = when (m.groupValues[2].lowercase()) {
+                    "went" -> "go"; "spoke" -> "speak"; "ate" -> "eat"; "saw" -> "see"
+                    "did" -> "do"; "had" -> "have"; else -> "be"
+                }
+                "${m.groupValues[1]} $base"
+            },
+            explanationFn = { m -> "Modal verbs like '${m.groupValues[1]}' are followed by the base infinitive form." }
         ),
 
-        // 3. Articles (ART)
+        // 3. Articles (ART) — with proper phonetic exception guards
         ModularRule(
             ruleId = "ART_001",
             category = "Article",
             pattern = Regex("\\ba\\s+([aeiou][a-z]+)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.92f,
+            validator = { m ->
+                val w = m.groupValues[1].lowercase()
+                VOWEL_LETTER_CONSONANT_SOUND_PREFIXES.none { w.startsWith(it) }
+            },
             correctionFn = { m -> "an ${m.groupValues[1]}" },
-            explanationFn = { m ->
-                val word = m.groupValues[1].lowercase()
-                if (word.startsWith("uni") || word.startsWith("one") || word.startsWith("use"))
-                    "Words beginning with vowel sounds take 'an'; exceptions apply to 'y' sounds like in '$word'."
-                else
-                    "Use 'an' before words beginning with a vowel sound ('${m.groupValues[1]}')."
-            }
+            explanationFn = { m -> "Use 'an' before words starting with a vowel sound ('${m.groupValues[1]}')." }
         ),
         ModularRule(
             ruleId = "ART_002",
             category = "Article",
             pattern = Regex("\\ban\\s+([bcdfghjklmnpqrstvwxyz][a-z]+)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.90f,
+            validator = { m ->
+                val w = m.groupValues[1].lowercase()
+                w !in SILENT_H_WORDS
+            },
             correctionFn = { m -> "a ${m.groupValues[1]}" },
-            explanationFn = { m ->
-                val word = m.groupValues[1].lowercase()
-                if (word.startsWith("hour") || word.startsWith("honest") || word.startsWith("honor"))
-                    "Words starting with silent 'h' take 'an'; other consonant sounds take 'a'."
-                else
-                    "Use 'a' before words starting with a consonant sound ('${m.groupValues[1]}')."
-            }
+            explanationFn = { m -> "Use 'a' before words starting with a consonant sound ('${m.groupValues[1]}')." }
         ),
 
         // 4. Prepositions (PRP)
@@ -183,22 +231,20 @@ object LocalLanguageAnalysisEngine {
             pattern = Regex("\\b(discuss)\\s+(about)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.95f,
             correctionFn = { "discuss" },
-            explanationFn = { "'Discuss' is a transitive verb that directly takes an object without 'about'." }
+            explanationFn = { "'Discuss' directly takes an object without 'about' (e.g., 'discuss the plan')." }
         ),
         ModularRule(
             ruleId = "PRP_002",
             category = "Preposition",
-            pattern = Regex("\\b(listen)\\s+(music|to\\s+me|radio|podcasts)\\b", RegexOption.IGNORE_CASE),
-            confidence = 0.85f,
-            correctionFn = { m ->
-                if (!m.groupValues[2].startsWith("to")) "listen to ${m.groupValues[2]}" else m.value
-            },
+            pattern = Regex("\\b(listen)\\s+(music|radio|podcasts|me|him|her)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.90f,
+            correctionFn = { m -> "listen to ${m.groupValues[2]}" },
             explanationFn = { "The verb 'listen' requires the preposition 'to' before its object." }
         ),
         ModularRule(
             ruleId = "PRP_003",
             category = "Preposition",
-            pattern = Regex("\\b(explain)\\s+(me|him|her|them)\\b", RegexOption.IGNORE_CASE),
+            pattern = Regex("\\b(explain)\\s+(me|him|her|them|us)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.92f,
             correctionFn = { m -> "explain to ${m.groupValues[2]}" },
             explanationFn = { "Use 'explain to [person]' rather than 'explain [person]'." }
@@ -217,7 +263,15 @@ object LocalLanguageAnalysisEngine {
             pattern = Regex("\\b(depend)\\s+(of)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.95f,
             correctionFn = { "depend on" },
-            explanationFn = { "In English, the collocation is 'depend on' (or 'upon'), not 'depend of'." }
+            explanationFn = { "The standard English collocation is 'depend on', not 'depend of'." }
+        ),
+        ModularRule(
+            ruleId = "PRP_006",
+            category = "Preposition",
+            pattern = Regex("\\b(in)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.92f,
+            correctionFn = { m -> "on ${m.groupValues[2]}" },
+            explanationFn = { "Use 'on' before specific days of the week ('on ${m.groupValues[2]}')." }
         ),
 
         // 5. Pronouns (PRN)
@@ -226,7 +280,7 @@ object LocalLanguageAnalysisEngine {
             category = "Pronoun",
             pattern = Regex("\\b(me\\s+and\\s+[a-z]+)\\s+(went|did|are|were|have|thought)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.90f,
-            correctionFn = { m -> "${m.groupValues[1].replace("me and", "").trim()} and I ${m.groupValues[2]}" },
+            correctionFn = { m -> "${m.groupValues[1].replace("me and", "", ignoreCase = true).trim()} and I ${m.groupValues[2]}" },
             explanationFn = { "Use subject pronoun 'I' rather than object pronoun 'me' as the subject of a clause." }
         ),
         ModularRule(
@@ -235,80 +289,85 @@ object LocalLanguageAnalysisEngine {
             pattern = Regex("\\b(between\\s+you\\s+and)\\s+(i)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.95f,
             correctionFn = { "between you and me" },
-            explanationFn = { "Prepositions take object pronouns ('between you and me', not 'between you and I')." }
+            explanationFn = { "Prepositions take object pronouns ('between you and me')." }
         ),
         ModularRule(
             ruleId = "PRN_003",
             category = "Pronoun",
             pattern = Regex("\\b(myself\\s+and\\s+[a-z]+)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.88f,
-            correctionFn = { m -> "${m.groupValues[1].replace("myself and", "").trim()} and I" },
-            explanationFn = { "Use 'I' or 'me' instead of reflexive 'myself' unless referring back to a previously mentioned subject." }
+            correctionFn = { m -> "${m.groupValues[1].replace("myself and", "", ignoreCase = true).trim()} and I" },
+            explanationFn = { "Use 'I' or 'me' instead of reflexive 'myself' as a compound subject." }
         ),
 
         // 6. Singular/Plural Number Agreement (NUM)
         ModularRule(
             ruleId = "NUM_001",
             category = "Singular/Plural Agreement",
-            pattern = Regex("\\b(two|three|four|five|several|many)\\s+(year|month|day|week|time|hour)\\b", RegexOption.IGNORE_CASE),
+            pattern = Regex("\\b(two|three|four|five|several|many)\\s+(year|month|day|week|time|hour|minute|word|idea|point)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.92f,
             correctionFn = { m -> "${m.groupValues[1]} ${m.groupValues[2]}s" },
-            explanationFn = { m -> "Numbers greater than one require the plural form '${m.groupValues[2]}s'." }
+            explanationFn = { m -> "Quantities greater than one require the plural noun '${m.groupValues[2]}s'." }
         ),
         ModularRule(
             ruleId = "NUM_002",
             category = "Singular/Plural Agreement",
-            pattern = Regex("\\b(much)\\s+(people|items|things|questions|times)\\b", RegexOption.IGNORE_CASE),
+            pattern = Regex("\\b(much)\\s+(people|items|things|questions|times|words|ideas)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.95f,
             correctionFn = { m -> "many ${m.groupValues[2]}" },
-            explanationFn = { "Use 'many' with countable plural nouns ('people', 'items'), and 'much' with uncountable nouns." }
+            explanationFn = { "Use 'many' with countable plural nouns and 'much' with uncountable nouns." }
         ),
         ModularRule(
             ruleId = "NUM_003",
             category = "Singular/Plural Agreement",
-            pattern = Regex("\\b(less)\\s+(people|students|workers|employees)\\b", RegexOption.IGNORE_CASE),
+            pattern = Regex("\\b(less)\\s+(people|students|workers|employees|mistakes|fillers)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.85f,
             correctionFn = { m -> "fewer ${m.groupValues[2]}" },
-            explanationFn = { "Use 'fewer' for countable plural nouns ('people', 'students') and 'less' for uncountable amounts." }
+            explanationFn = { "Use 'fewer' with countable plural nouns and 'less' with uncountable amounts." }
         ),
 
-        // 7. Common Word-Choice Confusions (WCH)
+        // 7. Word Choice & Comparatives (WCH)
         ModularRule(
             ruleId = "WCH_001",
             category = "Word Choice",
             pattern = Regex("\\b(this\\s+will|it\\s+will|to)\\s+(effect)\\s+(the|our|my|your)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.88f,
             correctionFn = { m -> "${m.groupValues[1]} affect ${m.groupValues[3]}" },
-            explanationFn = { "'Affect' is typically the verb (to influence), while 'effect' is the noun (a result)." }
+            explanationFn = { "'Affect' is the verb (to influence); 'effect' is usually the noun (the outcome)." }
         ),
         ModularRule(
             ruleId = "WCH_002",
             category = "Word Choice",
-            pattern = Regex("\\b(loose)\\s+(the|my|our|your|a)\\s+(game|job|opportunity|chance|match)\\b", RegexOption.IGNORE_CASE),
+            pattern = Regex("\\b(loose)\\s+(the|my|our|your|a)\\s+(game|job|opportunity|chance|match|focus)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.92f,
             correctionFn = { m -> "lose ${m.groupValues[2]} ${m.groupValues[3]}" },
-            explanationFn = { "Use 'lose' (to misplace or be defeated). 'Loose' means not tight." }
+            explanationFn = { "Use 'lose' (to misplace or fail to keep). 'Loose' means not tight." }
         ),
         ModularRule(
-            ruleId = "WCH_003",
-            category = "Word Choice",
-            pattern = Regex("\\b(good)\\s+(advice)\\s+(to\\s+me|from)\\b", RegexOption.IGNORE_CASE),
-            confidence = 0.85f,
-            correctionFn = { m -> m.value },
-            explanationFn = { "'Advice' is a noun; 'advise' is the verb." }
+            ruleId = "WCH_004",
+            category = "Comparatives",
+            pattern = Regex("\\b(more)\\s+(better|worse|easier|faster|clearer|stronger|bigger)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.95f,
+            correctionFn = { m -> m.groupValues[2] },
+            explanationFn = { m -> "Avoid double comparatives — '${m.groupValues[2]}' is already comparative." }
+        ),
+        ModularRule(
+            ruleId = "WCH_005",
+            category = "Conciseness",
+            pattern = Regex("\\b(return\\s+back|repeat\\s+again|revert\\s+back|reply\\s+back)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.90f,
+            correctionFn = { m -> m.value.split(Regex("\\s+")).first() },
+            explanationFn = { m -> "'${m.value}' is redundant — '${m.value.split(Regex("\\s+")).first()}' already carries that meaning." }
         ),
 
-        // 8. Basic Sentence Structure & Double Negatives (STR)
+        // 8. Sentence Structure & Double Negatives (STR)
         ModularRule(
             ruleId = "STR_001",
             category = "Sentence Structure",
             pattern = Regex("\\b(can't|don't|won't|didn't|couldn't)\\s+(not)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.95f,
-            correctionFn = { m ->
-                val modal = m.groupValues[1].replace("n't", "").lowercase()
-                "$modal"
-            },
-            explanationFn = { m -> "Avoid double negatives in formal English ('${m.value}'). Use a single negative or positive phrasing." }
+            correctionFn = { m -> m.groupValues[1].replace("n't", "", ignoreCase = true).lowercase() },
+            explanationFn = { m -> "Avoid double negatives ('${m.value}'). Use a single clear negative or positive phrasing." }
         ),
         ModularRule(
             ruleId = "STR_002",
@@ -317,6 +376,14 @@ object LocalLanguageAnalysisEngine {
             confidence = 0.95f,
             correctionFn = { m -> "${m.groupValues[1]} any" },
             explanationFn = { "Replace 'no' with 'any' after a negative verb to avoid double negatives." }
+        ),
+        ModularRule(
+            ruleId = "STR_003",
+            category = "Missing Linking Verb",
+            pattern = Regex("\\b(i)\\s+(very|really|so)\\s+(happy|excited|confident|nervous|tired|ready|grateful)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.90f,
+            correctionFn = { m -> "I am ${m.groupValues[2]} ${m.groupValues[3]}" },
+            explanationFn = { "Include the linking verb 'am' between 'I' and the adjective phrase." }
         )
     )
 
@@ -340,24 +407,24 @@ object LocalLanguageAnalysisEngine {
 
         val sentences = splitIntoSentences(text)
         val allWords = tokenizeWords(text)
-
-        // 1. Modular Grammar Rules Check
         val detectedIssues = mutableListOf<GrammarIssue>()
 
-        // If ASR transcript confidence is low (< 0.5), suppress subtle rules to prevent false corrections
-        val minConfidenceThreshold = if (transcriptConfidence < 0.6f) 0.90f else 0.70f
+        // Suppress subtle rules when ASR transcript confidence is low so we never fabricate errors
+        val minConfidenceThreshold = if (transcriptConfidence < 0.6f) 0.92f else 0.75f
 
         for (rule in MODULAR_RULES) {
             if (rule.confidence < minConfidenceThreshold) continue
 
             val matches = rule.pattern.findAll(text)
             for (match in matches) {
-                // Prevent duplicate overlapping spans
+                if (!rule.validator(match)) continue
+                val corrected = rule.correctionFn(match)
+                if (corrected.equals(match.value, ignoreCase = true)) continue
                 if (detectedIssues.none { it.originalText.equals(match.value, ignoreCase = true) }) {
                     detectedIssues.add(
                         GrammarIssue(
                             originalText = match.value,
-                            correctedText = rule.correctionFn(match),
+                            correctedText = corrected,
                             issueType = rule.category,
                             explanation = rule.explanationFn(match),
                             ruleId = rule.ruleId,
@@ -368,7 +435,7 @@ object LocalLanguageAnalysisEngine {
             }
         }
 
-        // 2. Sentence Fragments Check (FRG_001)
+        // Sentence Fragment check (FRG_001)
         sentences.forEach { s ->
             val trimmed = s.trim()
             if (trimmed.startsWith("Because ", ignoreCase = true) ||
@@ -379,9 +446,9 @@ object LocalLanguageAnalysisEngine {
                     detectedIssues.add(
                         GrammarIssue(
                             originalText = trimmed,
-                            correctedText = "[Connect to main sentence]",
+                            correctedText = "[Connect to a complete main clause]",
                             issueType = "Sentence Fragment",
-                            explanation = "This dependent clause starts with a subordinating conjunction without a complete main clause.",
+                            explanation = "This clause begins with a subordinating conjunction without a complete main clause.",
                             ruleId = "FRG_001",
                             confidenceLevel = 0.85f
                         )
@@ -390,16 +457,16 @@ object LocalLanguageAnalysisEngine {
             }
         }
 
-        // 3. Run-on Sentence Check (RUN_001)
+        // Run-on Sentence check (RUN_001)
         sentences.forEach { s ->
             val wCount = tokenizeWords(s).size
             if (wCount > RUN_ON_WORD_THRESHOLD) {
                 detectedIssues.add(
                     GrammarIssue(
                         originalText = s.take(70) + if (s.length > 70) "..." else "",
-                        correctedText = "[Split into 2-3 concise sentences]",
+                        correctedText = "[Split into 2–3 concise sentences]",
                         issueType = "Run-on Sentence",
-                        explanation = "This sentence is very long ($wCount words). Break it into smaller thoughts to help the listener follow easily.",
+                        explanation = "This sentence is very long ($wCount words). Breaking it into shorter thoughts improves listener clarity.",
                         ruleId = "RUN_001",
                         confidenceLevel = 0.90f
                     )
@@ -407,7 +474,7 @@ object LocalLanguageAnalysisEngine {
             }
         }
 
-        // 4. Repeated Words Check (REP_001)
+        // Repeated adjacent words check (REP_001)
         val duplicateMatch = Regex("\\b([a-zA-Z]{2,})\\s+\\1\\b", RegexOption.IGNORE_CASE).find(text)
         if (duplicateMatch != null) {
             detectedIssues.add(
@@ -422,10 +489,7 @@ object LocalLanguageAnalysisEngine {
             )
         }
 
-        // 5. Vocabulary Richness & Diversity
         val vocabAnalysis = analyzeVocabulary(allWords, targetWords)
-
-        // 6. Sentence Structure Metrics
         val sentenceCount = maxOf(sentences.size, 1)
         val avgSentenceLength = allWords.size.toDouble() / sentenceCount
         val complexityNote = buildComplexityNote(avgSentenceLength, vocabAnalysis.vocabularyDiversityScore, detectedIssues.size)
@@ -437,6 +501,26 @@ object LocalLanguageAnalysisEngine {
             averageSentenceLength = avgSentenceLength,
             textComplexityNote = complexityNote
         )
+    }
+
+    /**
+     * Applies safe in-place deterministic corrections to [text] and normalizes leading capitalization
+     * and terminal punctuation.
+     */
+    fun applyCorrections(text: String, issues: List<GrammarIssue>): String {
+        var result = text.trim()
+        issues.forEach { issue ->
+            if (!issue.correctedText.startsWith("[")) {
+                result = result.replace(issue.originalText, issue.correctedText, ignoreCase = true)
+            }
+        }
+        if (result.isNotBlank()) {
+            result = result.replaceFirstChar { it.uppercase() }
+            if (result.last() !in listOf('.', '!', '?')) {
+                result = "$result."
+            }
+        }
+        return result
     }
 
     private fun analyzeVocabulary(words: List<String>, targetWords: List<String>): VocabularyAnalysis {
@@ -455,7 +539,11 @@ object LocalLanguageAnalysisEngine {
         } else 0
 
         val usedTargetWords = targetWords.filter { target ->
-            lowerWords.any { it.equals(target.lowercase(), ignoreCase = true) }
+            val stem = target.lowercase().removeSuffix("e").removeSuffix("y")
+            lowerWords.any { w ->
+                w.equals(target, ignoreCase = true) ||
+                    (stem.length >= 4 && w.startsWith(stem) && w.length <= target.length + 4)
+            }
         }
 
         val suggestions = mutableListOf<String>()
@@ -464,13 +552,13 @@ object LocalLanguageAnalysisEngine {
             suggestions += "Replace repeated crutch words: ${topRepeated.joinToString(", ") { "\"${it.key}\" (${it.value}x)" }}."
         }
         if (diversityScore < 40 && totalWords > 20) {
-            suggestions += "Vocabulary diversity is $diversityScore%. Incorporate more descriptive adjectives and verbs."
+            suggestions += "Vocabulary diversity is $diversityScore%. Incorporate more descriptive verbs and nouns."
         }
         if (targetWords.isNotEmpty() && usedTargetWords.isEmpty()) {
-            suggestions += "Try using the target activity vocabulary: ${targetWords.take(4).joinToString(", ")}."
+            suggestions += "Try weaving in the target vocabulary: ${targetWords.take(4).joinToString(", ")}."
         }
         if (suggestions.isEmpty()) {
-            suggestions += "Good lexical variety and appropriate word selection."
+            suggestions += "Good lexical variety and natural word choice."
         }
 
         return VocabularyAnalysis(
@@ -482,15 +570,15 @@ object LocalLanguageAnalysisEngine {
     }
 
     private fun splitIntoSentences(text: String): List<String> =
-        text.trim().split(Regex("[.!?]+")).map { it.trim() }.filter { it.length > 3 }
+        text.trim().split(Regex("[.!?]+")).map { it.trim() }.filter { it.length > 2 }
 
-    private fun tokenizeWords(text: String): List<String> =
+    internal fun tokenizeWords(text: String): List<String> =
         text.trim().split(Regex("\\s+")).map { it.replace(Regex("[^a-zA-Z']"), "").lowercase() }.filter { it.isNotEmpty() }
 
     private fun buildComplexityNote(avgLen: Double, diversity: Int, issues: Int): String = buildString {
         when {
             avgLen > 24 -> append("Sentences are quite long (avg ${avgLen.toInt()} words). Shorter sentences improve clarity. ")
-            avgLen < 7 && avgLen > 0 -> append("Sentences are brief. Try connecting related thoughts. ")
+            avgLen in 1.0..6.9 -> append("Sentences are brief. Try connecting related thoughts smoothly. ")
             else -> append("Sentence length is well-balanced (avg ${avgLen.toInt()} words). ")
         }
         append("Vocabulary diversity is $diversity%. ")

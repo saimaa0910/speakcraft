@@ -75,6 +75,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.ai.RecommendedNextAction
+import com.example.data.learning.PersistedLearningSnapshot
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
 import com.example.data.model.FeatureTutorialRegistry
@@ -101,6 +102,7 @@ import com.example.ui.components.TodaysPracticePlanCard
 import com.example.ui.components.TodaysProgressRingCard
 import com.example.ui.components.UpdateBannerCard
 import com.example.ui.components.WeeklyGoalCard
+import com.example.ui.components.WelcomeBackBanner
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 
@@ -153,7 +155,11 @@ fun DashboardScreen(
     isAdmin: Boolean,
     todayDateKey: String,
     onDismissUpdateBanner: (String) -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    learningSnapshot: PersistedLearningSnapshot? = null,
+    reducedMotion: Boolean = false,
+    onCompleteDailyTask: (String) -> Unit = {},
+    onOpenProfile: () -> Unit = { onNavigate("settings") }
 ) {
     val ext = MaterialTheme.speakCraftColors
     var reportPeriod by remember { mutableStateOf("Weekly") }
@@ -175,14 +181,46 @@ fun DashboardScreen(
                 profile.grammarScore + profile.articulationScore + profile.listeningScore) / 6).toInt()
         }
     }
+    val personalizedPlan = learningSnapshot?.dailyPlan
+    val streakState = learningSnapshot?.streak
     val todayActivity = dailyActivities.firstOrNull { it.dateKey == todayDateKey }
-    val todayDoneCount = (todayActivity?.completedStepIds?.size ?: 0).coerceAtMost(6)
+    val totalDailyTasks = personalizedPlan?.totalCount?.coerceAtLeast(1) ?: 6
+    val todayDoneCount = personalizedPlan?.completedCount
+        ?: (todayActivity?.completedStepIds?.size ?: 0).coerceAtMost(totalDailyTasks)
     val completedLessons = learningProgress.count { it.completed }
     val totalCoreLessons = CurriculumCatalog.lessons.size.coerceAtLeast(9)
-    val practiceHoursFormatted = String.format("%.1f h", (profile?.totalPracticeMinutes ?: 0L) / 60.0)
-    val wordsLearnedCount = vocabulary.size.coerceAtLeast((profile?.wordsLearnedCount ?: 0L).toInt())
-    val activeDaysThisWeek = remember(dailyActivities) {
-        dailyActivities.count { it.completedStepIds.isNotEmpty() }.coerceIn(0, 5)
+    val totalPracticeMins = maxOf(
+        (profile?.totalPracticeMinutes ?: 0L).toInt(),
+        learningSnapshot?.totalPracticeMinutes ?: 0
+    )
+    val practiceHoursFormatted = String.format("%.1f h", totalPracticeMins / 60.0)
+    val masteredWordsCount = learningSnapshot?.wordProgress?.values?.count { it.isCompleted } ?: 0
+    val wordsLearnedCount = maxOf(
+        vocabulary.size,
+        (profile?.wordsLearnedCount ?: 0L).toInt(),
+        masteredWordsCount
+    )
+    val activeDaysThisWeek = remember(dailyActivities, streakState) {
+        streakState?.weeklyCompletionMap?.values?.count { it }
+            ?: dailyActivities.count { it.completedStepIds.isNotEmpty() }.coerceIn(0, 5)
+    }
+    val learningTrackLabel = learningSnapshot?.currentLevel?.label
+        ?: profile?.communicationLevel?.ifBlank { "Foundation" }
+        ?: "Foundation"
+    val learningDay = ((streakState?.completedDateKeys?.size ?: 0) + 1)
+        .coerceAtLeast((profile?.streakDays ?: 1L).toInt())
+    val personalizedCue = remember(personalizedPlan, streakState, sessions.size) {
+        val targetMin = personalizedPlan?.targetMinutes ?: 15
+        when {
+            personalizedPlan?.isRecoveryPlan == true ->
+                "Welcome back! Your gentle $targetMin-minute recovery session is ready."
+            streakState?.todayRequirementMet == true ->
+                "Daily goal complete! Explore a quick speaking drill or review flashcards."
+            sessions.isNotEmpty() ->
+                "Ready to become a more confident communicator? Your next $targetMin-min session is ready."
+            else ->
+                "Your personalized $targetMin-minute communication practice plan is ready."
+        }
     }
 
     val filteredSessions = remember(sessions, reportPeriod) {
@@ -303,14 +341,25 @@ fun DashboardScreen(
                 }
             }
 
-            // Header Greeting + Integrated Pill Search Bar (side-by-side on tablet, stacked on phone)
+            // Animated Welcome-Back Banner + Search Bar
             item {
-                DashboardStudioHeader(
-                    displayName = displayName,
-                    query = moduleQuery,
-                    onQueryChange = { moduleQuery = it },
-                    wideLayout = tier.isTabletOrWide
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WelcomeBackBanner(
+                        displayName = displayName,
+                        learningTrack = learningTrackLabel,
+                        learningDay = learningDay,
+                        overallScore = overallScore,
+                        personalizedCue = personalizedCue,
+                        reducedMotion = reducedMotion,
+                        onAvatarClick = onOpenProfile
+                    )
+                    DashboardStudioHeader(
+                        displayName = displayName,
+                        query = moduleQuery,
+                        onQueryChange = { moduleQuery = it },
+                        wideLayout = tier.isTabletOrWide
+                    )
+                }
             }
 
             // Instant search results preview when user types in top search bar
@@ -361,12 +410,16 @@ fun DashboardScreen(
                                     recommendedNextAction = recommendedNextAction,
                                     overallScore = overallScore,
                                     onNavigate = onNavigate,
-                                    modifier = Modifier.weight(1.25f)
+                                    modifier = Modifier.weight(1.25f),
+                                    learningDay = learningDay,
+                                    reducedMotion = reducedMotion
                                 )
                                 TodaysPracticePlanCard(
                                     todayActivity = todayActivity,
                                     onNavigate = onNavigate,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    personalizedPlan = personalizedPlan,
+                                    onCompleteDailyTask = if (personalizedPlan != null) onCompleteDailyTask else null
                                 )
                             }
 
@@ -385,15 +438,19 @@ fun DashboardScreen(
                             modifier = Modifier.weight(0.9f),
                             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
                         ) {
-                            StreakHighlightCard(streakDays = profile?.streakDays ?: 1L)
+                            StreakHighlightCard(
+                                streakDays = profile?.streakDays ?: 1L,
+                                streakState = streakState
+                            )
                             TodaysProgressRingCard(
                                 completedTasks = todayDoneCount,
-                                totalTasks = 6,
+                                totalTasks = totalDailyTasks,
                                 onNavigate = onNavigate
                             )
                             WeeklyGoalCard(
                                 activeDaysThisWeek = activeDaysThisWeek,
-                                targetDays = 5
+                                targetDays = 5,
+                                weeklyCompletionMap = streakState?.weeklyCompletionMap
                             )
                         }
                     }
@@ -434,18 +491,25 @@ fun DashboardScreen(
                         profile = profile,
                         recommendedNextAction = recommendedNextAction,
                         overallScore = overallScore,
-                        onNavigate = onNavigate
+                        onNavigate = onNavigate,
+                        learningDay = learningDay,
+                        reducedMotion = reducedMotion
                     )
                 }
 
                 item {
-                    StreakHighlightCard(streakDays = profile?.streakDays ?: 1L)
+                    StreakHighlightCard(
+                        streakDays = profile?.streakDays ?: 1L,
+                        streakState = streakState
+                    )
                 }
 
                 item {
                     TodaysPracticePlanCard(
                         todayActivity = todayActivity,
-                        onNavigate = onNavigate
+                        onNavigate = onNavigate,
+                        personalizedPlan = personalizedPlan,
+                        onCompleteDailyTask = if (personalizedPlan != null) onCompleteDailyTask else null
                     )
                 }
 
@@ -467,26 +531,28 @@ fun DashboardScreen(
                         ) {
                             TodaysProgressRingCard(
                                 completedTasks = todayDoneCount,
-                                totalTasks = 6,
+                                totalTasks = totalDailyTasks,
                                 onNavigate = onNavigate,
                                 modifier = Modifier.weight(1f)
                             )
                             WeeklyGoalCard(
                                 activeDaysThisWeek = activeDaysThisWeek,
                                 targetDays = 5,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                weeklyCompletionMap = streakState?.weeklyCompletionMap
                             )
                         }
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)) {
                             TodaysProgressRingCard(
                                 completedTasks = todayDoneCount,
-                                totalTasks = 6,
+                                totalTasks = totalDailyTasks,
                                 onNavigate = onNavigate
                             )
                             WeeklyGoalCard(
                                 activeDaysThisWeek = activeDaysThisWeek,
-                                targetDays = 5
+                                targetDays = 5,
+                                weeklyCompletionMap = streakState?.weeklyCompletionMap
                             )
                         }
                     }

@@ -179,6 +179,15 @@ class UpdateAndAdminViewModel(
         }
     }
 
+    fun refreshReleasesSilently(prefs: AppPreferences) {
+        if (prefs.githubReleaseRepo.isBlank()) return
+        viewModelScope.launch {
+            runCatching {
+                refreshMergedReleases(prefs.githubReleaseRepo)
+            }
+        }
+    }
+
     fun checkForUpdatesManual(prefs: AppPreferences) {
         if (_isCheckingForUpdates.value) return
         viewModelScope.launch {

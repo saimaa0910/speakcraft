@@ -124,9 +124,17 @@ class MainCoachViewModel(
         repository.observeSharedChallenges()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
+    val adminRole: StateFlow<com.example.data.learning.AdminRole> =
+        repository.observeAdminRole(currentUserId)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), com.example.data.learning.AdminRole.NONE)
+
     val isAdmin: StateFlow<Boolean> =
-        repository.observeIsAdmin(currentUserId)
+        adminRole.map { it != com.example.data.learning.AdminRole.NONE }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), false)
+
+    val activeAnnouncements: StateFlow<List<com.example.data.learning.AdminAnnouncement>> =
+        repository.observeActiveAnnouncements()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     val recommendedNextAction: StateFlow<RecommendedNextAction> = combine(
         userProfile,
@@ -411,6 +419,20 @@ class MainCoachViewModel(
         viewModelScope.launch {
             val res = repository.clearSpeakingHistory()
             _actionMessage.value = if (res.isSuccess) "Speaking recordings history cleared." else res.exceptionOrNull()?.localizedMessage
+        }
+    }
+
+    fun deleteAccountAndAllData(onDeleted: () -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            val res = repository.deleteCurrentUserAccountAndData()
+            res.onSuccess {
+                _actionMessage.value = "Account and all associated data deleted."
+                onDeleted()
+            }.onFailure { err ->
+                val msg = err.localizedMessage ?: "Account deletion failed. Please sign out, sign back in, and retry."
+                _actionMessage.value = msg
+                onFailure(msg)
+            }
         }
     }
 }

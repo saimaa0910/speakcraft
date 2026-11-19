@@ -64,6 +64,19 @@ class SpeakingAndLabsViewModel(
     private val _cloudSyncError = MutableStateFlow<String?>(null)
     val cloudSyncError: StateFlow<String?> = _cloudSyncError.asStateFlow()
 
+    private val _liveTranscript = MutableStateFlow("")
+    val liveTranscript: StateFlow<String> = _liveTranscript.asStateFlow()
+
+    private val _liveTranscriptConfidence = MutableStateFlow(0.85f)
+    val liveTranscriptConfidence: StateFlow<Float> = _liveTranscriptConfidence.asStateFlow()
+
+    var onSessionCompleted: ((SpeakingSession) -> Unit)? = null
+
+    fun setLiveTranscript(text: String, confidence: Float = 0.85f) {
+        _liveTranscript.value = text
+        _liveTranscriptConfidence.value = confidence.coerceIn(0f, 1f)
+    }
+
     private var pendingUnsavedSession: SpeakingSession? = null
     private var uploadedMediaBytes: ByteArray? = null
     private var uploadedMimeType: String = "audio/mp4"
@@ -252,12 +265,15 @@ class SpeakingAndLabsViewModel(
         moduleType: String,
         promptTitle: String,
         previousSession: SpeakingSession?,
-        extraInstructions: String = ""
+        extraInstructions: String = "",
+        liveTranscriptOverride: String = "",
+        asrConfidenceOverride: Float = _liveTranscriptConfidence.value
     ) {
         viewModelScope.launch {
             if (audioManager.isRecording.value) {
                 stopRecording()
             }
+            val effectiveTranscript = liveTranscriptOverride.trim().ifBlank { _liveTranscript.value.trim() }
             val hasUpload = uploadedMediaBytes != null
             val bytes = uploadedMediaBytes ?: audioManager.readRecordedBytes()
             val mime = if (hasUpload) uploadedMimeType else "audio/mp4"
@@ -265,12 +281,14 @@ class SpeakingAndLabsViewModel(
             val duration = if (hasUpload) {
                 uploadedDurationSeconds.coerceAtLeast(1)
             } else {
-                audioManager.elapsedSeconds.value.coerceAtLeast(1)
+                audioManager.elapsedSeconds.value.coerceAtLeast(
+                    if (effectiveTranscript.isNotBlank()) (effectiveTranscript.split(Regex("\\s+")).size / 2).coerceAtLeast(3) else 1
+                )
             }
 
-            if (bytes == null || bytes.isEmpty()) {
+            if ((bytes == null || bytes.isEmpty()) && effectiveTranscript.isBlank()) {
                 _activeAnalysisModule.value = moduleType
-                _analysisState.value = UiState.Error("Please record your voice or attach a video/audio clip first.")
+                _analysisState.value = UiState.Error("Please record your voice, dictate with Live Speech Capture, or attach a video/audio clip first.")
                 return@launch
             }
 
@@ -280,14 +298,16 @@ class SpeakingAndLabsViewModel(
             pendingUnsavedSession = null
 
             val analysisResult = localOrchestrator.analyzeSpeechRecording(
-                mediaBytes = bytes,
+                mediaBytes = bytes ?: ByteArray(0),
                 mimeType = mime,
                 moduleType = moduleType,
                 promptTitle = promptTitle,
                 durationSeconds = duration,
                 previousSession = previousSession,
                 extraInstructions = extraInstructions,
-                localMediaPath = localPath
+                localMediaPath = localPath,
+                liveTranscript = effectiveTranscript,
+                asrConfidence = asrConfidenceOverride
             )
 
             analysisResult.onSuccess { session ->
@@ -295,15 +315,18 @@ class SpeakingAndLabsViewModel(
                 if (saveRes.isSuccess) {
                     _cloudSyncError.value = null
                     pendingUnsavedSession = null
-                    _analysisState.value = UiState.Success(session.copy(id = saveRes.getOrDefault("")))
+                    val savedSession = session.copy(id = saveRes.getOrDefault(""))
+                    _analysisState.value = UiState.Success(savedSession)
+                    onSessionCompleted?.invoke(savedSession)
                 } else {
                     pendingUnsavedSession = session
                     val errDetail = saveRes.exceptionOrNull()?.localizedMessage ?: "Firestore unreachable"
-                    _cloudSyncError.value = "AI feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
+                    _cloudSyncError.value = "Local AI feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
                     _analysisState.value = UiState.Success(session)
+                    onSessionCompleted?.invoke(session)
                 }
             }.onFailure { err ->
-                _analysisState.value = UiState.Error(err.localizedMessage ?: "AI speech analysis failed.")
+                _analysisState.value = UiState.Error(err.localizedMessage ?: "Local AI speech analysis failed.")
             }
         }
     }
@@ -342,6 +365,7 @@ class SpeakingAndLabsViewModel(
         _uploadedMediaLabel.value = null
         _activeMediaPath.value = audioManager.recordedFilePath.value
         _activeMediaIsVideo.value = false
+        _liveTranscript.value = ""
     }
 
     override fun onCleared() {

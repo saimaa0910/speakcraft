@@ -58,7 +58,12 @@ data class VocabSeed(
     val antonyms: List<String>,
     val exampleSentence: String,
     val collocations: List<String>,
-    val conversationExample: String
+    val conversationExample: String,
+    val partOfSpeech: String = "noun/verb",
+    val simpleExplanation: String = meaning,
+    val wordForms: List<String> = emptyList(),
+    val practiceSentences: List<String> = listOf(exampleSentence),
+    val category: String = "Communication"
 )
 
 data class SpeakingChallengeItem(
@@ -537,18 +542,346 @@ object CurriculumCatalog {
     }
 
     val vocabularyBank = listOf(
-        VocabSeed("vocab_articulate", "Articulate", "/ɑːrˈtɪk.jə.lət/", "Able to express ideas clearly, fluently, and effectively in speech.", "Beginner", listOf("eloquent", "clear", "lucid"), listOf("incoherent", "mumbled"), "She remained articulate even during rapid Q&A.", listOf("articulate speaker", "clearly articulate"), "Manager: 'Can you summarize the outage?' You: 'Let me articulate the root cause in two points.'"),
-        VocabSeed("vocab_cadence", "Cadence", "/ˈkeɪ.dəns/", "The rhythmic flow, pace, and modulation of your speaking voice.", "Intermediate", listOf("rhythm", "tempo", "flow"), listOf("monotony", "arrhythmia"), "Slowing your cadence right before a key point commands attention.", listOf("measured cadence", "vocal cadence"), "Coach: 'Your ideas are strong—now vary your cadence so key insights land.'"),
-        VocabSeed("vocab_rapport", "Rapport", "/ræˈpɔːr/", "A warm, trusting connection and mutual understanding between speakers.", "Beginner", listOf("affinity", "bond", "harmony"), listOf("alienation", "friction"), "Active listening builds instant rapport in interviews.", listOf("build rapport", "establish rapport"), "Interviewer: 'Thanks for sharing.' You: 'I appreciate it—it's great building rapport with the team.'"),
-        VocabSeed("vocab_enunciate", "Enunciate", "/ɪˈnʌn.si.eɪt/", "To pronounce words and syllables distinctly and clearly.", "Intermediate", listOf("pronounce", "articulate", "utter"), listOf("slur", "mumble"), "Enunciate final consonants so remote microphones pick up every word.", listOf("enunciate clearly", "enunciate every syllable"), "Peer: 'The audio was faint.' You: 'Got it—I'll slow down and enunciate more crisply.'"),
-        VocabSeed("vocab_brevity", "Brevity", "/ˈbrev.ə.ti/", "Concise and exact use of words without unnecessary rambling.", "Intermediate", listOf("conciseness", "succinctness"), listOf("verbosity", "rambling"), "Executive updates reward brevity over exhaustive detail.", listOf("soul of brevity", "speak with brevity"), "Director: 'We have two minutes.' You: 'In the interest of brevity, here are the three outcomes.'"),
-        VocabSeed("vocab_calibrate", "Calibrate", "/ˈkæl.ə.breɪt/", "To adjust your tone, complexity, and framing to match your listener.", "Intermediate", listOf("adapt", "tailor", "tune"), listOf("ignore", "mismatch"), "Calibrate your technical depth to the audience in front of you.", listOf("calibrate your message", "carefully calibrate"), "Colleague: 'Was the client confused?' You: 'Yes, I need to calibrate the pitch with less jargon.'"),
-        VocabSeed("vocab_poise", "Poise", "/pɔɪz/", "Graceful, calm self-assurance and composure under pressure.", "Beginner", listOf("composure", "aplomb", "calmness"), listOf("fluster", "nervousness"), "Holding a silent pause shows remarkable poise.", listOf("speak with poise", "maintain poise"), "Mentor: 'How did the panel go?' You: 'Tough questions, but pausing helped me keep my poise.'"),
-        VocabSeed("vocab_inflection", "Inflection", "/ɪnˈflek.ʃən/", "A rise or fall in vocal pitch that conveys nuance and emphasis.", "Intermediate", listOf("intonation", "modulation", "tone"), listOf("flatness", "monotone"), "Downward inflection at the end of a sentence projects certainty.", listOf("downward inflection", "vocal inflection"), "Coach: 'Watch your upward inflection on statements—drop your pitch to sound decisive.'"),
-        VocabSeed("vocab_synthesize", "Synthesize", "/ˈsɪn.θə.saɪz/", "To combine complex details into one clear, unified insight.", "Advanced", listOf("distill", "summarize", "integrate"), listOf("fragment", "scatter"), "Great communicators synthesize messy data into a clear narrative.", listOf("synthesize insights", "synthesize feedback"), "VP: 'What did the 20 interviews show?' You: 'Let me synthesize the three recurring themes.'"),
-        VocabSeed("vocab_resonant", "Resonant", "/ˈrez.ən.ənt/", "Deep, warm, full-bodied vocal quality that carries effortlessly.", "Advanced", listOf("rich", "sonorous", "vibrant"), listOf("thin", "strained"), "Diaphragmatic breathing produces a calm, resonant speaking voice.", listOf("resonant voice", "emotionally resonant"), "Listener: 'Your keynote carried across the whole hall.' You: 'Breath support keeps the tone resonant.'"),
-        VocabSeed("vocab_concise", "Concise", "/kənˈsaɪs/", "Giving a lot of information clearly and in very few words.", "Beginner", listOf("succinct", "crisp", "brief"), listOf("wordy", "long-winded"), "Use the PREP method to keep impromptu answers concise.", listOf("concise summary", "keep it concise"), "Manager: 'Give me the headline.' You: 'Here is a concise 20-second summary.'"),
-        VocabSeed("vocab_nuance", "Nuance", "/ˈnuː.ɑːns/", "A subtle distinction in meaning, tone, or emotional expression.", "Advanced", listOf("subtlety", "shade", "refinement"), listOf("bluntness", "oversimplification"), "Vocal character lets you convey nuance without changing words.", listOf("subtle nuance", "capture the nuance"), "Teammate: 'It sounded harsh in text.' You: 'Let's jump on a call so you hear the nuance.'")
+        VocabSeed(
+            id = "vocab_articulate", word = "Articulate", phonetic = "/ɑːrˈtɪk.jə.lət/",
+            meaning = "Able to express ideas clearly, fluently, and effectively in speech.",
+            level = "Beginner", synonyms = listOf("eloquent", "clear", "lucid"), antonyms = listOf("incoherent", "mumbled"),
+            exampleSentence = "She remained articulate even during rapid Q&A.",
+            collocations = listOf("articulate speaker", "clearly articulate"),
+            conversationExample = "Manager: 'Can you summarize the outage?' You: 'Let me articulate the root cause in two points.'",
+            partOfSpeech = "adjective / verb",
+            simpleExplanation = "Speaking clearly so listeners immediately grasp your idea.",
+            wordForms = listOf("articulate", "articulated", "articulating", "articulately", "articulation"),
+            practiceSentences = listOf(
+                "She remained articulate even during rapid Q&A.",
+                "Let me clearly articulate the main reason behind our proposal.",
+                "Practicing daily helps you become a more articulate speaker."
+            ),
+            category = "Clarity"
+        ),
+        VocabSeed(
+            id = "vocab_rapport", word = "Rapport", phonetic = "/ræˈpɔːr/",
+            meaning = "A warm, trusting connection and mutual understanding between speakers.",
+            level = "Beginner", synonyms = listOf("affinity", "bond", "harmony"), antonyms = listOf("alienation", "friction"),
+            exampleSentence = "Active listening builds instant rapport in interviews.",
+            collocations = listOf("build rapport", "establish rapport"),
+            conversationExample = "Interviewer: 'Thanks for sharing.' You: 'I appreciate it—it's great building rapport with the team.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Friendly trust and easy connection with the person you are talking to.",
+            wordForms = listOf("rapport"),
+            practiceSentences = listOf(
+                "Active listening builds instant rapport in interviews.",
+                "Asking thoughtful questions helps establish rapport with new clients.",
+                "A warm greeting sets a positive rapport from the first minute."
+            ),
+            category = "Conversation"
+        ),
+        VocabSeed(
+            id = "vocab_poise", word = "Poise", phonetic = "/pɔɪz/",
+            meaning = "Graceful, calm self-assurance and composure under pressure.",
+            level = "Beginner", synonyms = listOf("composure", "aplomb", "calmness"), antonyms = listOf("fluster", "nervousness"),
+            exampleSentence = "Holding a silent pause shows remarkable poise.",
+            collocations = listOf("speak with poise", "maintain poise"),
+            conversationExample = "Mentor: 'How did the panel go?' You: 'Tough questions, but pausing helped me keep my poise.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Staying calm, steady, and confident even during tough moments.",
+            wordForms = listOf("poise", "poised"),
+            practiceSentences = listOf(
+                "Holding a silent pause shows remarkable poise.",
+                "She maintained her poise when the microphone stopped working.",
+                "Good posture helps you speak with poise in any room."
+            ),
+            category = "Confidence"
+        ),
+        VocabSeed(
+            id = "vocab_concise", word = "Concise", phonetic = "/kənˈsaɪs/",
+            meaning = "Giving a lot of information clearly and in very few words.",
+            level = "Beginner", synonyms = listOf("succinct", "crisp", "brief"), antonyms = listOf("wordy", "long-winded"),
+            exampleSentence = "Use the PREP method to keep impromptu answers concise.",
+            collocations = listOf("concise summary", "keep it concise"),
+            conversationExample = "Manager: 'Give me the headline.' You: 'Here is a concise 20-second summary.'",
+            partOfSpeech = "adjective",
+            simpleExplanation = "Short, clear, and straight to the point without extra fluff.",
+            wordForms = listOf("concise", "concisely", "conciseness"),
+            practiceSentences = listOf(
+                "Use the PREP method to keep impromptu answers concise.",
+                "Please share a concise summary of today's meeting.",
+                "Strong leaders explain complex updates concisely."
+            ),
+            category = "Clarity"
+        ),
+        VocabSeed(
+            id = "vocab_clarify", word = "Clarify", phonetic = "/ˈklær.ə.faɪ/",
+            meaning = "To make a statement or idea easier to understand by removing confusion.",
+            level = "Elementary", synonyms = listOf("explain", "illuminate", "simplify"), antonyms = listOf("confuse", "obscure"),
+            exampleSentence = "Could you clarify the deadline for our design review?",
+            collocations = listOf("clarify a point", "clarify expectations"),
+            conversationExample = "Teammate: 'Is Friday final?' You: 'Let me clarify the schedule so everyone is aligned.'",
+            partOfSpeech = "verb",
+            simpleExplanation = "Make something clear so nobody misunderstands.",
+            wordForms = listOf("clarify", "clarifies", "clarified", "clarifying", "clarification"),
+            practiceSentences = listOf(
+                "Could you clarify the deadline for our design review?",
+                "Let me clarify my main point with a quick example.",
+                "Good questions clarify expectations before work begins."
+            ),
+            category = "Workplace"
+        ),
+        VocabSeed(
+            id = "vocab_empathy", word = "Empathy", phonetic = "/ˈem.pə.θi/",
+            meaning = "The ability to understand and share the feelings and perspective of another person.",
+            level = "Elementary", synonyms = listOf("compassion", "understanding", "sensitivity"), antonyms = listOf("apathy", "indifference"),
+            exampleSentence = "Listening with empathy turns tense discussions into teamwork.",
+            collocations = listOf("show empathy", "listen with empathy"),
+            conversationExample = "Customer: 'I waited an hour.' You: 'I hear your frustration—let me fix this right away.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Putting yourself in someone else's shoes when listening.",
+            wordForms = listOf("empathy", "empathetic", "empathize"),
+            practiceSentences = listOf(
+                "Listening with empathy turns tense discussions into teamwork.",
+                "Great managers show empathy when teammates face tight deadlines.",
+                "You can demonstrate empathy by reflecting back what you heard."
+            ),
+            category = "Conversation"
+        ),
+        VocabSeed(
+            id = "vocab_engage", word = "Engage", phonetic = "/ɪnˈɡeɪdʒ/",
+            meaning = "To capture and hold someone's attention and active participation.",
+            level = "Elementary", synonyms = listOf("involve", "captivate", "connect"), antonyms = listOf("bore", "alienate"),
+            exampleSentence = "Opening with a vivid question immediately engages your listeners.",
+            collocations = listOf("engage the audience", "actively engage"),
+            conversationExample = "Coach: 'How will you open your talk?' You: 'I will ask a quick question to engage the room.'",
+            partOfSpeech = "verb",
+            simpleExplanation = "Pull people into your message so they stay interested.",
+            wordForms = listOf("engage", "engages", "engaged", "engaging", "engagement"),
+            practiceSentences = listOf(
+                "Opening with a vivid question immediately engages your listeners.",
+                "Eye contact helps you engage everyone at the table.",
+                "Personal stories make any presentation far more engaging."
+            ),
+            category = "Public Speaking"
+        ),
+        VocabSeed(
+            id = "vocab_momentum", word = "Momentum", phonetic = "/moʊˈmen.təm/",
+            meaning = "The driving energy and forward progress gained through steady action.",
+            level = "Elementary", synonyms = listOf("drive", "impetus", "energy"), antonyms = listOf("stagnation", "hesitation"),
+            exampleSentence = "Practicing ten minutes every morning builds unstoppable momentum.",
+            collocations = listOf("build momentum", "maintain momentum"),
+            conversationExample = "Friend: 'How do you stay consistent?' You: 'Short daily drills keep my momentum strong.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Steady forward energy that makes continuing easier.",
+            wordForms = listOf("momentum"),
+            practiceSentences = listOf(
+                "Practicing ten minutes every morning builds unstoppable momentum.",
+                "Our team gained real momentum after the first milestone.",
+                "Small daily wins help you maintain momentum all week."
+            ),
+            category = "Confidence"
+        ),
+        VocabSeed(
+            id = "vocab_cadence", word = "Cadence", phonetic = "/ˈkeɪ.dəns/",
+            meaning = "The rhythmic flow, pace, and modulation of your speaking voice.",
+            level = "Intermediate", synonyms = listOf("rhythm", "tempo", "flow"), antonyms = listOf("monotony", "arrhythmia"),
+            exampleSentence = "Slowing your cadence right before a key point commands attention.",
+            collocations = listOf("measured cadence", "vocal cadence"),
+            conversationExample = "Coach: 'Your ideas are strong—now vary your cadence so key insights land.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "The natural beat, speed, and musical flow of how you speak.",
+            wordForms = listOf("cadence", "cadences"),
+            practiceSentences = listOf(
+                "Slowing your cadence right before a key point commands attention.",
+                "A measured cadence makes complex topics easier to follow.",
+                "Vary your vocal cadence so listeners stay tuned in."
+            ),
+            category = "Voice"
+        ),
+        VocabSeed(
+            id = "vocab_enunciate", word = "Enunciate", phonetic = "/ɪˈnʌn.si.eɪt/",
+            meaning = "To pronounce words and syllables distinctly and clearly.",
+            level = "Intermediate", synonyms = listOf("pronounce", "articulate", "utter"), antonyms = listOf("slur", "mumble"),
+            exampleSentence = "Enunciate final consonants so remote microphones pick up every word.",
+            collocations = listOf("enunciate clearly", "enunciate every syllable"),
+            conversationExample = "Peer: 'The audio was faint.' You: 'Got it—I'll slow down and enunciate more crisply.'",
+            partOfSpeech = "verb",
+            simpleExplanation = "Pronounce every syllable and word ending cleanly.",
+            wordForms = listOf("enunciate", "enunciates", "enunciated", "enunciating", "enunciation"),
+            practiceSentences = listOf(
+                "Enunciate final consonants so remote microphones pick up every word.",
+                "Warming up your jaw helps you enunciate clearly on calls.",
+                "She learned to enunciate every syllable during public speeches."
+            ),
+            category = "Pronunciation"
+        ),
+        VocabSeed(
+            id = "vocab_brevity", word = "Brevity", phonetic = "/ˈbrev.ə.ti/",
+            meaning = "Concise and exact use of words without unnecessary rambling.",
+            level = "Intermediate", synonyms = listOf("conciseness", "succinctness"), antonyms = listOf("verbosity", "rambling"),
+            exampleSentence = "Executive updates reward brevity over exhaustive detail.",
+            collocations = listOf("soul of brevity", "speak with brevity"),
+            conversationExample = "Director: 'We have two minutes.' You: 'In the interest of brevity, here are the three outcomes.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Keeping your message short, sharp, and high value.",
+            wordForms = listOf("brevity"),
+            practiceSentences = listOf(
+                "Executive updates reward brevity over exhaustive detail.",
+                "In the interest of brevity, let me highlight two key numbers.",
+                "Speaking with brevity shows respect for everyone's time."
+            ),
+            category = "Workplace"
+        ),
+        VocabSeed(
+            id = "vocab_calibrate", word = "Calibrate", phonetic = "/ˈkæl.ə.breɪt/",
+            meaning = "To adjust your tone, complexity, and framing to match your listener.",
+            level = "Intermediate", synonyms = listOf("adapt", "tailor", "tune"), antonyms = listOf("ignore", "mismatch"),
+            exampleSentence = "Calibrate your technical depth to the audience in front of you.",
+            collocations = listOf("calibrate your message", "carefully calibrate"),
+            conversationExample = "Colleague: 'Was the client confused?' You: 'Yes, I need to calibrate the pitch with less jargon.'",
+            partOfSpeech = "verb",
+            simpleExplanation = "Fine-tune how you explain things so they fit your audience.",
+            wordForms = listOf("calibrate", "calibrates", "calibrated", "calibrating", "calibration"),
+            practiceSentences = listOf(
+                "Calibrate your technical depth to the audience in front of you.",
+                "Before presenting, calibrate your message to what leaders care about.",
+                "Skilled negotiators carefully calibrate their tone under pressure."
+            ),
+            category = "Workplace"
+        ),
+        VocabSeed(
+            id = "vocab_inflection", word = "Inflection", phonetic = "/ɪnˈflek.ʃən/",
+            meaning = "A rise or fall in vocal pitch that conveys nuance and emphasis.",
+            level = "Upper Intermediate", synonyms = listOf("intonation", "modulation", "tone"), antonyms = listOf("flatness", "monotone"),
+            exampleSentence = "Downward inflection at the end of a sentence projects certainty.",
+            collocations = listOf("downward inflection", "vocal inflection"),
+            conversationExample = "Coach: 'Watch your upward inflection on statements—drop your pitch to sound decisive.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Changing the rise and fall of your pitch to show meaning.",
+            wordForms = listOf("inflection", "inflections"),
+            practiceSentences = listOf(
+                "Downward inflection at the end of a sentence projects certainty.",
+                "Subtle vocal inflection brings written scripts to life.",
+                "Use a rising inflection when inviting genuine questions."
+            ),
+            category = "Voice"
+        ),
+        VocabSeed(
+            id = "vocab_compelling", word = "Compelling", phonetic = "/kəmˈpel.ɪŋ/",
+            meaning = "Evoking strong interest, conviction, or attention in an irresistible way.",
+            level = "Upper Intermediate", synonyms = listOf("persuasive", "convincing", "captivating"), antonyms = listOf("unconvincing", "dull"),
+            exampleSentence = "She backed her proposal with a compelling customer story.",
+            collocations = listOf("compelling argument", "compelling story"),
+            conversationExample = "VP: 'Why should we fund this now?' You: 'Here is a compelling case backed by user retention data.'",
+            partOfSpeech = "adjective",
+            simpleExplanation = "So clear and persuasive that people genuinely want to act.",
+            wordForms = listOf("compel", "compelling", "compellingly"),
+            practiceSentences = listOf(
+                "She backed her proposal with a compelling customer story.",
+                "A compelling opening hooks listeners in the first ten seconds.",
+                "Clear evidence makes your recommendation far more compelling."
+            ),
+            category = "Storytelling"
+        ),
+        VocabSeed(
+            id = "vocab_pivotal", word = "Pivotal", phonetic = "/ˈpɪv.ə.təl/",
+            meaning = "Of crucial importance in shaping the direction or outcome of an event.",
+            level = "Upper Intermediate", synonyms = listOf("crucial", "decisive", "central"), antonyms = listOf("trivial", "minor"),
+            exampleSentence = "That single client conversation became a pivotal moment for our launch.",
+            collocations = listOf("pivotal moment", "play a pivotal role"),
+            conversationExample = "Interviewer: 'What changed the project?' You: 'Aligning on one clear metric was the pivotal shift.'",
+            partOfSpeech = "adjective",
+            simpleExplanation = "A turning point that makes a major difference.",
+            wordForms = listOf("pivotal", "pivot"),
+            practiceSentences = listOf(
+                "That single client conversation became a pivotal moment for our launch.",
+                "Clear communication plays a pivotal role in team trust.",
+                "Highlight the pivotal decision at the center of your story."
+            ),
+            category = "Storytelling"
+        ),
+        VocabSeed(
+            id = "vocab_diplomatic", word = "Diplomatic", phonetic = "/ˌdɪp.ləˈmæt.ɪk/",
+            meaning = "Dealing with sensitive topics or disagreements with tact, respect, and skill.",
+            level = "Upper Intermediate", synonyms = listOf("tactful", "gracious", "considerate"), antonyms = listOf("blunt", "abrasive"),
+            exampleSentence = "A diplomatic response de-escalated the disagreement in seconds.",
+            collocations = listOf("diplomatic approach", "diplomatic phrasing"),
+            conversationExample = "Peer: 'I disagree with their timeline.' You: 'Let's give diplomatic feedback focused on shared goals.'",
+            partOfSpeech = "adjective",
+            simpleExplanation = "Sharing honest views politely without hurting relationships.",
+            wordForms = listOf("diplomatic", "diplomatically", "diplomacy"),
+            practiceSentences = listOf(
+                "A diplomatic response de-escalated the disagreement in seconds.",
+                "Use diplomatic phrasing when challenging an assumption in meetings.",
+                "Handling tough client feedback diplomatically builds lasting respect."
+            ),
+            category = "Workplace"
+        ),
+        VocabSeed(
+            id = "vocab_synthesize", word = "Synthesize", phonetic = "/ˈsɪn.θə.saɪz/",
+            meaning = "To combine complex details into one clear, unified insight.",
+            level = "Advanced", synonyms = listOf("distill", "summarize", "integrate"), antonyms = listOf("fragment", "scatter"),
+            exampleSentence = "Great communicators synthesize messy data into a clear narrative.",
+            collocations = listOf("synthesize insights", "synthesize feedback"),
+            conversationExample = "VP: 'What did the 20 interviews show?' You: 'Let me synthesize the three recurring themes.'",
+            partOfSpeech = "verb",
+            simpleExplanation = "Pull scattered details together into one crisp takeaway.",
+            wordForms = listOf("synthesize", "synthesizes", "synthesized", "synthesizing", "synthesis"),
+            practiceSentences = listOf(
+                "Great communicators synthesize messy data into a clear narrative.",
+                "Let me synthesize our team's feedback into three priorities.",
+                "Being able to synthesize complex research sets executives apart."
+            ),
+            category = "Leadership"
+        ),
+        VocabSeed(
+            id = "vocab_resonant", word = "Resonant", phonetic = "/ˈrez.ən.ənt/",
+            meaning = "Deep, warm, full-bodied vocal quality that carries effortlessly.",
+            level = "Advanced", synonyms = listOf("rich", "sonorous", "vibrant"), antonyms = listOf("thin", "strained"),
+            exampleSentence = "Diaphragmatic breathing produces a calm, resonant speaking voice.",
+            collocations = listOf("resonant voice", "emotionally resonant"),
+            conversationExample = "Listener: 'Your keynote carried across the whole hall.' You: 'Breath support keeps the tone resonant.'",
+            partOfSpeech = "adjective",
+            simpleExplanation = "Rich, warm sound or message that stays with listeners.",
+            wordForms = listOf("resonant", "resonate", "resonance"),
+            practiceSentences = listOf(
+                "Diaphragmatic breathing produces a calm, resonant speaking voice.",
+                "Her closing story was emotionally resonant for everyone in the room.",
+                "Steady breath support makes your voice sound naturally resonant."
+            ),
+            category = "Voice"
+        ),
+        VocabSeed(
+            id = "vocab_nuance", word = "Nuance", phonetic = "/ˈnuː.ɑːns/",
+            meaning = "A subtle distinction in meaning, tone, or emotional expression.",
+            level = "Advanced", synonyms = listOf("subtlety", "shade", "refinement"), antonyms = listOf("bluntness", "oversimplification"),
+            exampleSentence = "Vocal character lets you convey nuance without changing words.",
+            collocations = listOf("subtle nuance", "capture the nuance"),
+            conversationExample = "Teammate: 'It sounded harsh in text.' You: 'Let's jump on a call so you hear the nuance.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Small, meaningful shades of tone or meaning that add depth.",
+            wordForms = listOf("nuance", "nuances", "nuanced"),
+            practiceSentences = listOf(
+                "Vocal character lets you convey nuance without changing words.",
+                "Short voice calls capture nuance that text messages often lose.",
+                "Her nuanced explanation addressed every stakeholder's concern."
+            ),
+            category = "Leadership"
+        ),
+        VocabSeed(
+            id = "vocab_gravitas", word = "Gravitas", phonetic = "/ˈɡræv.ɪ.tæs/",
+            meaning = "Calm dignity, credibility, and quiet authority in presence and speech.",
+            level = "Advanced", synonyms = listOf("authority", "presence", "weight"), antonyms = listOf("frivolity", "flippancy"),
+            exampleSentence = "Pausing calmly before answering adds instant gravitas to your delivery.",
+            collocations = listOf("executive gravitas", "speak with gravitas"),
+            conversationExample = "Mentor: 'Why did the board listen so closely?' You: 'Slowing down gave the recommendation real gravitas.'",
+            partOfSpeech = "noun",
+            simpleExplanation = "Quiet, grounded authority that makes people trust your words.",
+            wordForms = listOf("gravitas"),
+            practiceSentences = listOf(
+                "Pausing calmly before answering adds instant gravitas to your delivery.",
+                "Executive gravitas comes from clarity, composure, and steady pacing.",
+                "Speaking with gravitas never requires raising your voice."
+            ),
+            category = "Leadership"
+        )
     )
 
     val speakingChallenges = listOf(

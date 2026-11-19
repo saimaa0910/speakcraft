@@ -226,19 +226,113 @@ class SpeakCraftRepository(
 
     // ==================== SHARED CATALOG, RELEASES & RBAC ====================
 
-    fun observeIsAdmin(userId: String): Flow<Boolean> = flow {
-        val uid = auth.currentUser?.uid
+    fun observeIsAdmin(userId: String): Flow<Boolean> =
+        observeAdminRole(userId).map { it != com.example.data.learning.AdminRole.NONE }
+
+    /**
+     * Verifies admin role from BOTH Firebase Auth custom claims (request.auth.token.admin / role)
+     * and server-provisioned adminUsers/{uid} document. Never trusts client-writable fields.
+     */
+    fun observeAdminRole(userId: String): Flow<com.example.data.learning.AdminRole> = flow {
+        val user = auth.currentUser
+        val uid = user?.uid
         if (uid == null || uid != userId) {
-            emit(false)
+            emit(com.example.data.learning.AdminRole.NONE)
             return@flow
         }
+        val claimRole = runCatching {
+            val token = user.getIdToken(false).await()
+            val claims = token.claims
+            val isClaimAdmin = claims["admin"] == true
+            val roleStr = claims["role"] as? String
+            when {
+                !roleStr.isNullOrBlank() -> com.example.data.learning.AdminRole.fromString(roleStr)
+                isClaimAdmin -> com.example.data.learning.AdminRole.SUPER_ADMIN
+                else -> com.example.data.learning.AdminRole.NONE
+            }
+        }.getOrDefault(com.example.data.learning.AdminRole.NONE)
+
         emitAll(
             db.collection("adminUsers").document(uid)
                 .snapshots()
                 .map { snap ->
-                    snap.exists() && (snap.toObject(AdminUser::class.java)?.active == true)
+                    val docAdmin = snap.exists() && (snap.toObject(AdminUser::class.java)?.active == true)
+                    val docRole = if (docAdmin) {
+                        com.example.data.learning.AdminRole.fromString(snap.getString("role") ?: "SUPER_ADMIN")
+                    } else com.example.data.learning.AdminRole.NONE
+                    when {
+                        claimRole != com.example.data.learning.AdminRole.NONE -> claimRole
+                        else -> docRole
+                    }
                 }
-                .catch { emit(false) }
+                .catch { emit(claimRole) }
+        )
+    }
+
+    fun observeActiveAnnouncements(): Flow<List<com.example.data.learning.AdminAnnouncement>> = flow {
+        if (auth.currentUser == null) {
+            emit(emptyList())
+            return@flow
+        }
+        emitAll(
+            db.collection("adminAnnouncements")
+                .whereEqualTo("active", true)
+                .snapshots()
+                .map { snap ->
+                    snap.documents.map { doc ->
+                        com.example.data.learning.AdminAnnouncement(
+                            id = doc.id,
+                            title = doc.getString("title").orEmpty(),
+                            message = doc.getString("message").orEmpty(),
+                            targetAudience = doc.getString("targetAudience") ?: "ALL",
+                            targetRoute = doc.getString("targetRoute") ?: "dashboard",
+                            createdBy = doc.getString("createdBy").orEmpty(),
+                            createdAtMs = doc.getLong("createdAtMs") ?: 0L,
+                            active = doc.getBoolean("active") ?: true
+                        )
+                    }.sortedByDescending { it.createdAtMs }
+                }
+                .catch { emit(emptyList()) }
+        )
+    }
+
+    fun observeAdminAuditLogs(): Flow<List<com.example.data.learning.AdminAuditRecord>> = flow {
+        if (auth.currentUser == null) {
+            emit(emptyList())
+            return@flow
+        }
+        emitAll(
+            db.collection("adminAuditLogs")
+                .orderBy("timestampMs", Query.Direction.DESCENDING)
+                .limit(50)
+                .snapshots()
+                .map { snap ->
+                    snap.documents.map { doc ->
+                        com.example.data.learning.AdminAuditRecord(
+                            id = doc.id,
+                            adminUid = doc.getString("adminUid").orEmpty(),
+                            adminRole = doc.getString("adminRole").orEmpty(),
+                            action = doc.getString("action").orEmpty(),
+                            targetPath = doc.getString("targetPath").orEmpty(),
+                            detail = doc.getString("detail").orEmpty(),
+                            timestampMs = doc.getLong("timestampMs") ?: 0L
+                        )
+                    }
+                }
+                .catch { emit(emptyList()) }
+        )
+    }
+
+    fun observeAdminUsersList(): Flow<List<AdminUser>> = flow {
+        if (auth.currentUser == null) {
+            emit(emptyList())
+            return@flow
+        }
+        emitAll(
+            db.collection("adminUsers")
+                .snapshots()
+                .map { it.toObjects(AdminUser::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
+                .catch { emit(emptyList()) }
         )
     }
 
@@ -655,7 +749,7 @@ class SpeakCraftRepository(
                 "word" to word.take(80),
                 "phonetic" to phonetic.take(120).ifBlank { null },
                 "meaning" to meaning.take(600),
-                "level" to if (level in listOf("Beginner", "Intermediate", "Advanced")) level else "Intermediate",
+                "level" to if (level in listOf("Beginner", "Elementary", "Intermediate", "Upper Intermediate", "Advanced")) level else "Intermediate",
                 "exampleSentence" to exampleSentence.take(600).ifBlank { null },
                 "collocations" to collocations.take(15),
                 "personalNote" to personalNote.take(1000).ifBlank { null },
@@ -1110,6 +1204,102 @@ class SpeakCraftRepository(
 
     suspend fun adminToggleReleaseEnabled(release: ApplicationRelease): Result<Unit> =
         adminPublishRelease(release.copy(enabled = !release.enabled))
+
+    suspend fun adminPublishAnnouncement(
+        title: String,
+        message: String,
+        targetAudience: String = "ALL",
+        targetRoute: String = "dashboard",
+        adminRole: String = "SUPER_ADMIN"
+    ): Result<Unit> = runMutation(OperationType.WRITE, "adminAnnouncements") { uid ->
+        val docRef = db.collection("adminAnnouncements").document()
+        val now = System.currentTimeMillis()
+        docRef.set(
+            mapOf(
+                "title" to title.trim().take(160),
+                "message" to message.trim().take(1200),
+                "targetAudience" to targetAudience.take(40),
+                "targetRoute" to targetRoute.take(80),
+                "createdBy" to uid,
+                "createdAtMs" to now,
+                "active" to true,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+        ).await()
+        adminLogAuditAction(adminRole, "PUBLISH_ANNOUNCEMENT", "adminAnnouncements/${docRef.id}", title.take(120))
+    }
+
+    suspend fun adminLogAuditAction(
+        adminRole: String,
+        action: String,
+        targetPath: String,
+        detail: String
+    ): Result<Unit> = runMutation(OperationType.CREATE, "adminAuditLogs") { uid ->
+        val docRef = db.collection("adminAuditLogs").document()
+        docRef.set(
+            mapOf(
+                "adminUid" to uid,
+                "adminRole" to adminRole.take(40),
+                "action" to action.take(120),
+                "targetPath" to targetPath.take(200),
+                "detail" to detail.take(1000),
+                "timestampMs" to System.currentTimeMillis()
+            )
+        ).await()
+    }
+
+    suspend fun adminUpsertRole(
+        targetUserId: String,
+        role: String,
+        active: Boolean,
+        actorRole: String
+    ): Result<Unit> = runMutation(OperationType.WRITE, "adminUsers/$targetUserId") { _ ->
+        val safeUid = sanitizeId(targetUserId, 128)
+        val safeRole = if (role in listOf("SUPER_ADMIN", "CONTENT_ADMIN", "MODERATOR")) role else "MODERATOR"
+        db.collection("adminUsers").document(safeUid).set(
+            mapOf(
+                "userId" to safeUid,
+                "role" to safeRole,
+                "active" to active,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+        ).await()
+        adminLogAuditAction(actorRole, "UPDATE_ADMIN_ROLE", "adminUsers/$safeUid", "role=$safeRole active=$active")
+    }
+
+    /**
+     * Deletes all user-owned Firestore subcollections, local media recordings, and the user's
+     * root profile document, then attempts to delete the Firebase Authentication account.
+     * Returns an actionable failure if Firebase requires recent re-authentication.
+     */
+    suspend fun deleteCurrentUserAccountAndData(): Result<Unit> = runMutation(OperationType.DELETE, "account_deletion") { uid ->
+        val userDoc = db.collection("users").document(uid)
+        val subcollections = listOf(
+            "speakingSessions", "speechFeedback", "vocabulary", "dailyActivities",
+            "learningProgress", "enrollments", "youtubeSources", "extractedTechniques",
+            "conversationSessions", "realWorldTasks", "activityProgress", "activityAttempts",
+            "savedActivities", "dailyPracticePlans", "notifications", "learningEvents",
+            "vocabularyProgress", "quizAttempts", "learningSnapshots"
+        )
+        for (sub in subcollections) {
+            val snap = runCatching { userDoc.collection(sub).get().await() }.getOrNull() ?: continue
+            if (snap.isEmpty) continue
+            snap.documents.chunked(400).forEach { chunk ->
+                val batch = db.batch()
+                chunk.forEach { doc ->
+                    doc.getString("localMediaPath")?.takeIf { it.isNotBlank() }?.let { path ->
+                        runCatching { File(path).takeIf { it.exists() }?.delete() }
+                    }
+                    batch.delete(doc.reference)
+                }
+                batch.commit().await()
+            }
+        }
+        runCatching { userDoc.delete().await() }
+        val currentUser = auth.currentUser
+            ?: throw IllegalStateException("No authenticated user found.")
+        currentUser.delete().await()
+    }
 
     private suspend fun runMutation(
         op: OperationType,

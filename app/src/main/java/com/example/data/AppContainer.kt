@@ -70,4 +70,8 @@ class AppContainer(context: Context) {
     val activityEngine: com.example.data.activity.ActivityEngine by lazy {
         com.example.data.activity.ActivityEngine(universalEvaluationEngine)
     }
+
+    val learningProgressManager: com.example.data.learning.LearningProgressManager by lazy {
+        com.example.data.learning.LearningProgressManager(appContext)
+    }
 }

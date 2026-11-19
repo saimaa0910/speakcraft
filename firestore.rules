@@ -14,10 +14,35 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
+    function hasAdminClaim() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.role in ['SUPER_ADMIN', 'CONTENT_ADMIN', 'MODERATOR']
+      );
+    }
+
+    function hasActiveAdminDoc() {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.active == true;
+    }
+
+    function isAdmin() {
+      return hasAdminClaim() || hasActiveAdminDoc();
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        (hasActiveAdminDoc() && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role in ['SUPER_ADMIN', 'ADMIN'])
+      );
+    }
+
+    function isContentAdmin() {
+      return isSuperAdmin() || (isSignedIn() && (
+        request.auth.token.role == 'CONTENT_ADMIN' ||
+        (hasActiveAdminDoc() && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role == 'CONTENT_ADMIN')
+      ));
     }
 
     function isValidId(id) {
@@ -47,7 +72,7 @@ service cloud.firestore {
     function isValidUserProfile(data, userId) {
       return data.userId is string && data.userId == userId &&
              data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
-             data.communicationLevel in ['Beginner', 'Intermediate', 'Upper-Intermediate', 'Advanced'] &&
+             data.communicationLevel in ['Beginner', 'Elementary', 'Intermediate', 'Upper Intermediate', 'Upper-Intermediate', 'Advanced'] &&
              data.onboardingCompleted is bool &&
              (!('primaryGoal' in data) || (data.primaryGoal is string && data.primaryGoal.size() <= 200)) &&
              (!('dailyGoalMinutes' in data) || (data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 5 && data.dailyGoalMinutes <= 240)) &&
@@ -155,7 +180,7 @@ service cloud.firestore {
              data.word is string && data.word.size() >= 1 && data.word.size() <= 80 &&
              (!('phonetic' in data) || (data.phonetic is string && data.phonetic.size() <= 120)) &&
              data.meaning is string && data.meaning.size() >= 1 && data.meaning.size() <= 600 &&
-             data.level in ['Beginner', 'Intermediate', 'Advanced'] &&
+             data.level in ['Beginner', 'Elementary', 'Intermediate', 'Upper Intermediate', 'Advanced'] &&
              (!('synonyms' in data) || isBoundedStringList(data.synonyms, 15)) &&
              (!('antonyms' in data) || isBoundedStringList(data.antonyms, 15)) &&
              (!('exampleSentence' in data) || (data.exampleSentence is string && data.exampleSentence.size() <= 600)) &&
@@ -674,13 +699,94 @@ service cloud.firestore {
 
         allow delete: if isOwner(userId) && isValidId(planId);
       }
+
+      // Unified Learning Progress & Notification Center subcollections (owner-only; private by design)
+      match /notifications/{notificationId} {
+        allow get: if isOwner(userId) && isValidId(notificationId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(notificationId) &&
+                                 incoming().userId == userId &&
+                                 incoming().title is string && incoming().title.size() >= 1 && incoming().title.size() <= 200 &&
+                                 incoming().body is string && incoming().body.size() <= 1000 &&
+                                 incoming().isRead is bool;
+        allow delete: if isOwner(userId) && isValidId(notificationId);
+      }
+
+      match /learningEvents/{eventId} {
+        allow get: if isOwner(userId) && isValidId(eventId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(eventId) &&
+                         incoming().userId == userId &&
+                         incoming().idempotencyKey is string && incoming().idempotencyKey.size() >= 1 && incoming().idempotencyKey.size() <= 128 &&
+                         incoming().type is string && incoming().type.size() >= 1 && incoming().type.size() <= 64;
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(eventId);
+      }
+
+      match /vocabularyProgress/{wordId} {
+        allow get: if isOwner(userId) && isValidId(wordId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(wordId) &&
+                                 incoming().userId == userId &&
+                                 incoming().word is string && incoming().word.size() >= 1 && incoming().word.size() <= 80 &&
+                                 incoming().highestStageCompleted is int && incoming().highestStageCompleted >= 0 && incoming().highestStageCompleted <= 5 &&
+                                 incoming().isCompleted is bool;
+        allow delete: if isOwner(userId) && isValidId(wordId);
+      }
+
+      match /quizAttempts/{attemptId} {
+        allow get: if isOwner(userId) && isValidId(attemptId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(attemptId) &&
+                         incoming().userId == userId &&
+                         incoming().totalQuestions is int && incoming().totalQuestions >= 1 && incoming().totalQuestions <= 50 &&
+                         incoming().scorePercent is int && incoming().scorePercent >= 0 && incoming().scorePercent <= 100;
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(attemptId);
+      }
+
+      match /learningSnapshots/{docId} {
+        allow get: if isOwner(userId) && isValidId(docId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(docId) && incoming().userId == userId;
+        allow delete: if isOwner(userId) && isValidId(docId);
+      }
     }
 
     // ==================== ADMIN & SHARED CURATED COLLECTIONS ====================
+    // Privacy boundary: admins have ZERO access to users/{uid}/speakingSessions or private recordings.
     match /adminUsers/{userId} {
       allow get: if (isOwner(userId) && isValidId(userId)) || isAdmin();
       allow list: if isAdmin();
-      allow create, update, delete: if false;
+      allow create, update: if isSuperAdmin() && isValidId(userId) &&
+                               incoming().userId == userId &&
+                               incoming().role in ['SUPER_ADMIN', 'CONTENT_ADMIN', 'MODERATOR'] &&
+                               incoming().active is bool;
+      allow delete: if false;
+    }
+
+    match /adminAnnouncements/{announcementId} {
+      allow get, list: if isSignedIn() && (existing().active == true || isAdmin());
+      allow create, update: if isContentAdmin() && isValidId(announcementId) &&
+                               incoming().title is string && incoming().title.size() >= 1 && incoming().title.size() <= 160 &&
+                               incoming().message is string && incoming().message.size() >= 1 && incoming().message.size() <= 1200 &&
+                               incoming().active is bool;
+      allow delete: if isContentAdmin() && isValidId(announcementId);
+    }
+
+    match /adminAuditLogs/{auditId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && isValidId(auditId) &&
+                       incoming().adminUid == request.auth.uid &&
+                       incoming().action is string && incoming().action.size() >= 1 && incoming().action.size() <= 120 &&
+                       incoming().detail is string && incoming().detail.size() <= 1000;
+      allow update, delete: if false;
+    }
+
+    match /adminSettings/{settingId} {
+      allow get, list: if isAdmin();
+      allow create, update: if isSuperAdmin() && isValidId(settingId);
+      allow delete: if false;
     }
 
     match /youtubeChannels/{channelId} {

@@ -1,0 +1,1205 @@
+SpeakCraft — Complete Learning Experience, Dashboard, Personalization & Vocabulary Builder Upgrade
+
+Project Context
+
+You are working on SpeakCraft, an existing native Android English communication learning application.
+
+Existing technology
+
+* Kotlin
+* Jetpack Compose
+* Material 3
+* Firebase Authentication
+* Cloud Firestore
+* Android SpeechRecognizer / offline speech recognition
+* Android Text-to-Speech
+* MediaPipe (where supported)
+* Local Intelligence Orchestrator
+* Local Evaluation Engine
+* Audio DSP and speech analysis
+* Lightweight on-device models
+
+The application already has learning activities, learning paths, evaluation strategies, vocabulary and speaking exercises.
+
+First inspect the existing repository, architecture, screens, database models, navigation, repositories, ViewModels and documentation.
+
+Do not rebuild the application from scratch. Extend the existing architecture and reuse working components.
+
+CRITICAL ARCHITECTURE REQUIREMENTS
+
+1. Android-native Kotlin and Jetpack Compose only.
+2. No React, Electron, web application or unnecessary backend rewrite.
+3. Do not introduce large language models.
+4. Do not introduce paid cloud AI dependencies.
+5. All core learning, vocabulary evaluation, scoring and feedback must work offline.
+6. Firebase Authentication and Firestore can continue supporting account management and progress synchronization.
+7. Do not send personal recordings, audio, video or transcripts to cloud AI.
+8. Preserve existing learning activities and user progress.
+9. All UI must support small, medium and large Android screens.
+10. Follow MVVM, repository pattern, modular architecture and existing project conventions.
+
+⸻
+
+PHASE 1 — WELCOME BACK EXPERIENCE
+
+Use the supplied screenshot as the visual reference.
+
+Create a premium welcome-back experience that greets returning users.
+
+1. Welcome-back animation
+
+When a returning user opens the application:
+
+* Display a personalized welcome message.
+* Show the user’s profile avatar.
+* Animate the welcome message smoothly.
+* Use subtle fade-in, slide-up and scale animations.
+* Display the current learning track.
+* Display the current learning day.
+* Display the current score or learning progress.
+* Display a short personalized message based on the user’s recent activity.
+
+Example:
+
+“Welcome back!”
+
+“Ready to become a more confident communicator?”
+
+“Your next 15-minute practice session is ready.”
+
+Animation requirements:
+
+* Smooth entrance animation.
+* No excessive animation or visual distraction.
+* Avoid delaying navigation.
+* Respect Android reduced-motion preferences where applicable.
+* Do not replay the full animation unnecessarily every time the screen recomposes.
+
+2. Learning-plan carousel
+
+Implement the welcome learning cards based on the supplied reference.
+
+Each card should display:
+
+* Learning track
+* Day number
+* Current score
+* Activity title
+* Short description
+* Start Lesson button
+* Quick Practice button
+* Background illustration or image
+* Carousel position indicator
+
+Example cards:
+
+Card 1:
+“The 3 Vs of Communication”
+Build your communication foundation.
+
+Card 2:
+“Speak with Clarity”
+Improve your articulation and speaking pace.
+
+Card 3:
+“Speak with Confidence”
+Practice speaking naturally in everyday situations.
+
+3. Swipe navigation
+
+The cards must support:
+
+* Swipe left to see the next card.
+* Swipe right to see the previous card.
+* Smooth horizontal transitions.
+* Snap-to-card behavior.
+* Animated active-card transitions.
+* Correct handling of the first and last cards.
+* Optional auto-advance only if it does not interfere with user interaction.
+
+Important:
+
+* Users must navigate by swiping the cards.
+* The small dots are visual page indicators, not the primary navigation controls.
+* Do not make the dots the only way to change cards.
+* Show the active position clearly.
+* Do not accidentally trigger navigation when the user presses a button inside a card.
+
+Use the native Compose HorizontalPager or another appropriate Compose paging component.
+
+⸻
+
+PHASE 2 — PERSONALIZED DAILY PRACTICE PLAN
+
+Build a dynamic daily learning-plan engine.
+
+Every user should receive a practice plan based on their goals, current level, previous performance and actual activity in the application.
+
+1. User learning profile
+
+Collect and maintain:
+
+* Learning goal
+* Current English level
+* Target English level
+* Communication weaknesses
+* Preferred learning duration
+* Preferred daily practice time
+* Learning interests
+* Completed activities
+* Missed activities
+* Vocabulary progress
+* Speaking performance
+* Recent evaluation results
+
+Example goals:
+
+* Improve spoken English.
+* Improve vocabulary.
+* Speak confidently in interviews.
+* Improve workplace communication.
+* Improve public speaking.
+* Improve pronunciation.
+* Improve grammar.
+* Improve everyday conversations.
+* Improve presentation skills.
+
+2. Learning levels
+
+Support:
+
+* Beginner
+* Elementary
+* Intermediate
+* Upper Intermediate
+* Advanced
+
+Allow users to update their level.
+
+Do not assume the user’s level based only on one test.
+
+Use multiple learning signals and allow manual correction.
+
+3. Dynamic daily plan generation
+
+Create a reusable DailyPracticePlanEngine.
+
+Inputs:
+
+* User learning goals
+* Current learning level
+* Target learning level
+* Previous scores
+* Recent mistakes
+* Activity completion
+* Vocabulary performance
+* Practice frequency
+* Time available per day
+* Weakest skill areas
+
+Outputs:
+
+* Daily practice plan
+* Activity sequence
+* Recommended duration
+* Skill focus
+* Vocabulary target
+* Speaking target
+* Review exercises
+* Completion requirements
+
+Example beginner daily plan:
+
+Activity	Duration
+Vocabulary Builder	5 min
+Pronunciation Practice	3 min
+Sentence Construction	3 min
+Speaking Practice	5 min
+Daily Review	4 min
+
+Example intermediate daily plan:
+
+Activity	Duration
+Vocabulary in Context	5 min
+Articulation Practice	5 min
+Storytelling	5 min
+Spontaneous Speaking	5 min
+Feedback Review	3 min
+
+Plans must be generated using local deterministic logic.
+
+Do not require an LLM.
+
+4. Adaptive learning
+
+If the user repeatedly makes the same mistake:
+
+* Identify the recurring weakness.
+* Recommend a targeted activity.
+* Add a review exercise.
+* Adjust the difficulty.
+* Track whether the user improves.
+
+If the user performs well consistently:
+
+* Increase difficulty gradually.
+* Introduce more advanced exercises.
+* Avoid repeatedly assigning activities they have already mastered.
+
+If the user misses a day:
+
+* Do not erase previous progress.
+* Generate a manageable recovery plan.
+* Avoid overwhelming the user with accumulated tasks.
+
+5. Learning-plan persistence
+
+Create appropriate models:
+
+* UserLearningProfile
+* DailyPracticePlan
+* DailyPracticeTask
+* LearningGoal
+* SkillProgress
+* ActivityCompletion
+
+Use stable identifiers and versioned plan records.
+
+A plan must not unexpectedly change halfway through a user’s session.
+
+If adaptation is necessary, preserve completed tasks and update only remaining tasks.
+
+⸻
+
+PHASE 3 — REAL-TIME DASHBOARD
+
+Redesign the existing dashboard into a live learning dashboard.
+
+Dashboard sections
+
+1. Welcome back.
+2. Today’s learning plan.
+3. Daily completion percentage.
+4. Current learning streak.
+5. Total practice time.
+6. Speaking performance.
+7. Vocabulary progress.
+8. Current learning level.
+9. Weekly activity chart.
+10. Recommended next activity.
+11. Recent achievements.
+12. Continue learning section.
+
+Real-time dashboard behavior
+
+Whenever a user completes an activity:
+
+* Update the activity status.
+* Update today’s completion percentage.
+* Update total practice time.
+* Update the relevant skill score.
+* Update vocabulary progress when applicable.
+* Update the daily plan.
+* Update the streak when the daily completion requirement is satisfied.
+* Refresh dashboard components without requiring an application restart.
+
+Use reactive state with StateFlow and Compose collection.
+
+Firestore listeners can synchronize progress across devices when online.
+
+Use Room or the existing local persistence mechanism for offline progress.
+
+Avoid false real-time updates
+
+Do not increment values merely because a screen was opened.
+
+Only update statistics after a validated activity-completion event.
+
+Prevent duplicate completion events from increasing scores or practice time twice.
+
+⸻
+
+PHASE 4 — STREAK AND DAILY COMPLETION ENGINE
+
+Implement a reliable streak system.
+
+Rules
+
+* A streak represents consecutive qualifying practice days.
+* Completing one activity does not automatically mean the entire daily plan is complete.
+* Define the daily completion requirement explicitly.
+* The streak updates only after that requirement is satisfied.
+* Multiple completed activities on the same day must count as one completed day.
+* Retrying an activity must not create duplicate completion events.
+* Handle local timezone and date boundaries correctly.
+* Preserve the user’s historical streak data.
+
+Streak interface
+
+Display:
+
+* Current streak.
+* Longest streak.
+* Completed days.
+* Weekly activity calendar.
+* Daily completion status.
+* Next streak milestone.
+
+Example milestones:
+
+* 3 days
+* 7 days
+* 14 days
+* 30 days
+* 60 days
+* 100 days
+
+Use tasteful animations when a milestone is reached.
+
+Do not punish the user with misleading progress resets.
+
+⸻
+
+PHASE 5 — NOTIFICATION CENTER
+
+Add a notification bell icon to the main application navigation.
+
+This notification center is for learning-related notifications and account updates.
+
+It is NOT an application software-update checker.
+
+Notification categories
+
+1. Daily practice reminders.
+2. Daily plan available.
+3. Learning streak achieved.
+4. Streak milestone achieved.
+5. Vocabulary review reminder.
+6. New learning activities.
+7. Learning progress summary.
+8. Achievement unlocked.
+9. Account and security notifications.
+10. Important service announcements.
+
+Notification UI
+
+Implement:
+
+* Bell icon.
+* Unread count badge.
+* Notifications screen.
+* Read/unread state.
+* Mark as read.
+* Mark all as read.
+* Delete notification.
+* Notification category.
+* Timestamp.
+* Empty state.
+* Notification preferences.
+
+Do not include:
+
+* APK update alerts.
+* Application version checks.
+* Software update notifications.
+* Automatic app update workflows.
+
+Notification behavior
+
+* Avoid duplicate reminders.
+* Respect notification permissions.
+* Respect user notification preferences.
+* Do not send excessive notifications.
+* Support offline-created learning notifications.
+* Synchronize notification state across devices when online.
+
+⸻
+
+PHASE 6 — USER PROFILE AND SETTINGS
+
+Create a dedicated profile area with a clean, premium settings interface.
+
+1. User profile
+
+Display:
+
+* Profile picture.
+* Name.
+* Email.
+* Current learning level.
+* Learning goals.
+* Member since.
+* Learning streak.
+* Total practice time.
+* Completed activities.
+* Vocabulary learned.
+
+Allow editing of appropriate profile fields.
+
+2. Settings sections
+
+Create these settings sections:
+
+Account
+
+* Personal information.
+* Email.
+* Password.
+* Account security.
+* Sign out.
+* Delete account.
+
+Learning preferences
+
+* English level.
+* Learning goals.
+* Daily practice duration.
+* Reminder preferences.
+* Preferred learning schedule.
+
+Appearance
+
+* Light theme.
+* Dark theme.
+* System default.
+* Accent color if supported.
+* Font scaling.
+* Animation preferences.
+
+AI and Intelligence
+
+* Local intelligence status.
+* Offline speech recognition availability.
+* Model download management.
+* Model storage usage.
+* Model integrity status.
+* CPU/RAM capability information.
+* Data processing privacy information.
+
+Important:
+The application must remain usable without downloaded AI models.
+
+Do not add cloud AI settings or cloud inference dependencies.
+
+Integrations
+
+* Existing supported integrations only.
+* Connection status.
+* Permissions.
+* Disconnect integration.
+* Data synchronization settings.
+
+Do not display fake integrations or non-functional buttons.
+
+Data and Privacy
+
+* Download/export user data.
+* Clear local learning history.
+* Delete selected learning data.
+* Delete account and associated data.
+* Privacy information.
+* Data retention information.
+
+Notifications
+
+* Learning reminders.
+* Streak reminders.
+* Achievement notifications.
+* Vocabulary review reminders.
+
+About
+
+* Application information.
+* Terms.
+* Privacy policy.
+* Help and support.
+
+3. Delete data
+
+Implement two separate actions:
+
+A. Clear selected learning data.
+
+B. Delete account and associated data.
+
+Before deleting:
+
+* Explain what will be deleted.
+* Require explicit confirmation.
+* Reauthenticate where required.
+* Handle Firebase Authentication deletion requirements.
+* Delete or anonymize associated Firestore records according to the documented retention policy.
+* Clean up local Room data, cached recordings, downloaded personal content and other user-owned files.
+* Do not accidentally delete shared learning content or system configuration.
+
+Deletion must be reliable and verifiable.
+
+4. Sign out
+
+* Provide a clearly visible sign-out action.
+* Ask for confirmation where appropriate.
+* Clear authenticated session data.
+* Protect locally cached private information.
+* Return the user to the sign-in screen.
+* Do not delete learning history when signing out.
+
+⸻
+
+PHASE 7 — ADMIN CONSOLE
+
+Add an Admin Console entry only for authorized administrators.
+
+Security requirements
+
+* Never identify an administrator using a client-side boolean alone.
+* Use Firebase custom claims or another trusted authorization mechanism.
+* Protect privileged operations using server-side authorization and Firestore Security Rules.
+* Never expose administrative credentials or privileged configuration in the APK.
+* Hide the Admin Console entry for ordinary users.
+* Enforce authorization again when entering every admin feature.
+
+If a secure administrative backend does not exist, document the missing requirement instead of implementing insecure admin access.
+
+Admin Console modules
+
+1. Admin dashboard.
+2. User statistics.
+3. Active users.
+4. Learning activity statistics.
+5. Vocabulary statistics.
+6. Learning path management.
+7. Activity management.
+8. Exercise template management.
+9. Notification announcements.
+10. Content moderation where applicable.
+11. System health.
+12. Audit logs.
+13. Admin role management.
+
+Do not allow ordinary administrators to access sensitive user recordings or private personal data by default.
+
+Use role-based permissions.
+
+⸻
+
+PHASE 8 — VOCABULARY BUILDER: COMPLETE LEARNING WORKFLOW
+
+This is a major feature and must be implemented as a complete learning experience rather than a simple vocabulary list.
+
+Every vocabulary word must have a structured learning lifecycle.
+
+A. Vocabulary home
+
+Display:
+
+* Daily words.
+* New words.
+* Words in progress.
+* Words awaiting review.
+* Completed words.
+* Mastered words.
+* Total words learned.
+* Daily vocabulary goal.
+* Vocabulary learning streak.
+* Search and category filters.
+
+Each word card should display:
+
+* Word.
+* Phonetic transcription when available.
+* Part of speech.
+* Meaning.
+* Difficulty level.
+* Learning status.
+* Progress indicator.
+
+B. Word learning workflow
+
+Each word must progress through five stages.
+
+Stage 1 — Learn the word
+
+Display:
+
+* Word.
+* Pronunciation.
+* Audio pronunciation using local TTS or bundled reference audio.
+* Meaning.
+* Part of speech.
+* Simple explanation.
+* Synonyms.
+* Antonyms where available.
+* Example sentences.
+* Common usage.
+* Word forms where applicable.
+
+Actions:
+
+* Listen.
+* Repeat.
+* Save to notebook.
+* Continue to speaking practice.
+
+Track that the user has viewed and studied the word.
+
+Stage 2 — Speak the word
+
+Show the word prominently.
+
+Ask the user to:
+
+1. Listen to the correct pronunciation.
+2. Speak the word.
+3. Record their attempt.
+4. Submit.
+
+Evaluate using available offline evidence.
+
+Assess:
+
+* Whether the recognized word matches.
+* Transcript confidence.
+* Pronunciation evidence where supported.
+* Whether the recording contains usable speech.
+
+Display:
+
+* Score.
+* Correct/incorrect result.
+* Recognition confidence.
+* Mistakes where identifiable.
+* Suggested improvement.
+* Retry action.
+
+Do not claim phoneme-level pronunciation accuracy unless a suitable local phoneme assessment engine supports it.
+
+Stage 3 — Speak sentences using the word
+
+Show a set of practice sentences containing the target word.
+
+Example target word: “Resilient”
+
+Practice:
+
+* “She remained resilient during difficult times.”
+* “A resilient person learns from failure.”
+
+For each sentence:
+
+1. Display the sentence.
+2. Highlight the target word.
+3. Play reference pronunciation where available.
+4. Ask the user to speak the sentence.
+5. Record.
+6. Submit.
+7. Evaluate.
+
+Assess:
+
+* Sentence transcript similarity.
+* Target-word recognition.
+* Missing words.
+* Extra words.
+* Speaking pace.
+* Pauses.
+* Basic fluency.
+
+Display a score and specific feedback.
+
+Require the configured passing threshold before advancing, with an accessible retry option.
+
+Stage 4 — Create and speak own sentences
+
+Ask the user to create original sentences using the vocabulary word.
+
+Example:
+
+“Now use ‘resilient’ in a sentence from your own life.”
+
+Workflow:
+
+1. User prepares a sentence.
+2. User speaks it.
+3. User submits the recording.
+4. Local speech recognition produces a transcript if available.
+5. The local evaluation engine assesses the response.
+6. Display the result and feedback.
+
+Evaluate:
+
+* Target word usage.
+* Correct word form.
+* Basic grammar.
+* Sentence completeness.
+* Meaning and context where deterministic checks support it.
+* Speech clarity evidence.
+* Speaking pace.
+
+Show:
+
+* Recognized sentence.
+* Corrected version when appropriate.
+* Mistakes.
+* Explanation.
+* Suggested improved sentence.
+* Score.
+
+Do not invent semantic or grammatical mistakes when evidence is insufficient.
+
+Stage 5 — Complete the word
+
+After passing all required stages:
+
+* Show a completion animation.
+* Mark the word as completed.
+* Record the completion date.
+* Update vocabulary progress.
+* Update the daily practice plan.
+* Update dashboard statistics.
+* Add the word to the review schedule.
+* Award points according to the existing scoring system.
+
+Allow the user to revisit completed words.
+
+Do not allow a user to lose completion status because they replayed a lesson.
+
+C. Pass score and evaluation rules
+
+Create a configurable evaluation policy.
+
+Suggested starting thresholds:
+
+Stage	Suggested pass score
+Speak word	75
+Practice sentences	75
+Own sentences	70
+
+These are initial product defaults, not universal language proficiency standards.
+
+Store:
+
+* Raw score.
+* Score breakdown.
+* Evidence.
+* Pass status.
+* Attempts.
+* Evaluation version.
+* Completion timestamp.
+
+If speech recognition confidence is too low:
+
+* Mark the result as inconclusive.
+* Ask the user to retry.
+* Do not assign an unfair failing score.
+
+Allow an administrator to configure thresholds through secure content settings if supported.
+
+D. Retry and learning behavior
+
+If the user fails a stage:
+
+* Explain what needs improvement.
+* Give one practical recommendation.
+* Allow another attempt.
+* Keep previous attempt history.
+* Do not reset completed earlier stages unnecessarily.
+* Provide an easier example if the user repeatedly struggles.
+
+Avoid endless repetition.
+
+⸻
+
+PHASE 9 — VOCABULARY QUIZ, FLASHCARDS AND NOTEBOOK
+
+Implement these as separate but connected vocabulary learning modules.
+
+1. Vocabulary Quiz
+
+Provide:
+
+* Meaning selection.
+* Word selection.
+* Fill in the blank.
+* Synonym identification.
+* Antonym identification.
+* Correct sentence selection.
+* Context-based usage.
+* Listening-based word recognition.
+* Speaking-based recall where offline recognition supports it.
+
+Generate quizzes using the local vocabulary database and templates.
+
+Include:
+
+* Difficulty.
+* Question count.
+* Time limit where appropriate.
+* Score.
+* Correct answers.
+* Explanations.
+* Mistake review.
+
+Use the label “AI Quiz” only if the experience actually uses the local intelligence engine. Do not claim to use generative AI when it is deterministic quiz generation.
+
+2. Flashcards
+
+Support:
+
+* Word on the front.
+* Meaning on the back.
+* Example sentence.
+* Pronunciation audio.
+* Known / Need Review actions.
+* Shuffle.
+* Category filtering.
+* Daily review.
+* Spaced repetition.
+
+Use a local spaced-repetition scheduler.
+
+Do not create duplicate flashcards for the same word unnecessarily.
+
+3. Vocabulary Notebook
+
+Allow users to save words and personal learning notes.
+
+Each entry should support:
+
+* Word.
+* Meaning.
+* Personal example.
+* Synonyms.
+* Antonyms.
+* Notes.
+* Tags.
+* Learning status.
+* Date added.
+* Review history.
+
+Provide:
+
+* Search.
+* Sorting.
+* Filtering.
+* Edit.
+* Delete.
+* Favorite.
+* Export where appropriate.
+
+Allow vocabulary learned through other activities to be saved to the notebook.
+
+⸻
+
+PHASE 10 — UNIFIED LEARNING AND PROGRESS ARCHITECTURE
+
+All modules must connect to a common event and progress system.
+
+Implement or extend:
+
+LearningProgressManager
+
+Responsibilities:
+
+* Activity completion.
+* Vocabulary stage completion.
+* Score tracking.
+* Daily task completion.
+* Streak eligibility.
+* Achievement calculation.
+* Daily plan updates.
+* Dashboard state updates.
+* Offline event persistence.
+* Cloud synchronization.
+
+Use idempotent completion events.
+
+Example event types:
+
+* LESSON_STARTED
+* LESSON_COMPLETED
+* WORD_LEARNED
+* WORD_SPOKEN
+* SENTENCE_PRACTICED
+* OWN_SENTENCE_SUBMITTED
+* VOCABULARY_WORD_COMPLETED
+* QUIZ_COMPLETED
+* FLASHCARD_REVIEWED
+* DAILY_PLAN_COMPLETED
+* STREAK_UPDATED
+
+Ensure events cannot be accidentally processed twice.
+
+Use local persistence first and synchronize when connectivity is available.
+
+Define conflict-resolution rules for multiple devices.
+
+⸻
+
+PHASE 11 — UI/UX DESIGN SYSTEM
+
+Use the supplied screenshot as the visual direction for the welcome carousel.
+
+Visual direction
+
+* Premium.
+* Elegant.
+* Modern.
+* Minimal.
+* Professional.
+* Communication-focused.
+* High-quality typography.
+* Consistent spacing.
+* Rounded cards.
+* Subtle gradients.
+* Meaningful illustrations.
+* Smooth transitions.
+* Clear hierarchy.
+
+Maintain consistency across:
+
+* Dashboard.
+* Vocabulary Builder.
+* Profile.
+* Settings.
+* Notifications.
+* Learning activities.
+* Admin Console.
+
+Important UI requirements
+
+* Do not overcrowd screens.
+* Avoid unnecessary gradients on every component.
+* Maintain strong text contrast.
+* Make primary actions obvious.
+* Add meaningful loading, error and empty states.
+* Support dark and light themes.
+* Use accessible touch targets.
+* Use responsive layouts.
+* Preserve existing app navigation patterns where appropriate.
+
+Dashboard layout
+
+Organize the dashboard with a clear hierarchy:
+
+1. Personalized greeting and profile.
+2. Today’s learning-plan carousel.
+3. Daily progress and streak.
+4. Continue learning.
+5. Vocabulary progress.
+6. Skill performance.
+7. Weekly activity.
+8. Recommended practice.
+
+Avoid putting every metric on the first screen.
+
+⸻
+
+PHASE 12 — DATABASE AND DATA MODEL
+
+Inspect the current Firestore and local database schemas before introducing new collections or tables.
+
+Extend existing models where possible.
+
+Potential entities:
+
+* UserProfile
+* UserLearningPreferences
+* LearningGoal
+* UserSkillProgress
+* DailyPracticePlan
+* DailyPracticeTask
+* ActivityCompletionEvent
+* LearningStreak
+* VocabularyWord
+* VocabularyProgress
+* VocabularyAttempt
+* VocabularyNotebookEntry
+* VocabularyFlashcard
+* VocabularyReviewSchedule
+* QuizAttempt
+* UserNotification
+* NotificationPreference
+* AdminAuditEvent
+
+Requirements:
+
+* Stable document IDs.
+* Timestamps.
+* Schema versioning.
+* Ownership validation.
+* Offline persistence.
+* Sync status.
+* Idempotency keys.
+* Data migration strategy.
+* Appropriate Firestore indexes.
+* Firestore Security Rules.
+
+Do not duplicate existing collections or create parallel progress systems.
+
+⸻
+
+PHASE 13 — TESTING
+
+Create tests for every major workflow.
+
+Welcome experience
+
+* Returning-user animation.
+* First-time-user behavior.
+* Swipe left/right.
+* Pager boundaries.
+* Button interaction.
+* Recomposition behavior.
+
+Daily practice plan
+
+* Beginner plan.
+* Intermediate plan.
+* Advanced plan.
+* Different learning goals.
+* Limited daily duration.
+* Missed day recovery.
+* Adaptive difficulty.
+* Plan persistence.
+
+Dashboard
+
+* Real-time updates.
+* Offline updates.
+* Duplicate completion prevention.
+* Cross-device synchronization.
+
+Streak
+
+* One activity completed.
+* Full daily plan completed.
+* Duplicate events.
+* Date boundary.
+* Timezone changes.
+* Missed day.
+
+Notifications
+
+* Unread count.
+* Read/unread.
+* Notification preferences.
+* No software-update notifications.
+* Duplicate prevention.
+
+Profile and security
+
+* User data updates.
+* Appearance preferences.
+* Sign out.
+* Delete selected data.
+* Account deletion.
+* Admin role verification.
+* Unauthorized access rejection.
+
+Vocabulary
+
+* Learn word.
+* Speak word.
+* Pass score.
+* Fail score.
+* Retry.
+* Sentence practice.
+* Own sentence.
+* Grammar feedback.
+* Completion.
+* Dashboard update.
+* Flashcards.
+* Quiz.
+* Notebook.
+* Review schedule.
+* Offline behavior.
+
+Device testing
+
+Test on:
+
+* Low-end Android devices.
+* Mid-range Android devices.
+* Higher-end Android devices.
+
+Verify memory consumption, responsiveness, audio behavior and application stability.
+
+⸻
+
+IMPLEMENTATION ORDER
+
+Implement in this order to avoid breaking existing features:
+
+1. Repository and architecture audit.
+2. Database model and migration design.
+3. Unified learning progress and event system.
+4. Daily completion and streak engine.
+5. Welcome-back animation and swipe carousel.
+6. Personalized daily plan engine.
+7. Real-time dashboard.
+8. Notification center.
+9. User profile and settings.
+10. Secure admin authorization and console.
+11. Vocabulary Builder stages 1–5.
+12. Vocabulary evaluation and retry system.
+13. AI Quiz using local intelligence.
+14. Flashcards and spaced repetition.
+15. Vocabulary Notebook.
+16. UI consistency and accessibility.
+17. Offline synchronization and conflict handling.
+18. Full regression and device testing.
+
+Do not implement everything in one massive code change. Complete each phase, run tests, document the result and then continue.
+
+REQUIRED DELIVERABLES
+
+Create or update:
+
+* docs/WELCOME_EXPERIENCE.md
+* docs/PERSONALIZED_LEARNING_ENGINE.md
+* docs/DASHBOARD_AND_STREAK.md
+* docs/NOTIFICATION_CENTER.md
+* docs/PROFILE_AND_SETTINGS.md
+* docs/ADMIN_CONSOLE_SECURITY.md
+* docs/VOCABULARY_BUILDER.md
+* docs/LEARNING_PROGRESS_ARCHITECTURE.md
+* docs/DATABASE_MIGRATIONS.md
+* docs/IMPLEMENTATION_AND_TEST_REPORT.md
+
+At the end, provide:
+
+1. What was implemented.
+2. Files created and modified.
+3. Database changes.
+4. Screens completed.
+5. Offline functionality verified.
+6. Security rules added or updated.
+7. Tests passed and failed.
+8. Remaining work.
+9. Known limitations.
+10. Screenshots of the implemented UI.
+
+FINAL PRODUCT ACCEPTANCE CRITERIA
+
+SpeakCraft should feel like a complete personalized communication-learning platform.
+
+A returning user should be able to:
+
+1. Open the application and receive a welcoming experience.
+2. Swipe through personalized learning cards.
+3. See a daily plan based on their goals and skill level.
+4. Complete activities and see dashboard updates immediately.
+5. Earn a streak only after satisfying daily completion requirements.
+6. Receive learning notifications.
+7. Manage their profile, settings and privacy.
+8. Access the Admin Console only if authorized.
+9. Learn a vocabulary word.
+10. Speak the word and pass its assessment.
+11. Speak practice sentences using the word.
+12. Create and speak original sentences.
+13. Receive evidence-based scores and feedback.
+14. Complete and save the word.
+15. Practice through quizzes and flashcards.
+16. Maintain a personal vocabulary notebook.
+
+The most important principle: build one connected learning ecosystem. Do not create disconnected screens with fake statistics, buttons that do nothing, or progress values that are not backed by actual completed learning activities.

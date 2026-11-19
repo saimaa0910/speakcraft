@@ -415,6 +415,11 @@ private fun AuthenticatedAppShell(
             mainVm.clearActionMessage()
         }
     }
+    LaunchedEffect(prefsLoaded, prefs.githubReleaseRepo) {
+        if (prefsLoaded && prefs.githubReleaseRepo.isNotBlank()) {
+            updateAdminVm.refreshReleasesSilently(prefs)
+        }
+    }
     LaunchedEffect(updateStatusMessage) {
         val msg = updateStatusMessage
         if (!msg.isNullOrBlank()) {
