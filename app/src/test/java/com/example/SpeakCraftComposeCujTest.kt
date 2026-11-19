@@ -39,7 +39,10 @@ import com.example.ui.screens.LessonDetailScreen
 import com.example.ui.screens.OnboardingAssessmentScreen
 import com.example.ui.screens.PronunciationLabScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
+import com.example.ui.components.WelcomeBackBanner
 import com.example.ui.screens.SpeakingLabScreen
+import com.example.ui.screens.UserProfileScreen
 import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.viewmodel.InteractiveCoachViewModel
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
@@ -125,7 +128,7 @@ class SpeakCraftComposeCujTest {
         composeRule.onNodeWithTag("recommended_action_button").assertIsDisplayed().performClick()
         assertTrue(navigatedRoute.isNotBlank())
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("dashboard_module_search"))
+        composeRule.onNodeWithTag("dashboard_scroll_list").performScrollToNode(hasTestTag("dashboard_module_search"))
         composeRule.onNodeWithTag("dashboard_module_search").performTextReplacement("Storytelling")
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("module_card_module_lessons/storytelling").assertIsDisplayed()
@@ -486,7 +489,7 @@ class SpeakCraftComposeCujTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("browse_all_tutorials_button"))
+        composeRule.onNodeWithTag("dashboard_scroll_list").performScrollToNode(hasTestTag("browse_all_tutorials_button"))
         composeRule.onNodeWithTag("browse_all_tutorials_button").performClick()
         composeRule.waitForIdle()
 
@@ -676,5 +679,95 @@ class SpeakCraftComposeCujTest {
         composeRule.onNodeWithTag("update_dialog_signing_conflict_notice").assertIsDisplayed()
         composeRule.onNodeWithTag("update_dialog_confirm_button").performClick()
         assertEquals(release.downloadUrl, openedDirectUrl)
+    }
+
+    @Test
+    fun `welcome back banner displays minimal animated username greeting`() {
+        composeRule.setContent {
+            SpeakCraftTheme {
+                WelcomeBackBanner(displayName = "Sruthi", reducedMotion = true)
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("welcome_back_banner").assertIsDisplayed()
+        composeRule.onNodeWithText("Welcome back, Sruthi", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `user profile screen displays user info and saves profile edits`() {
+        var savedName = ""
+        var savedMinutes = 0L
+        composeRule.setContent {
+            SpeakCraftTheme {
+                UserProfileScreen(
+                    profile = UserProfile(
+                        userId = "u1",
+                        displayName = "Sruthi",
+                        communicationLevel = "Intermediate",
+                        primaryGoal = "Public Speaking",
+                        dailyGoalMinutes = 15L,
+                        streakDays = 5L
+                    ),
+                    userEmail = "sruthi@example.com",
+                    sessions = emptyList(),
+                    vocabulary = emptyList(),
+                    learningSnapshot = null,
+                    onSaveProfile = { name, _, _, mins ->
+                        savedName = name
+                        savedMinutes = mins
+                    },
+                    onOpenNotifications = {},
+                    onNavigate = {},
+                    onSignOut = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("user_profile_screen").assertIsDisplayed()
+        composeRule.onNodeWithText("Sruthi").assertIsDisplayed()
+        composeRule.onNodeWithTag("profile_edit_toggle_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("profile_name_input").performScrollTo().performTextReplacement("Sruthi K")
+        composeRule.onNodeWithTag("profile_save_button").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals("Sruthi K", savedName)
+        assertEquals(15L, savedMinutes)
+    }
+
+    @Test
+    fun `dynamic local coach produces topic specific rewrites and tailored feedback`() {
+        val orchestrator = LocalIntelligenceOrchestrator()
+        val interviewReport = kotlinx.coroutines.runBlocking {
+            orchestrator.analyzeSpeechRecording(
+                mediaBytes = ByteArray(0),
+                mimeType = "audio/mp4",
+                moduleType = "speaking_lab",
+                promptTitle = "Interview Practice",
+                durationSeconds = 12,
+                previousSession = null,
+                liveTranscript = "Um I think maybe I kind of did good work on the backend API migration and like basically we finished it fast."
+            ).getOrThrow()
+        }
+        val storyReport = kotlinx.coroutines.runBlocking {
+            orchestrator.analyzeSpeechRecording(
+                mediaBytes = ByteArray(0),
+                mimeType = "audio/mp4",
+                moduleType = "speaking_lab",
+                promptTitle = "Storytelling Challenge",
+                durationSeconds = 18,
+                previousSession = null,
+                liveTranscript = "Last Friday during our product launch, the checkout server slowed down. Because we prepared a rollback plan, our team restored stability in four minutes and kept every customer order intact."
+            ).getOrThrow()
+        }
+
+        assertTrue(interviewReport.overallAssessment.isNotBlank())
+        assertTrue(interviewReport.betterAlternatives.any { it.contains("→") })
+        assertFalse(
+            "Dynamic coach should tailor narrative per transcript, not repeat static boilerplate",
+            interviewReport.overallAssessment == storyReport.overallAssessment
+        )
+        assertTrue(storyReport.fluencyScore > interviewReport.fluencyScore)
     }
 }

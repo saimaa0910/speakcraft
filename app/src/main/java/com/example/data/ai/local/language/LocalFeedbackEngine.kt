@@ -407,7 +407,10 @@ object ImprovementRecommendationEngine {
 
 object LocalFeedbackEngine {
 
-    fun buildFeedback(evidence: LocalFeedbackEvidence): StructuredFeedback {
+    fun buildFeedback(
+        evidence: LocalFeedbackEvidence,
+        previousSessionDelta: Int? = null
+    ): StructuredFeedback {
         val grammar = GrammarFeedbackEngine.evaluate(evidence)
         val fluency = FluencyFeedbackEngine.evaluate(evidence)
         val vocabulary = VocabularyFeedbackEngine.evaluate(evidence)
@@ -415,40 +418,57 @@ object LocalFeedbackEngine {
         val confidence = ConfidenceFeedbackEngine.evaluate(evidence)
         val structure = StructureFeedbackEngine.evaluate(evidence)
 
+        val dynamic = DynamicLocalCoachEngine.analyze(evidence, previousSessionDelta)
         val allSubs = listOf(grammar, fluency, vocabulary, pronunciation, confidence, structure)
 
-        val strengths = allSubs.flatMap { it.strengths }.distinct().toMutableList()
+        val strengths = (dynamic.strengths + allSubs.flatMap { it.strengths })
+            .distinct()
+            .take(5)
+            .toMutableList()
         if (strengths.isEmpty()) {
             if (evidence.wordCount >= 20) {
-                strengths += "Delivered a complete response (${evidence.wordCount} words) for structured coaching review."
+                strengths += "Delivered a focused ${evidence.wordCount}-word response ready for targeted coaching."
             } else {
-                strengths += "Completed the practice recording and captured on-device delivery metrics."
+                strengths += "Completed the practice recording and captured on-device vocal delivery signals."
             }
         }
 
-        val mistakes = allSubs.flatMap { it.specificMistakes }.distinct().toMutableList()
+        val mistakes = (allSubs.flatMap { it.specificMistakes } + dynamic.focusAreas)
+            .distinct()
+            .take(6)
+            .toMutableList()
         if (mistakes.isEmpty()) {
             mistakes += "No major structural or delivery blockers detected in this attempt."
         }
 
-        val correctedExamples = allSubs.flatMap { it.correctedExamples }.distinct().toMutableList()
-        if (correctedExamples.isEmpty() && evidence.transcript.isNotBlank()) {
-            correctedExamples += "Model phrasing: \"The core point is simple: [1s pause] when we lead with clarity, listeners follow effortlessly.\""
+        // Prioritize real dynamic Before -> After rewrites of the user's OWN sentences
+        val dynamicRewriteStrings = dynamic.rewrites.map { rw ->
+            "Instead of: \"${rw.original}\" → Say: \"${rw.improved}\""
         }
+        val correctedExamples = (dynamicRewriteStrings + allSubs.flatMap { it.correctedExamples })
+            .distinct()
+            .take(4)
+            .toMutableList()
 
-        val suggestions = allSubs.flatMap { it.suggestions }.distinct().toMutableList()
+        val suggestions = (dynamic.suggestions + allSubs.flatMap { it.suggestions })
+            .distinct()
+            .take(5)
+            .toMutableList()
         if (suggestions.isEmpty()) {
             if (evidence.transcript.isBlank()) {
-                suggestions += "Repeat the recording focusing on steady breath support, clear volume projection, and 1-second silent pauses."
-                suggestions += "Review your audio playback to verify vocal melody and steady pacing from start to finish."
+                suggestions += "Repeat the recording with deeper breath support and a calm 1-second silent pause between key phrases."
+                suggestions += "Listen back once focusing only on volume steadiness and crisp word endings."
             } else {
-                suggestions += "Repeat the exercise focusing on vocal melody: lift tone slightly on transitions and land downward on conclusions."
-                suggestions += "Review your recording using the 3-Stage Audit: audio-only for vocal control, and muted video for visual presence."
+                suggestions += "Record one quick second take focusing on vocal contrast: energetic setup, slower decisive conclusion."
             }
         }
 
-        val explanation = buildExplanation(evidence, mistakes)
-        val nextTask = ImprovementRecommendationEngine.recommendNextTask(evidence, allSubs)
+        val explanation = dynamic.narrativeSummary
+        val nextTask = if (evidence.transcript.isNotBlank()) {
+            dynamic.nextMicroDrill
+        } else {
+            ImprovementRecommendationEngine.recommendNextTask(evidence, allSubs)
+        }
         val honestyNotice = buildHonestyNotice(evidence)
 
         return StructuredFeedback(
@@ -462,27 +482,6 @@ object LocalFeedbackEngine {
         )
     }
 
-    private fun buildExplanation(evidence: LocalFeedbackEvidence, mistakes: List<String>): String = buildString {
-        if (evidence.transcript.isBlank()) {
-            append("Audio-only acoustic coaching measures measurable delivery signals such as projection, clipping, pause cadence, and pacing consistency. ")
-            append("Strengthening breath support and deliberate pauses creates immediate vocal clarity even without a transcript.")
-        } else {
-            append("Effective spoken communication combines clear sentence structure, controlled speaking pace, and intentional vocal delivery. ")
-            if (evidence.grammarIssues.isNotEmpty()) {
-                append("Applying targeted rule-based corrections sharpens precision and builds listener trust. ")
-            }
-            if (evidence.fillerCount > 0) {
-                append("Replacing filler words with brief silent pauses signals composure and lets listeners absorb each key point. ")
-            }
-            if (evidence.wordsPerMinute > 175) {
-                append("Moderating speaking rate by 15% gives your audience room to process complex ideas. ")
-            }
-            if (mistakes.size == 1 && mistakes[0].startsWith("No major")) {
-                append("Your foundational control is solid; experiment with vocal melody and rate contrast to elevate expressiveness.")
-            }
-        }
-    }.trim()
-
     private fun buildHonestyNotice(evidence: LocalFeedbackEvidence): String = buildString {
         append("Evaluated 100% on-device (${evidence.processingMode}). Zero cloud AI involved. ")
         if (evidence.limitationNotices.isNotEmpty()) {
@@ -490,7 +489,7 @@ object LocalFeedbackEngine {
         } else if (evidence.transcript.isBlank()) {
             append("Audio-only mode: feedback reflects acoustic delivery metrics only; linguistic and grammar checks were skipped without a transcript.")
         } else {
-            append("Metrics and coaching notes are generated deterministically from local speech, acoustic, and visual analysis.")
+            append("Dynamic speech, discourse, and vocal coaching generated locally on device.")
         }
     }.trim()
 }

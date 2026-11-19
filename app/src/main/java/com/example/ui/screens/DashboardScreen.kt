@@ -325,7 +325,8 @@ fun DashboardScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .widthIn(max = containerMaxWidth),
+                .widthIn(max = containerMaxWidth)
+                .testTag("dashboard_scroll_list"),
             contentPadding = PaddingValues(SpeakCraftSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
         ) {
@@ -341,25 +342,15 @@ fun DashboardScreen(
                 }
             }
 
-            // Animated Welcome-Back Banner + Search Bar
+            // Single Clean Animated Welcome-Back Greeting + Search Bar
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    WelcomeBackBanner(
-                        displayName = displayName,
-                        learningTrack = learningTrackLabel,
-                        learningDay = learningDay,
-                        overallScore = overallScore,
-                        personalizedCue = personalizedCue,
-                        reducedMotion = reducedMotion,
-                        onAvatarClick = onOpenProfile
-                    )
-                    DashboardStudioHeader(
-                        displayName = displayName,
-                        query = moduleQuery,
-                        onQueryChange = { moduleQuery = it },
-                        wideLayout = tier.isTabletOrWide
-                    )
-                }
+                DashboardStudioHeader(
+                    displayName = displayName,
+                    query = moduleQuery,
+                    onQueryChange = { moduleQuery = it },
+                    wideLayout = tier.isTabletOrWide,
+                    reducedMotion = reducedMotion
+                )
             }
 
             // Instant search results preview when user types in top search bar
@@ -681,7 +672,8 @@ private fun DashboardStudioHeader(
     displayName: String,
     query: String,
     onQueryChange: (String) -> Unit,
-    wideLayout: Boolean
+    wideLayout: Boolean,
+    reducedMotion: Boolean = false
 ) {
     val searchField: @Composable (Modifier) -> Unit = { mod ->
         OutlinedTextField(
@@ -726,39 +718,21 @@ private fun DashboardStudioHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Welcome back, $displayName!",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Let's build your communication skills today.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            WelcomeBackBanner(
+                displayName = displayName,
+                reducedMotion = reducedMotion,
+                modifier = Modifier.weight(1f)
+            )
             Spacer(Modifier.width(16.dp))
             searchField(Modifier.widthIn(min = 260.dp, max = 360.dp))
         }
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column {
-                Text(
-                    text = "Welcome back, $displayName!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Let's build your communication skills today.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            WelcomeBackBanner(
+                displayName = displayName,
+                reducedMotion = reducedMotion,
+                modifier = Modifier.fillMaxWidth()
+            )
             searchField(Modifier.fillMaxWidth())
         }
     }

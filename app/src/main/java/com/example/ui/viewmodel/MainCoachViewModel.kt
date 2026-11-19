@@ -219,6 +219,35 @@ class MainCoachViewModel(
         }
     }
 
+    fun updateUserProfile(
+        displayName: String,
+        level: String,
+        primaryGoal: String,
+        dailyGoalMinutes: Long,
+        existing: UserProfile
+    ) {
+        viewModelScope.launch {
+            val res = repository.createOrUpdateProfile(
+                displayName = displayName.trim().ifBlank { existing.displayName },
+                level = level,
+                primaryGoal = primaryGoal,
+                dailyGoalMinutes = dailyGoalMinutes.coerceIn(5L, 120L),
+                fluency = existing.fluencyScore,
+                pronunciation = existing.pronunciationScore,
+                vocabulary = existing.vocabularyScore,
+                grammar = existing.grammarScore,
+                articulation = existing.articulationScore,
+                listening = existing.listeningScore,
+                confidenceSelf = existing.confidenceSelfRating
+            )
+            _actionMessage.value = if (res.isSuccess) {
+                "Profile updated!"
+            } else {
+                res.exceptionOrNull()?.localizedMessage ?: "Failed to update profile"
+            }
+        }
+    }
+
     fun toggleDailyStep(
         stepId: String,
         currentActivity: DailyActivity?,

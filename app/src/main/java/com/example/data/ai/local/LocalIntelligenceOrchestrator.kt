@@ -197,8 +197,6 @@ class LocalIntelligenceOrchestrator(
                     limitationNotices = extraNotices
                 )
 
-                val feedback = LocalFeedbackEngine.buildFeedback(evidence)
-
                 // Step 6: Deterministic scores grounded strictly in observed metrics
                 val fluencyScore = computeFluencyScore(evidence, previousSession)
                 val grammarScore = computeGrammarScore(evidence)
@@ -206,18 +204,28 @@ class LocalIntelligenceOrchestrator(
                 val pronunciationScore = computePronunciationScore(evidence, pronAlignment?.matchScore)
                 val articulationScore = computeArticulationScore(evidence, pronunciationScore)
 
+                val currentComposite = (fluencyScore + grammarScore + vocabularyScore + articulationScore) / 4
+                val prevComposite = previousSession?.let {
+                    ((it.fluencyScore + it.grammarScore + it.vocabularyScore + it.articulationScore) / 4L).toInt()
+                }
+                val sessionDelta = prevComposite?.let { currentComposite - it }
+
+                val feedback = LocalFeedbackEngine.buildFeedback(
+                    evidence = evidence,
+                    previousSessionDelta = sessionDelta
+                )
+
                 val audioQualityNote = buildString {
                     if (acousticFeatures == null) {
-                        append("Duration ${effectiveDuration}s")
-                        if (transcript.isNotBlank()) append(" • Live on-device transcript captured")
-                        else append(" • Local acoustic fallback active")
+                        append("${effectiveDuration}s recording")
+                        if (transcript.isNotBlank()) append(" • Live speech captured")
+                        else append(" • Vocal acoustics analyzed")
                     } else {
                         val db = acousticFeatures.relativeLoudness.roundToInt()
-                        append("Avg loudness ${db} dBFS")
-                        if (acousticFeatures.clippingDetected) append(" • Clipping detected")
-                        if (acousticFeatures.backgroundNoiseLevel > 0.06f) append(" • Background noise elevated")
+                        append("${effectiveDuration}s • Loudness ${db} dBFS")
+                        if (acousticFeatures.clippingDetected) append(" • Slight clipping")
+                        if (acousticFeatures.backgroundNoiseLevel > 0.06f) append(" • Elevated room noise")
                     }
-                    append(" | ${feedback.honestyNotice}")
                 }
 
                 val confidenceLabel = when {

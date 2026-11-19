@@ -120,6 +120,7 @@ import com.example.data.preferences.ThemePreference
 import com.example.data.preferences.TutorialState
 import com.example.ui.components.FeatureTutorialDialog
 import com.example.ui.components.LaunchExperienceViewModel
+import com.example.ui.components.NotificationsCenterSheet
 import com.example.ui.components.SpeakCraftLaunchOverlay
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
@@ -148,6 +149,7 @@ import com.example.ui.screens.PublicSpeakingScreen
 import com.example.ui.screens.RealWorldTasksScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SpeakingLabScreen
+import com.example.ui.screens.UserProfileScreen
 import com.example.ui.screens.VocabularyScreen
 import com.example.ui.screens.VoiceTrainingLabScreen
 import com.example.ui.screens.YouTubeIntelligenceScreen
@@ -198,6 +200,7 @@ private val routeTitles = mapOf(
     "analytics" to "Progress Analytics",
     "ai_mentor" to "AI Mentor",
     "settings" to "Settings",
+    "profile" to "My Profile",
     "app_updates" to "App Updates & Backups",
     "admin_console" to "Admin Console",
     "activity_library" to "Activity Engine (150)"
@@ -406,6 +409,12 @@ private fun AuthenticatedAppShell(
     val updateEvaluation by updateAdminVm.updateEvaluation.collectAsStateWithLifecycle()
     val updateStatusMessage by updateAdminVm.statusMessage.collectAsStateWithLifecycle()
     val activityStatusBanner by activityVm.statusBanner.collectAsStateWithLifecycle()
+    val activeAnnouncements by mainVm.activeAnnouncements.collectAsStateWithLifecycle()
+    val learningProgressManager = container.learningProgressManager
+    val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
+    val unreadNotificationsCount = remember(learningSnapshot.notifications) {
+        learningSnapshot.notifications.count { !it.isRead }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(actionMessage) {
@@ -508,8 +517,22 @@ private fun AuthenticatedAppShell(
                 }
 
                 var showFeatureGuideDialog by remember { mutableStateOf(false) }
+                var showNotificationsSheet by remember { mutableStateOf(false) }
                 var manualTourSteps by remember { mutableStateOf<List<TutorialOverlayStep>?>(null) }
                 var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
+
+                LaunchedEffect(userId, profile, sessions.size) {
+                    learningProgressManager.loadForUser(
+                        userId = userId,
+                        profile = profile,
+                        recentSessions = sessions
+                    )
+                }
+                LaunchedEffect(activeAnnouncements) {
+                    activeAnnouncements.forEach { ann ->
+                        learningProgressManager.ingestAdminAnnouncement(ann)
+                    }
+                }
 
                 val navigateTo: (String) -> Unit = { route ->
                     navController.navigate(route) {
@@ -519,6 +542,19 @@ private fun AuthenticatedAppShell(
                         launchSingleTop = true
                         restoreState = true
                     }
+                }
+
+                if (showNotificationsSheet) {
+                    NotificationsCenterSheet(
+                        notifications = learningSnapshot.notifications,
+                        preferences = learningSnapshot.notificationPreferences,
+                        onDismiss = { showNotificationsSheet = false },
+                        onMarkRead = { id -> learningProgressManager.markNotificationRead(id) },
+                        onMarkAllRead = { learningProgressManager.markAllNotificationsRead() },
+                        onDeleteNotification = { id -> learningProgressManager.deleteNotification(id) },
+                        onUpdatePreferences = { updated -> learningProgressManager.updateNotificationPreferences(updated) },
+                        onOpenRoute = { route -> navigateTo(route) }
+                    )
                 }
 
                 if (showFeatureGuideDialog) {
@@ -669,15 +705,31 @@ private fun AuthenticatedAppShell(
                                         },
                                         actions = {
                                             IconButton(
-                                                onClick = { navigateTo("app_updates") },
-                                                modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                onClick = { showNotificationsSheet = true },
+                                                modifier = Modifier
+                                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                    .testTag("notifications_bell_button")
                                             ) {
-                                                if (updateEvaluation.isUpdateAvailable) {
-                                                    BadgedBox(badge = { Badge() }) {
-                                                        Icon(Icons.Default.Notifications, contentDescription = "Updates available")
+                                                if (unreadNotificationsCount > 0) {
+                                                    BadgedBox(
+                                                        badge = {
+                                                            Badge {
+                                                                Text(
+                                                                    text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString()
+                                                                )
+                                                            }
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Notifications,
+                                                            contentDescription = "$unreadNotificationsCount unread notifications and alerts"
+                                                        )
                                                     }
                                                 } else {
-                                                    Icon(Icons.Default.Notifications, contentDescription = "App updates")
+                                                    Icon(
+                                                        Icons.Default.Notifications,
+                                                        contentDescription = "Notifications and alerts"
+                                                    )
                                                 }
                                             }
                                             IconButton(
@@ -702,7 +754,8 @@ private fun AuthenticatedAppShell(
                                                     .padding(end = 10.dp)
                                                     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                     .clip(CircleShape)
-                                                    .clickable { navigateTo("settings") },
+                                                    .clickable { navigateTo("profile") }
+                                                    .testTag("user_profile_topbar_button"),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Surface(
@@ -829,7 +882,12 @@ private fun AuthenticatedAppShell(
                                         onDismissUpdateBanner = { ver ->
                                             scope.launch { prefsRepo.dismissReleaseBanner(ver) }
                                         },
-                                        onNavigate = navigateTo
+                                        onNavigate = navigateTo,
+                                        learningSnapshot = learningSnapshot,
+                                        onCompleteDailyTask = { taskId ->
+                                            learningProgressManager.completeDailyTask(taskId)
+                                        },
+                                        onOpenProfile = { navigateTo("profile") }
                                     )
                                 }
                                 composable("daily_practice") {
@@ -1017,6 +1075,21 @@ private fun AuthenticatedAppShell(
                                                 navigateTo("dashboard")
                                             }
                                         }
+                                    )
+                                }
+                                composable("profile") {
+                                    UserProfileScreen(
+                                        profile = profile,
+                                        userEmail = userEmail,
+                                        sessions = sessions,
+                                        vocabulary = vocabEntries,
+                                        learningSnapshot = learningSnapshot,
+                                        onSaveProfile = { name, level, goal, mins ->
+                                            mainVm.updateUserProfile(name, level, goal, mins, profile)
+                                        },
+                                        onOpenNotifications = { showNotificationsSheet = true },
+                                        onNavigate = { route -> navigateTo(route) },
+                                        onSignOut = { signOut(credentialManager, scope) }
                                     )
                                 }
                                 composable("activity_library") {

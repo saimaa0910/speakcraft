@@ -92,9 +92,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.ai.RecommendedNextAction
@@ -120,15 +123,14 @@ private data class SpotlightSlide(
 @Composable
 fun WelcomeBackBanner(
     displayName: String,
-    learningTrack: String,
-    learningDay: Int,
-    overallScore: Int,
-    personalizedCue: String,
+    learningTrack: String = "",
+    learningDay: Int = 1,
+    overallScore: Int = 0,
+    personalizedCue: String = "",
     reducedMotion: Boolean = false,
     onAvatarClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val ext = MaterialTheme.speakCraftColors
     var hasAnimated by rememberSaveable { mutableStateOf(false) }
     val progress = remember { Animatable(if (reducedMotion || hasAnimated) 1f else 0f) }
 
@@ -139,108 +141,47 @@ fun WelcomeBackBanner(
         } else {
             progress.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
             )
             hasAnimated = true
         }
     }
 
     val p = progress.value
-    val initials = remember(displayName) {
-        displayName.trim()
-            .split(Regex("\\s+"))
-            .filter { it.isNotBlank() }
-            .take(2)
-            .joinToString("") { it.first().uppercase() }
-            .ifBlank { "S" }
-    }
+    val nameBrush = Brush.horizontalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary
+        )
+    )
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                alpha = 0.2f + 0.8f * p
-                translationY = (1f - p) * 20f
-                val s = 0.97f + 0.03f * p
-                scaleX = s
-                scaleY = s
-            }
-            .testTag("welcome_back_banner"),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+    val safeName = displayName.ifBlank { "Speaker" }
+    val greeting = buildAnnotatedString {
+        append("Welcome back, ")
+        withStyle(
+            SpanStyle(
+                brush = nameBrush,
+                fontWeight = FontWeight.ExtraBold
+            )
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onAvatarClick)
-                    .testTag("welcome_avatar_button")
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = initials,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = "Welcome back, $displayName!",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = personalizedCue,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.height(2.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = ext.pastelLavenderBg
-                    ) {
-                        Text(
-                            text = "$learningTrack • Day $learningDay",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ext.pastelLavenderInk,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = ext.pastelMintBg
-                    ) {
-                        Text(
-                            text = "Score $overallScore/100",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ext.pastelMintInk,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
+            append(safeName)
         }
     }
+
+    Text(
+        text = greeting,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onBackground,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .graphicsLayer {
+                alpha = p
+                translationY = (1f - p) * 18f
+            }
+            .testTag("welcome_back_banner")
+    )
 }
 
 @Composable

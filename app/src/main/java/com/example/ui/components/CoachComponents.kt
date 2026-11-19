@@ -15,6 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -48,6 +51,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -971,31 +975,126 @@ fun ErrorRecoveryCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FeedbackReportCard(
     session: SpeakingSession,
     previousSession: SpeakingSession? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
+    var selectedTab by remember(session.id) { mutableStateOf("Insights") }
+
+    val metricsList = remember(session) {
+        buildList {
+            add("Fluency" to session.fluencyScore.toInt())
+            if (session.pronunciationAssessable) {
+                add("Pronunciation" to session.pronunciationScore.toInt())
+            }
+            add("Vocabulary" to session.vocabularyScore.toInt())
+            add("Grammar" to session.grammarScore.toInt())
+            add("Articulation" to session.articulationScore.toInt())
+        }
+    }
+    val compositeScore = remember(metricsList) {
+        (metricsList.sumOf { it.second } / metricsList.size.coerceAtLeast(1)).coerceIn(0, 100)
+    }
+    val prevComposite = remember(previousSession) {
+        previousSession?.let {
+            ((it.fluencyScore + it.vocabularyScore + it.grammarScore + it.articulationScore) / 4L).toInt()
+        }
+    }
+    val delta = prevComposite?.let { compositeScore - it }
+
+    val paceStatus = remember(session.wordsPerMinute) {
+        when {
+            session.wordsPerMinute <= 0L -> "Audio Only"
+            session.wordsPerMinute in 120L..170L -> "Ideal Pace"
+            session.wordsPerMinute > 170L -> "Brisk Pace"
+            else -> "Measured Pace"
+        }
+    }
+
+    val scoreSweep by animateFloatAsState(
+        targetValue = (compositeScore / 100f).coerceIn(0f, 1f) * 360f,
+        animationSpec = tween(durationMillis = 650),
+        label = "coach_score_ring"
+    )
+
+    val parsedRewrites = remember(session.betterAlternatives) {
+        session.betterAlternatives.mapNotNull { raw ->
+            val arrowIdx = raw.indexOf("→")
+            if (arrowIdx > 0) {
+                val left = raw.substring(0, arrowIdx)
+                    .removePrefix("Instead of:")
+                    .trim()
+                    .trim('"')
+                val right = raw.substring(arrowIdx + 1)
+                    .replace(Regex("^\\s*Say:\\s*", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("\\s*\\[Rule:[^\\]]+\\]\\s*$"), "")
+                    .trim()
+                    .trim('"')
+                if (left.isNotBlank() && right.isNotBlank()) left to right else null
+            } else null
+        }
+    }
+
+    val cleanAudioNote = remember(session.audioQualityNote) {
+        session.audioQualityNote.substringBefore("|").trim()
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("coach_feedback_report_card"),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Header: SpeakCraft Coach Analysis + Confidence Pill
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.GraphicEq, contentDescription = "Assessment report", tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Evidence-Based AI Feedback", style = MaterialTheme.typography.titleMedium)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = "SpeakCraft Coach Analysis",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "SpeakCraft Coach",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (cleanAudioNote.isNotBlank()) {
+                            Text(
+                                text = cleanAudioNote,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
+
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(50),
                     color = when (session.confidenceLevel) {
                         "High" -> ext.successContainer
                         "Medium" -> ext.warningContainer
@@ -1003,108 +1102,410 @@ fun FeedbackReportCard(
                     }
                 ) {
                     Text(
-                        text = "${session.confidenceLevel} Confidence",
+                        text = "${session.confidenceLevel} Delivery",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.SemiBold,
+                        color = when (session.confidenceLevel) {
+                            "High" -> ext.success
+                            "Medium" -> ext.warning
+                            else -> MaterialTheme.colorScheme.error
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                     )
                 }
             }
 
-            if (session.audioQualityNote.isNotBlank()) {
+            // Score Ring + Pace + Trend Strip
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    val primaryRingColor = MaterialTheme.colorScheme.primary
+                    val trackRingColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
+                    Box(
+                        modifier = Modifier.size(72.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val strokeW = 7.dp.toPx()
+                            drawArc(
+                                color = trackRingColor,
+                                startAngle = 0f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                style = Stroke(width = strokeW, cap = StrokeCap.Round)
+                            )
+                            drawArc(
+                                color = primaryRingColor,
+                                startAngle = -90f,
+                                sweepAngle = scoreSweep,
+                                useCenter = false,
+                                style = Stroke(width = strokeW, cap = StrokeCap.Round)
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "$compositeScore",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "/100",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = if (session.wordsPerMinute > 0L) "${session.wordsPerMinute} WPM" else "Voice Review",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = ext.pastelSkyBg
+                            ) {
+                                Text(
+                                    text = paceStatus,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = ext.pastelSkyInk,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                        if (delta != null) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = if (delta >= 0) ext.pastelMintBg else ext.pastelPeachBg
+                            ) {
+                                Text(
+                                    text = if (delta >= 0) "+$delta pts vs previous session" else "$delta pts vs previous session",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (delta >= 0) ext.pastelMintInk else ext.pastelPeachInk,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Baseline score captured — your next take will show progress deltas.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Conversational Coach Takeaway Callout
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Coach's Takeaway",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = session.overallAssessment,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Interactive Deep-Dive Tabs
+            val tabs = remember(session.transcript, parsedRewrites) {
+                buildList {
+                    add("Insights")
+                    if (parsedRewrites.isNotEmpty() || session.betterAlternatives.isNotEmpty()) add("Rewrites")
+                    add("Skills")
+                    if (session.transcript.isNotBlank()) add("Transcript")
+                }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                tabs.forEach { tab ->
+                    FilterChip(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        label = { Text(tab) },
+                        modifier = Modifier.testTag("feedback_tab_${tab.lowercase()}")
+                    )
+                }
+            }
+
+            when (selectedTab) {
+                "Insights" -> {
+                    if (session.strengths.isNotEmpty()) {
+                        FeedbackHighlightBox(
+                            title = "What Landed Well",
+                            items = session.strengths,
+                            icon = Icons.Default.CheckCircle,
+                            tint = ext.success,
+                            container = ext.pastelMintBg.copy(alpha = 0.55f)
+                        )
+                    }
+                    val focusItems = buildList {
+                        addAll(session.mistakes.filterNot { it.startsWith("No major") })
+                        if (session.fillerWordsDetected.isNotEmpty()) {
+                            add("Fillers noticed: ${session.fillerWordsDetected.take(5).joinToString(", ")}")
+                        }
+                        if (session.repeatedExpressions.isNotEmpty()) {
+                            add("Repeated phrasing: ${session.repeatedExpressions.take(3).joinToString(", ")}")
+                        }
+                    }
+                    if (focusItems.isNotEmpty()) {
+                        FeedbackHighlightBox(
+                            title = "Focus Next",
+                            items = focusItems,
+                            icon = Icons.Default.Lightbulb,
+                            tint = ext.warning,
+                            container = ext.pastelPeachBg.copy(alpha = 0.55f)
+                        )
+                    }
+                    if (session.improvementSuggestions.isNotEmpty()) {
+                        FeedbackBulletSection(
+                            title = "Coaching Tips",
+                            items = session.improvementSuggestions,
+                            icon = Icons.Default.AutoAwesome,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                "Rewrites" -> {
+                    if (parsedRewrites.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            parsedRewrites.forEach { (before, after) ->
+                                BeforeAfterRewriteCard(before = before, after = after)
+                            }
+                        }
+                    } else if (session.betterAlternatives.isNotEmpty()) {
+                        FeedbackBulletSection(
+                            title = "Stronger Phrasing",
+                            items = session.betterAlternatives,
+                            icon = Icons.Default.Lightbulb,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                "Skills" -> {
+                    if (!session.pronunciationAssessable) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "Phonetic accuracy was skipped because the spoken clip was too short or noisy.",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+                    SkillBreakdownBars(metrics = metricsList)
+                    if (session.articulationClarity.isNotBlank() || session.thoughtOrganization.isNotBlank()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (session.articulationClarity.isNotBlank()) {
+                                Text(
+                                    text = "Clarity: ${session.articulationClarity}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (session.thoughtOrganization.isNotBlank()) {
+                                Text(
+                                    text = "Structure: ${session.thoughtOrganization}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    if (session.pronunciationNotes.isNotEmpty()) {
+                        FeedbackBulletSection(
+                            title = "Vocal & Enunciation Notes",
+                            items = session.pronunciationNotes,
+                            icon = Icons.Default.GraphicEq,
+                            tint = ext.info
+                        )
+                    }
+                }
+
+                "Transcript" -> {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = session.transcript,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                    if (session.fillerWordsDetected.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            session.fillerWordsDetected.take(8).forEach { filler ->
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                                ) {
+                                    Text(
+                                        text = filler,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Next 60-Second Action Drill Footer
+            if (session.nextRecommendedActivity.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Next Micro-Drill",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = session.nextRecommendedActivity,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BeforeAfterRewriteCard(
+    before: String,
+    after: String
+) {
+    val ext = MaterialTheme.speakCraftColors
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Audio Check: ${session.audioQualityNote}",
+                    text = "YOU SAID",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "\"$before\"",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Text(session.overallAssessment, style = MaterialTheme.typography.bodyLarge)
-
-            val metricsList = buildList {
-                add("Fluency" to session.fluencyScore.toInt())
-                if (session.pronunciationAssessable) {
-                    add("Pronunciation" to session.pronunciationScore.toInt())
-                }
-                add("Vocabulary" to session.vocabularyScore.toInt())
-                add("Grammar" to session.grammarScore.toInt())
-                add("Articulation" to session.articulationScore.toInt())
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "TRY SAYING",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ext.success,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "\"$after\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
+        }
+    }
+}
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetricTile("Pace", "${session.wordsPerMinute} WPM", null, ext.info, Modifier.weight(1f))
-                val avg = (metricsList.sumOf { it.second } / metricsList.size.coerceAtLeast(1))
-                val prevAvg = previousSession?.let {
-                    ((it.fluencyScore + it.vocabularyScore + it.grammarScore + it.articulationScore) / 4).toInt()
-                }
-                val deltaStr = prevAvg?.let {
-                    val diff = avg - it
-                    if (diff >= 0) "+$diff vs prior" else "$diff vs prior"
-                }
-                MetricTile("Composite", "$avg/100", deltaStr, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+@Composable
+private fun FeedbackHighlightBox(
+    title: String,
+    items: List<String>,
+    icon: ImageVector,
+    tint: Color,
+    container: Color
+) {
+    if (items.isEmpty()) return
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = container,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(icon, contentDescription = title, tint = tint, modifier = Modifier.size(16.dp))
+                Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = tint)
             }
-
-            if (!session.pronunciationAssessable) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = "Pronunciation Score Withheld: Spoken audio was too brief or noisy to score phonetic accuracy honestly.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-            }
-
-            SkillBreakdownBars(metrics = metricsList)
-
-            if (session.articulationClarity.isNotBlank() || session.thoughtOrganization.isNotBlank()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (session.articulationClarity.isNotBlank()) {
-                        Text("Articulation Clarity: ${session.articulationClarity}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (session.thoughtOrganization.isNotBlank()) {
-                        Text("Thought Organization: ${session.thoughtOrganization}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-
-            if (session.transcript.isNotBlank()) {
-                HorizontalDivider()
-                Text("Observed Transcript", style = MaterialTheme.typography.labelLarge)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(12.dp)
-                ) {
-                    Text(session.transcript, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-
-            FeedbackBulletSection("What Was Done Well", session.strengths, Icons.Default.CheckCircle, ext.success)
-            FeedbackBulletSection(
-                "Mistakes & Filler Words",
-                session.mistakes + session.fillerWordsDetected.map { "Filler: $it" },
-                Icons.Default.Warning,
-                MaterialTheme.colorScheme.error
-            )
-            FeedbackBulletSection("Repeated Expressions", session.repeatedExpressions, Icons.Default.Repeat, ext.warning)
-            FeedbackBulletSection("Pronunciation & Quoted Examples", session.pronunciationNotes, Icons.Default.GraphicEq, ext.info)
-            FeedbackBulletSection("Stronger Alternatives & Drills", session.betterAlternatives + session.recommendedExercises, Icons.Default.Lightbulb, ext.warning)
-
-            if (session.nextRecommendedActivity.isNotBlank()) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                ) {
-                    Text(
-                        text = "Next Recommended Activity: ${session.nextRecommendedActivity}",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.fillMaxWidth().padding(10.dp)
-                    )
-                }
+            items.forEach { item ->
+                Text(
+                    text = "• $item",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }
