@@ -2,7 +2,7 @@ package com.example.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.model.ApplicationRelease
 import com.example.data.model.ApplicationUpdateEvent
@@ -33,10 +33,31 @@ class UpdateAndAdminViewModel(
     private val backupManager: UpdateBackupManager,
     private val prefsRepo: AppPreferencesRepository,
     private val youtubeClient: YouTubeIntelligenceClient,
-    private val geminiCoach: GeminiCoachService,
+    private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val currentUserId: String,
     private val githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient()
 ) : ViewModel() {
+
+    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
+    constructor(
+        repository: SpeakCraftRepository,
+        updateRepository: ReleaseUpdateRepository,
+        backupManager: UpdateBackupManager,
+        prefsRepo: AppPreferencesRepository,
+        youtubeClient: YouTubeIntelligenceClient,
+        geminiCoach: com.example.data.ai.GeminiCoachService,
+        currentUserId: String,
+        githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient()
+    ) : this(
+        repository = repository,
+        updateRepository = updateRepository,
+        backupManager = backupManager,
+        prefsRepo = prefsRepo,
+        youtubeClient = youtubeClient,
+        localOrchestrator = LocalIntelligenceOrchestrator(),
+        currentUserId = currentUserId,
+        githubReleaseClient = githubReleaseClient
+    )
 
     val enabledReleases: StateFlow<List<ApplicationRelease>> =
         repository.observeEnabledReleases()
@@ -314,7 +335,7 @@ class UpdateAndAdminViewModel(
                 var savedCount = 0
                 audit.videos.forEach { video ->
                     val techniques = if (video.extractionStatus != "INACCESSIBLE") {
-                        geminiCoach.extractYouTubeLessons(
+                        localOrchestrator.extractYouTubeLessons(
                             videoId = video.videoId,
                             videoTitle = video.title,
                             videoUrl = video.videoUrl,

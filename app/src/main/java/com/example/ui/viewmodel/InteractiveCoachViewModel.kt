@@ -3,7 +3,7 @@ package com.example.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
@@ -35,11 +35,26 @@ data class YouTubeAuditUiState(
 
 class InteractiveCoachViewModel(
     private val repository: SpeakCraftRepository,
-    private val geminiCoach: GeminiCoachService,
+    private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val youtubeClient: YouTubeIntelligenceClient,
     private val appContext: Context? = null,
     private val currentUserId: String = "default"
 ) : ViewModel() {
+
+    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
+    constructor(
+        repository: SpeakCraftRepository,
+        geminiCoach: com.example.data.ai.GeminiCoachService,
+        youtubeClient: YouTubeIntelligenceClient,
+        appContext: Context? = null,
+        currentUserId: String = "default"
+    ) : this(
+        repository = repository,
+        localOrchestrator = if (appContext != null) LocalIntelligenceOrchestrator(appContext) else LocalIntelligenceOrchestrator(),
+        youtubeClient = youtubeClient,
+        appContext = appContext,
+        currentUserId = currentUserId
+    )
 
     private val defaultMentorGreeting = ChatTurn(
         isUser = false,
@@ -134,7 +149,7 @@ class InteractiveCoachViewModel(
         viewModelScope.launch {
             _isPartnerTyping.value = true
             val historyPairs = currentHistory.map { (if (it.isUser) "user" else "model") to it.text }
-            val res = geminiCoach.sendConversationTurn(_selectedScenario.value, userLevel, historyPairs, trimmed)
+            val res = localOrchestrator.generateConversationTurn(_selectedScenario.value, userLevel, historyPairs, trimmed)
             _isPartnerTyping.value = false
             res.onSuccess { reply ->
                 _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = reply)
@@ -151,7 +166,7 @@ class InteractiveCoachViewModel(
         viewModelScope.launch {
             _coachDebrief.value = UiState.Loading
             val transcript = turns.joinToString("\n") { (if (it.isUser) "Learner: " else "Partner: ") + it.text }
-            val res = geminiCoach.generateConversationCheckIn(_selectedScenario.value, transcript)
+            val res = localOrchestrator.generateConversationCheckIn(_selectedScenario.value, transcript)
             res.onSuccess { feedback ->
                 _coachDebrief.value = UiState.Success(feedback)
                 repository.saveConversationSession(
@@ -195,7 +210,7 @@ class InteractiveCoachViewModel(
             val placeholder = withUser + ChatTurn(isUser = false, text = "")
             try {
                 withTimeout(60_000L) {
-                    geminiCoach.askMentorStream(profile, sessions, feedbackList, contextualQuestion).collect { chunk ->
+                    localOrchestrator.askMentorStream(profile, sessions, feedbackList, contextualQuestion).collect { chunk ->
                         sb.append(chunk)
                         if (sb.isNotBlank()) {
                             val partial = sb.toString()
@@ -278,7 +293,7 @@ class InteractiveCoachViewModel(
                             techniques = emptyList()
                         )
                     } else {
-                        val bundleRes = geminiCoach.extractYouTubeLessons(
+                        val bundleRes = localOrchestrator.extractYouTubeLessons(
                             videoId = video.videoId,
                             videoTitle = video.title,
                             videoUrl = video.videoUrl,

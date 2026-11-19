@@ -21,7 +21,7 @@ import java.io.File
 
 private const val TAG = "AudioRecorderMgr"
 
-class AudioRecorderManager(private val context: Context) {
+class AudioRecorderManager(val context: Context) {
 
     private var recorder: MediaRecorder? = null
     private var player: MediaPlayer? = null

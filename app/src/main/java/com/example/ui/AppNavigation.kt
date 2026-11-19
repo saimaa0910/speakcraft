@@ -315,7 +315,7 @@ private fun AuthenticatedAppShell(
         factory = viewModelFactory {
             initializer {
                 checkNotNull(this[APPLICATION_KEY])
-                MainCoachViewModel(container.repository, container.geminiCoachService, userId)
+                MainCoachViewModel(container.repository, container.localIntelligenceOrchestrator, userId)
             }
         }
     )
@@ -327,7 +327,7 @@ private fun AuthenticatedAppShell(
                 checkNotNull(this[APPLICATION_KEY])
                 SpeakingAndLabsViewModel(
                     container.repository,
-                    container.geminiCoachService,
+                    container.localIntelligenceOrchestrator,
                     container.audioRecorderManager
                 )
             }
@@ -341,7 +341,7 @@ private fun AuthenticatedAppShell(
                 checkNotNull(this[APPLICATION_KEY])
                 InteractiveCoachViewModel(
                     repository = container.repository,
-                    geminiCoach = container.geminiCoachService,
+                    localOrchestrator = container.localIntelligenceOrchestrator,
                     youtubeClient = container.youtubeClient,
                     appContext = context.applicationContext,
                     currentUserId = userId
@@ -361,7 +361,7 @@ private fun AuthenticatedAppShell(
                     backupManager = container.backupManager,
                     prefsRepo = container.preferencesRepository,
                     youtubeClient = container.youtubeClient,
-                    geminiCoach = container.geminiCoachService,
+                    localOrchestrator = container.localIntelligenceOrchestrator,
                     currentUserId = userId,
                     githubReleaseClient = container.githubReleaseClient
                 )
@@ -377,7 +377,7 @@ private fun AuthenticatedAppShell(
                 ActivityEngineViewModel(
                     activityRepository = container.activityRepository,
                     activityEngine = container.activityEngine,
-                    geminiCoach = container.geminiCoachService,
+                    localOrchestrator = container.localIntelligenceOrchestrator,
                     audioRecorder = container.audioRecorderManager,
                     userId = userId
                 )

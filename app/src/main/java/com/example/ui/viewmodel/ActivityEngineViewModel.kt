@@ -25,7 +25,7 @@ import com.example.data.activity.LearningPathsEngine
 import com.example.data.activity.LoadedActivityResult
 import com.example.data.activity.SavedActivityRecord
 import com.example.data.activity.UserActivityProgress
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.ActivityFirestoreRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.model.UserProfile
@@ -77,9 +77,10 @@ data class ActiveActivityUiState(
 class ActivityEngineViewModel(
     private val activityRepository: ActivityFirestoreRepository?,
     private val activityEngine: ActivityEngine,
-    private val geminiCoach: GeminiCoachService?,
+    private val localOrchestrator: LocalIntelligenceOrchestrator? = null,
     val audioRecorder: AudioRecorderManager?,
-    private val userId: String
+    private val userId: String,
+    @Deprecated("Deprecated in favor of localOrchestrator") geminiCoach: com.example.data.ai.GeminiCoachService? = null
 ) : ViewModel() {
 
     val todayDateKey: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -302,7 +303,7 @@ class ActivityEngineViewModel(
         viewModelScope.launch {
             val scenario = "${activity.title}: ${activity.interactionConfiguration.dialoguePartnerRole.ifBlank { activity.description }}"
             val pairs = historyBefore.map { it.role to it.text }
-            val reply = geminiCoach?.sendConversationTurn(scenario, userLevel, pairs, clean)?.getOrNull()
+            val reply = localOrchestrator?.generateConversationTurn(scenario, userLevel, pairs, clean)?.getOrNull()
                 ?: "That makes sense! Could you share one specific example or next step?"
             _activeState.update { state ->
                 state.copy(

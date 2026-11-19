@@ -5,7 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.model.SpeakingSession
@@ -25,9 +25,20 @@ private const val MAX_MEDIA_BYTES = 19 * 1024 * 1024L
 
 class SpeakingAndLabsViewModel(
     private val repository: SpeakCraftRepository,
-    private val geminiCoach: GeminiCoachService,
+    private val localOrchestrator: LocalIntelligenceOrchestrator,
     val audioManager: AudioRecorderManager
 ) : ViewModel() {
+
+    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
+    constructor(
+        repository: SpeakCraftRepository,
+        geminiCoach: com.example.data.ai.GeminiCoachService,
+        audioManager: AudioRecorderManager
+    ) : this(
+        repository = repository,
+        localOrchestrator = LocalIntelligenceOrchestrator(audioManager.context),
+        audioManager = audioManager
+    )
 
     private val _analysisState = MutableStateFlow<UiState<SpeakingSession>?>(null)
     val analysisState: StateFlow<UiState<SpeakingSession>?> = _analysisState.asStateFlow()
@@ -268,7 +279,7 @@ class SpeakingAndLabsViewModel(
             _cloudSyncError.value = null
             pendingUnsavedSession = null
 
-            val analysisResult = geminiCoach.analyzeSpeechRecording(
+            val analysisResult = localOrchestrator.analyzeSpeechRecording(
                 mediaBytes = bytes,
                 mimeType = mime,
                 moduleType = moduleType,

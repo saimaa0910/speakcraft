@@ -3,7 +3,7 @@ package com.example.ui.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.RecommendationEngine
 import com.example.data.ai.RecommendedNextAction
 import com.example.data.ai.VocabEvaluationResult
@@ -44,9 +44,20 @@ private const val STOP_TIMEOUT_MS = 5000L
 
 class MainCoachViewModel(
     private val repository: SpeakCraftRepository,
-    private val geminiCoach: GeminiCoachService,
+    private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val currentUserId: String
 ) : ViewModel() {
+
+    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
+    constructor(
+        repository: SpeakCraftRepository,
+        geminiCoach: com.example.data.ai.GeminiCoachService,
+        currentUserId: String
+    ) : this(
+        repository = repository,
+        localOrchestrator = LocalIntelligenceOrchestrator(),
+        currentUserId = currentUserId
+    )
 
     val todayDateKey: String
         get() = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -348,7 +359,7 @@ class MainCoachViewModel(
         }
         viewModelScope.launch {
             _vocabEvalState.value = UiState.Loading
-            val eval = geminiCoach.evaluateVocabularyUsage(seed.word, seed.meaning, userSentence)
+            val eval = localOrchestrator.evaluateVocabularyUsage(seed.word, seed.meaning, userSentence)
             eval.onSuccess { result ->
                 _vocabEvalState.value = UiState.Success(result)
                 if (result.usedCorrectly) {

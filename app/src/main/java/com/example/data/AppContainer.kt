@@ -2,7 +2,9 @@ package com.example.data
 
 import android.content.Context
 import com.example.R
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.DeviceCapabilityManager
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
+import com.example.data.ai.local.OnDeviceModelManager
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.preferences.AppPreferencesRepository
@@ -23,8 +25,10 @@ class AppContainer(context: Context) {
         SpeakCraftRepository(firestore)
     }
 
-    val geminiCoachService: GeminiCoachService by lazy {
-        GeminiCoachService()
+    val onDeviceModelManager: OnDeviceModelManager by lazy { OnDeviceModelManager(appContext) }
+    val deviceCapabilityManager: DeviceCapabilityManager by lazy { DeviceCapabilityManager(appContext) }
+    val localIntelligenceOrchestrator: LocalIntelligenceOrchestrator by lazy {
+        LocalIntelligenceOrchestrator(appContext, onDeviceModelManager, deviceCapabilityManager)
     }
 
     val youtubeClient: YouTubeIntelligenceClient by lazy {
