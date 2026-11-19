@@ -120,7 +120,7 @@ import com.example.data.preferences.ThemePreference
 import com.example.data.preferences.TutorialState
 import com.example.ui.components.FeatureTutorialDialog
 import com.example.ui.components.LaunchExperienceViewModel
-import com.example.ui.components.NotificationsCenterSheet
+import com.example.ui.components.NotificationDrawer
 import com.example.ui.components.SpeakCraftLaunchOverlay
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
@@ -412,9 +412,9 @@ private fun AuthenticatedAppShell(
     val activeAnnouncements by mainVm.activeAnnouncements.collectAsStateWithLifecycle()
     val learningProgressManager = container.learningProgressManager
     val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
-    val unreadNotificationsCount = remember(learningSnapshot.notifications) {
-        learningSnapshot.notifications.count { !it.isRead }
-    }
+    val notificationManager = container.notificationManager
+    val notificationStoreState by notificationManager.state.collectAsStateWithLifecycle()
+    val unreadNotificationsCount = notificationStoreState.unreadCount
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(actionMessage) {
@@ -517,9 +517,10 @@ private fun AuthenticatedAppShell(
                 }
 
                 var showFeatureGuideDialog by remember { mutableStateOf(false) }
-                var showNotificationsSheet by remember { mutableStateOf(false) }
+                var showNotificationDrawer by remember { mutableStateOf(false) }
                 var manualTourSteps by remember { mutableStateOf<List<TutorialOverlayStep>?>(null) }
                 var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
+                var baselineSessionCount by remember(userId) { mutableStateOf<Int?>(null) }
 
                 LaunchedEffect(userId, profile, sessions.size) {
                     learningProgressManager.loadForUser(
@@ -527,10 +528,37 @@ private fun AuthenticatedAppShell(
                         profile = profile,
                         recentSessions = sessions
                     )
+                    notificationManager.loadForUser(
+                        userId = userId,
+                        profile = profile,
+                        sessionsCount = sessions.size,
+                        streakDays = maxOf(
+                            profile.streakDays.toInt(),
+                            learningSnapshot.streak.currentStreakDays
+                        )
+                    )
+                    val priorCount = baselineSessionCount
+                    if (priorCount != null && sessions.size > priorCount) {
+                        val newest = sessions.firstOrNull()
+                        if (newest != null) {
+                            val avg = ((newest.fluencyScore + newest.articulationScore +
+                                newest.vocabularyScore + newest.grammarScore) / 4).toInt()
+                            notificationManager.recordSessionCompletedAlert(
+                                sessionId = newest.id.ifBlank { "${newest.promptTitle}_${sessions.size}" },
+                                promptTitle = newest.promptTitle,
+                                overallScore = avg
+                            )
+                        }
+                    }
+                    baselineSessionCount = sessions.size
+                }
+                LaunchedEffect(learningSnapshot.notifications) {
+                    notificationManager.syncFromLearningNotifications(learningSnapshot.notifications)
                 }
                 LaunchedEffect(activeAnnouncements) {
                     activeAnnouncements.forEach { ann ->
                         learningProgressManager.ingestAdminAnnouncement(ann)
+                        notificationManager.ingestAnnouncement(ann)
                     }
                 }
 
@@ -542,19 +570,6 @@ private fun AuthenticatedAppShell(
                         launchSingleTop = true
                         restoreState = true
                     }
-                }
-
-                if (showNotificationsSheet) {
-                    NotificationsCenterSheet(
-                        notifications = learningSnapshot.notifications,
-                        preferences = learningSnapshot.notificationPreferences,
-                        onDismiss = { showNotificationsSheet = false },
-                        onMarkRead = { id -> learningProgressManager.markNotificationRead(id) },
-                        onMarkAllRead = { learningProgressManager.markAllNotificationsRead() },
-                        onDeleteNotification = { id -> learningProgressManager.deleteNotification(id) },
-                        onUpdatePreferences = { updated -> learningProgressManager.updateNotificationPreferences(updated) },
-                        onOpenRoute = { route -> navigateTo(route) }
-                    )
                 }
 
                 if (showFeatureGuideDialog) {
@@ -601,6 +616,7 @@ private fun AuthenticatedAppShell(
                 val showUpdateDialog = prefsLoaded &&
                     !activeOverlayVisible &&
                     !showFeatureGuideDialog &&
+                    !showNotificationDrawer &&
                     currentRoute != "app_updates" &&
                     updateEvaluation.isUpdateAvailable &&
                     latestRelease != null &&
@@ -705,7 +721,7 @@ private fun AuthenticatedAppShell(
                                         },
                                         actions = {
                                             IconButton(
-                                                onClick = { showNotificationsSheet = true },
+                                                onClick = { showNotificationDrawer = !showNotificationDrawer },
                                                 modifier = Modifier
                                                     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                     .testTag("notifications_bell_button")
@@ -1087,7 +1103,7 @@ private fun AuthenticatedAppShell(
                                         onSaveProfile = { name, level, goal, mins ->
                                             mainVm.updateUserProfile(name, level, goal, mins, profile)
                                         },
-                                        onOpenNotifications = { showNotificationsSheet = true },
+                                        onOpenNotifications = { showNotificationDrawer = true },
                                         onNavigate = { route -> navigateTo(route) },
                                         onSignOut = { signOut(credentialManager, scope) }
                                     )
@@ -1189,6 +1205,21 @@ private fun AuthenticatedAppShell(
                             }
                             navigateTo(targetRoute)
                         }
+                    )
+
+                    NotificationDrawer(
+                        visible = showNotificationDrawer,
+                        alerts = notificationStoreState.alerts,
+                        preferences = notificationStoreState.preferences,
+                        onDismiss = { showNotificationDrawer = false },
+                        onMarkRead = { id -> notificationManager.markAsRead(id) },
+                        onMarkUnread = { id -> notificationManager.markAsUnread(id) },
+                        onTogglePin = { id -> notificationManager.togglePinned(id) },
+                        onMarkAllRead = { notificationManager.markAllAsRead() },
+                        onDismissAlert = { id -> notificationManager.dismissAlert(id) },
+                        onClearRead = { notificationManager.clearReadAlerts() },
+                        onUpdatePreferences = { updated -> notificationManager.updatePreferences(updated) },
+                        onOpenRoute = { route -> navigateTo(route) }
                     )
                 }
             }
