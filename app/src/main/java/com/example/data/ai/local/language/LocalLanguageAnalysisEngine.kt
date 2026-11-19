@@ -271,7 +271,7 @@ object LocalLanguageAnalysisEngine {
             pattern = Regex("\\b(in)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b", RegexOption.IGNORE_CASE),
             confidence = 0.92f,
             correctionFn = { m -> "on ${m.groupValues[2]}" },
-            explanationFn = { "Use 'on' before specific days of the week ('on ${m.groupValues[2]}')." }
+            explanationFn = { m -> "Use 'on' before specific days of the week ('on ${m.groupValues[2]}')." }
         ),
 
         // 5. Pronouns (PRN)

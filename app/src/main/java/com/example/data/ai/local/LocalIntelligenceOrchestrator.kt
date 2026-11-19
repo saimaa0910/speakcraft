@@ -447,7 +447,7 @@ class LocalIntelligenceOrchestrator(
                     "\n\n[Coach tip: Try \"${issue.correctedText}\" instead of \"${issue.originalText}\".]"
                 }
                 fillers.totalFillerCount >= 2 ->
-                    "\n\n[Coach tip: ${fillers.totalFillerCount} filler words spotted (${fillers.detectedFillers.take(2).joinToString()}). Try a 1-second silent pause instead.]"
+                    "\n\n[Coach tip: ${fillers.totalFillerCount} filler words spotted (${fillers.detectedFillers.keys.take(2).joinToString()}). Try a 1-second silent pause instead.]"
                 userLevel.equals("Beginner", ignoreCase = true) || userLevel.equals("Elementary", ignoreCase = true) ->
                     "\n\n[Tip: Aim for 2 short, clear sentences using Point + Example.]"
                 else -> ""
