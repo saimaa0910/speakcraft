@@ -892,15 +892,16 @@ class LearningProgressManager(
         return File(dir, "learning_snapshot_$safe.json")
     }
 
-    private fun readFromDisk(uid: String): PersistedLearningSnapshot? {
-        val file = fileForUser(uid) ?: return null
-        if (!file.exists()) return null
-        return runCatching {
-            json.decodeFromString<PersistedLearningSnapshot>(file.readText())
-        }.onFailure { err ->
-            Log.w(TAG, "Failed reading local snapshot, starting fresh: ${err.message}")
-        }.getOrNull()
+   private fun readFromDisk(uid: String): PersistedLearningSnapshot? {
+    val file = fileForUser(uid) ?: return null
+    if (!file.exists()) return null
+    return try {
+        json.decodeFromString<PersistedLearningSnapshot>(file.readText())
+    } catch (err: Throwable) {
+        Log.w(TAG, "Failed reading local snapshot, starting fresh: ${err.message}")
+        null
     }
+}
 
     private fun writeToDisk(snapshot: PersistedLearningSnapshot) {
         val file = fileForUser(snapshot.userId) ?: return
