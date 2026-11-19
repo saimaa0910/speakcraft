@@ -436,6 +436,89 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "role", "active", "createdAt", "updatedAt"]
+    },
+    "UserActivityProgress": {
+      "title": "UserActivityProgress",
+      "description": "Per-user aggregated mastery, completion status, practice duration, and latest objective/confidence scores for a SpeakCraft Activity Engine activity.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "activityId": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "skillCategory": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "attemptsCount": { "type": "integer" },
+        "bestObjectiveScore": { "type": "integer" },
+        "latestObjectiveScore": { "type": "integer" },
+        "latestConfidenceSelfRating": { "type": "integer" },
+        "totalPracticeSeconds": { "type": "integer" },
+        "lastPracticedDateKey": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "activityId", "moduleId", "skillCategory", "completed", "attemptsCount", "bestObjectiveScore", "latestObjectiveScore", "latestConfidenceSelfRating", "totalPracticeSeconds", "lastPracticedDateKey", "createdAt", "updatedAt"]
+    },
+    "ActivityAttemptRecord": {
+      "title": "ActivityAttemptRecord",
+      "description": "Immutable historical log of a single Activity Engine attempt with objective rubric score, separate confidence self-rating, and structured feedback.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "activityId": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "skillCategory": { "type": "string" },
+        "exerciseType": { "type": "string" },
+        "evaluatorName": { "type": "string" },
+        "dateKey": { "type": "string" },
+        "durationSeconds": { "type": "integer" },
+        "objectiveScore": { "type": "integer" },
+        "confidenceSelfRating": { "type": "integer" },
+        "passed": { "type": "boolean" },
+        "aiEvaluated": { "type": "boolean" },
+        "responseSummary": { "type": "string" },
+        "whatWentWell": { "type": "array" },
+        "specificMistakes": { "type": "array" },
+        "improvementSuggestions": { "type": "array" },
+        "nextPracticeTask": { "type": "string" },
+        "recordedMediaPath": { "type": "string" },
+        "wordsPerMinute": { "type": "integer" },
+        "fillerCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "activityId", "moduleId", "skillCategory", "exerciseType", "evaluatorName", "dateKey", "durationSeconds", "objectiveScore", "confidenceSelfRating", "passed", "aiEvaluated", "createdAt", "updatedAt"]
+    },
+    "SavedActivityRecord": {
+      "title": "SavedActivityRecord",
+      "description": "User-bookmarked SpeakCraft activity for quick replay or focus list.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "activityId": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "title": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "activityId", "moduleId", "title", "createdAt", "updatedAt"]
+    },
+    "DailyPracticePlanRecord": {
+      "title": "DailyPracticePlanRecord",
+      "description": "User's generated and customizable daily practice plan (10/20/30/45/60 min) for a given ISO date.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "dateKey": { "type": "string" },
+        "targetMinutes": { "type": "integer" },
+        "plannedActivityIds": { "type": "array" },
+        "completedActivityIds": { "type": "array" },
+        "pinnedActivityIds": { "type": "array" },
+        "personalizationSummary": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Must use FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "dateKey", "targetMinutes", "plannedActivityIds", "completedActivityIds", "pinnedActivityIds", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -443,6 +526,10 @@
     "/users/{userId}/enrollments/{programId}": { "schema": { "$ref": "#/entities/ProgramEnrollment" } },
     "/users/{userId}/dailyActivities/{dateId}": { "schema": { "$ref": "#/entities/DailyActivity" } },
     "/users/{userId}/learningProgress/{progressId}": { "schema": { "$ref": "#/entities/UserLearningProgress" } },
+    "/users/{userId}/activityProgress/{activityId}": { "schema": { "$ref": "#/entities/UserActivityProgress" } },
+    "/users/{userId}/activityAttempts/{attemptId}": { "schema": { "$ref": "#/entities/ActivityAttemptRecord" } },
+    "/users/{userId}/savedActivities/{activityId}": { "schema": { "$ref": "#/entities/SavedActivityRecord" } },
+    "/users/{userId}/dailyPracticePlans/{planId}": { "schema": { "$ref": "#/entities/DailyPracticePlanRecord" } },
     "/users/{userId}/vocabulary/{wordId}": { "schema": { "$ref": "#/entities/VocabularyEntry" } },
     "/users/{userId}/speakingSessions/{sessionId}": { "schema": { "$ref": "#/entities/SpeakingSession" } },
     "/users/{userId}/speechFeedback/{feedbackId}": { "schema": { "$ref": "#/entities/SpeechFeedback" } },

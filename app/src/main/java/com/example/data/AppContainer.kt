@@ -54,4 +54,16 @@ class AppContainer(context: Context) {
     val githubReleaseClient: com.example.data.update.GitHubReleaseClient by lazy {
         com.example.data.update.GitHubReleaseClient()
     }
+
+    val activityRepository: com.example.data.firebase.ActivityFirestoreRepository by lazy {
+        com.example.data.firebase.ActivityFirestoreRepository(firestore)
+    }
+
+    val universalEvaluationEngine: com.example.data.activity.UniversalEvaluationEngine by lazy {
+        com.example.data.activity.UniversalEvaluationEngine()
+    }
+
+    val activityEngine: com.example.data.activity.ActivityEngine by lazy {
+        com.example.data.activity.ActivityEngine(universalEvaluationEngine)
+    }
 }

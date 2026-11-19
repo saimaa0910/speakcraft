@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TrackChanges
@@ -106,6 +107,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.data.AppContainer
+import com.example.data.activity.ActivityCatalogue
 import com.example.data.firebase.authStateFlow
 import com.example.data.firebase.signOut
 import com.example.data.media.TtsAndSpeechHelper
@@ -124,6 +126,8 @@ import com.example.ui.components.TutorialOverlayCatalog
 import com.example.ui.components.TutorialOverlayStep
 import com.example.ui.components.UpdateAvailableDialog
 import com.example.ui.components.rememberReducedMotionEnabled
+import com.example.ui.screens.ActivityDiscoveryScreen
+import com.example.ui.screens.ActivityScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.AnalyticsScreen
@@ -149,6 +153,7 @@ import com.example.ui.screens.VoiceTrainingLabScreen
 import com.example.ui.screens.YouTubeIntelligenceScreen
 import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.theme.speakCraftColors
+import com.example.ui.viewmodel.ActivityEngineViewModel
 import com.example.ui.viewmodel.InteractiveCoachViewModel
 import com.example.ui.viewmodel.MainCoachViewModel
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
@@ -194,7 +199,8 @@ private val routeTitles = mapOf(
     "ai_mentor" to "AI Mentor",
     "settings" to "Settings",
     "app_updates" to "App Updates & Backups",
-    "admin_console" to "Admin Console"
+    "admin_console" to "Admin Console",
+    "activity_library" to "Activity Engine (150)"
 )
 
 @Composable
@@ -363,6 +369,22 @@ private fun AuthenticatedAppShell(
         }
     )
 
+    val activityVm: ActivityEngineViewModel = viewModel(
+        key = "activity_engine_$userId",
+        factory = viewModelFactory {
+            initializer {
+                checkNotNull(this[APPLICATION_KEY])
+                ActivityEngineViewModel(
+                    activityRepository = container.activityRepository,
+                    activityEngine = container.activityEngine,
+                    geminiCoach = container.geminiCoachService,
+                    audioRecorder = container.audioRecorderManager,
+                    userId = userId
+                )
+            }
+        }
+    )
+
     val profileState by mainVm.userProfile.collectAsStateWithLifecycle()
     val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
     val feedbackState by mainVm.speechFeedback.collectAsStateWithLifecycle()
@@ -383,6 +405,7 @@ private fun AuthenticatedAppShell(
 
     val updateEvaluation by updateAdminVm.updateEvaluation.collectAsStateWithLifecycle()
     val updateStatusMessage by updateAdminVm.statusMessage.collectAsStateWithLifecycle()
+    val activityStatusBanner by activityVm.statusBanner.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(actionMessage) {
@@ -397,6 +420,13 @@ private fun AuthenticatedAppShell(
         if (!msg.isNullOrBlank()) {
             snackbarHostState.showSnackbar(msg)
             updateAdminVm.clearStatusMessage()
+        }
+    }
+    LaunchedEffect(activityStatusBanner) {
+        val msg = activityStatusBanner
+        if (!msg.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(msg)
+            activityVm.clearStatusBanner()
         }
     }
 
@@ -442,6 +472,7 @@ private fun AuthenticatedAppShell(
                 val currentRoute = backStack?.destination?.route ?: "dashboard"
                 val currentSlugArg = backStack?.arguments?.getString("slug")
                 val currentLessonIdArg = backStack?.arguments?.getString("lessonId")
+                val currentActivityIdArg = backStack?.arguments?.getString("activityId")
                 val isPrimaryRoute = primaryNavItems.any { it.route == currentRoute }
 
                 val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
@@ -465,6 +496,9 @@ private fun AuthenticatedAppShell(
                         CurriculumCatalog.lessons.firstOrNull { it.id == currentLessonIdArg }?.title
                             ?: sharedLessons.firstOrNull { it.id == currentLessonIdArg }?.title
                             ?: "Lesson Detail"
+                    currentRoute.startsWith("activity_library") -> "Activity Engine (150)"
+                    currentRoute.startsWith("activity/") && !currentActivityIdArg.isNullOrBlank() ->
+                        ActivityCatalogue.getActivityById(currentActivityIdArg)?.title ?: "Activity Studio"
                     else -> routeTitles[currentRoute] ?: "SpeakCraft"
                 }
 
@@ -980,6 +1014,39 @@ private fun AuthenticatedAppShell(
                                         }
                                     )
                                 }
+                                composable("activity_library") {
+                                    ActivityDiscoveryScreen(
+                                        vm = activityVm,
+                                        profile = profile,
+                                        onOpenActivity = { id -> navigateTo("activity/$id") }
+                                    )
+                                }
+                                composable(
+                                    route = "activity_library/{moduleId}",
+                                    arguments = listOf(navArgument("moduleId") { type = NavType.StringType })
+                                ) { entry ->
+                                    val modId = entry.arguments?.getString("moduleId")
+                                    ActivityDiscoveryScreen(
+                                        vm = activityVm,
+                                        profile = profile,
+                                        initialModuleId = modId,
+                                        onOpenActivity = { id -> navigateTo("activity/$id") }
+                                    )
+                                }
+                                composable(
+                                    route = "activity/{activityId}",
+                                    arguments = listOf(navArgument("activityId") { type = NavType.StringType })
+                                ) { entry ->
+                                    val actId = entry.arguments?.getString("activityId").orEmpty()
+                                    ActivityScreen(
+                                        activityId = actId,
+                                        vm = activityVm,
+                                        ttsHelper = ttsHelper,
+                                        userLevel = profile.communicationLevel,
+                                        onOpenNextActivity = { nextId -> navigateTo("activity/$nextId") },
+                                        onBackToCatalogue = { navigateTo("activity_library") }
+                                    )
+                                }
                                 }
                             }
                         }
@@ -1067,6 +1134,7 @@ private fun SpeakCraftIndigoSidebar(
     val destinations = remember {
         listOf(
             SidebarDestination("dashboard", "Home", Icons.Default.Home),
+            SidebarDestination("activity_library", "150 Activities", Icons.Default.School),
             SidebarDestination("daily_practice", "Practice", Icons.Default.TrackChanges),
             SidebarDestination("ai_mentor", "AI Mentor", Icons.Default.Psychology),
             SidebarDestination("learning_paths", "Learn", Icons.Default.MenuBook),

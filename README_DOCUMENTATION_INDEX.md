@@ -41,8 +41,25 @@ Before reading the detailed specifications below, engineering and product leader
 | **13** | [`docs/INTERACTION_AND_MOTION_GUIDELINES.md`](docs/INTERACTION_AND_MOTION_GUIDELINES.md) | Transitions, animated card flips, waveform motion, and `rememberReducedMotionEnabled()` compliance. |
 | **14** | [`docs/ACCESSIBILITY_AUDIT.md`](docs/ACCESSIBILITY_AUDIT.md) | TalkBack `heading()` semantics, `48dp` touch targets, color contrast tokens, and content descriptions. |
 | **15** | [`docs/UI_UX_IMPLEMENTATION_ROADMAP.md`](docs/UI_UX_IMPLEMENTATION_ROADMAP.md) | 5-stage implementation plan mapping P0/P1 fixes and UI upgrades across codebase layers. |
-| **16** | [`docs/UI_UX_TESTING_AND_VALIDATION_REPORT.md`](docs/UI_UX_TESTING_AND_VALIDATION_REPORT.md) | Verified `30 / 30` unit & Robolectric Compose CUJ test results, `compile_applet` build check, and manual device verification checklist. |
+| **16** | [`docs/UI_UX_TESTING_AND_VALIDATION_REPORT.md`](docs/UI_UX_TESTING_AND_VALIDATION_REPORT.md) | Verified UI/UX unit & Robolectric Compose CUJ test results, `compile_applet` build check, and manual device verification checklist. |
 | **17** | [`docs/UI_UX_CHANGELOG.md`](docs/UI_UX_CHANGELOG.md) | Summary of design system tokenization, defect resolutions (`ISS-001`..`ISS-028`), and the 24-feature tutorial system. |
+
+---
+
+## Universal AI-Powered Communication Activity Engine (`18`–`27`)
+
+| # | Document | Scope Summary |
+| :-: | :--- | :--- |
+| **18** | [`docs/ACTIVITY_ENGINE_ARCHITECTURE.md`](docs/ACTIVITY_ENGINE_ARCHITECTURE.md) | End-to-end config-driven engine pipeline, 20-property `ActivityDefinition` contract, and layer separation. |
+| **19** | [`docs/ACTIVITY_CATALOGUE.md`](docs/ACTIVITY_CATALOGUE.md) | Complete inventory of all **10 curriculum modules** and **150 validated core activities**. |
+| **20** | [`docs/EXERCISE_TEMPLATE_SPECIFICATION.md`](docs/EXERCISE_TEMPLATE_SPECIFICATION.md) | Specification for all **25 reusable exercise templates** mapped across **7 Compose interaction families** in `ActivityScreen(activityId)`. |
+| **21** | [`docs/AI_EVALUATION_ARCHITECTURE.md`](docs/AI_EVALUATION_ARCHITECTURE.md) | Architecture of all **9 Firebase AI Logic evaluators** (`gemini-3.8-flash`), honesty guardrails, 6-section feedback, and fallback engine. |
+| **22** | [`docs/DAILY_PRACTICE_ENGINE.md`](docs/DAILY_PRACTICE_ENGINE.md) | Personalized **10/20/30/45/60-minute** daily routine assembly, anti-repetition scoring, and block swapping. |
+| **23** | [`docs/LEARNING_PATHS_SPECIFICATION.md`](docs/LEARNING_PATHS_SPECIFICATION.md) | All **10 personalized learning paths**, prerequisites, milestones, and non-linear jump rules. |
+| **24** | [`docs/PROGRESS_ANALYTICS_SPECIFICATION.md`](docs/PROGRESS_ANALYTICS_SPECIFICATION.md) | Real aggregate progress metrics, earliest-vs-latest skill deltas, streaks, and objective vs. self-confidence separation. |
+| **25** | [`docs/DATABASE_CHANGES.md`](docs/DATABASE_CHANGES.md) | 4 new user-scoped Firestore subcollections (`activityProgress`, `activityAttempts`, `savedActivities`, `dailyPracticePlans`), blueprint, and zero-trust rules. |
+| **26** | [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) | Completed 5-phase delivery summary and future post-launch enhancements. |
+| **27** | [`docs/TESTING_AND_VALIDATION_REPORT.md`](docs/TESTING_AND_VALIDATION_REPORT.md) | Verified **69 / 69** JVM + Robolectric Compose tests, **4 / 4** Firestore emulator security rules suites, deployed rules, and clean APK build. |
 
 ---
 
@@ -55,6 +72,7 @@ Before reading the detailed specifications below, engineering and product leader
   * `ISS-014` & `ISS-015`: Tokenized `MaterialTheme.speakCraftColors`, unified `Theme.SpeakCraft` manifest/resource styling, and differentiated font weights.
   * `ISS-017`, `ISS-018`, `ISS-018B`, `ISS-019`, `ISS-021`: Backup snapshot restore UI, true timestamp-window filtering (`Daily`/`Weekly`/`Monthly`), specialized `articulation_lab` vs. `pronunciation` lab defaults, confirmation dialogs on destructive actions, and persisted multi-turn AI Mentor chat bubbles.
   * **Per-Feature Interactive Tutorials:** `FeatureTutorialRegistry` (24 features), inline collapsible `FeatureGuideStrip`, and searchable `FeatureTutorialDialog` accessible from both the TopAppBar (`?`) and the Dashboard.
+  * **Universal AI Communication Activity Engine:** 150 validated activities across 10 modules, 25 reusable exercise templates, single `ActivityScreen(activityId)` renderer, 9 Firebase AI Logic evaluators, Daily Practice Engine (10–60m), 10 Learning Paths, Analytics Engine, and 4 secured Firestore subcollections.
 * **Remaining Hardware / Platform Considerations:**
   * **Live Emulator Visual & Hardware Checks:** Execute camera/microphone capture, Google Credential Manager sign-in, and TalkBack sweeps on a physical Android device or streaming emulator.
   * **Long-Term Platform Decisions:** Companion Desktop/Web parity (`ISS-024`), cloud media storage retention policy (`ISS-004`), and release `recaptcha_site_key` provisioning (`AppCheckConfig.kt`).

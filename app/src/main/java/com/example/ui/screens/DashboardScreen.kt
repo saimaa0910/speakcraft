@@ -253,6 +253,7 @@ fun DashboardScreen(
             )
         }
         val utilityTools = buildList {
+            add(ModuleTileSpec("activity_library", "Activity Engine", "150 drills • 10 modules • 10 paths", Icons.Default.School, "Tools"))
             add(ModuleTileSpec("learning_paths", "30/60/90 Plans", "Structured tracks", Icons.Default.School, "Tools"))
             add(ModuleTileSpec("real_world_tasks", "Field Tasks", "Real-world log", Icons.AutoMirrored.Filled.DirectionsRun, "Tools"))
             add(ModuleTileSpec("youtube_library", "@askvinh Library", "Channel & transcripts", Icons.Default.PlayCircle, "Tools"))

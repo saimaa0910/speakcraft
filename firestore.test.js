@@ -271,3 +271,205 @@ test("Admin RBAC: ordinary users cannot self-promote, publish releases, or edit 
   );
   await assertSucceeds(adminDb.collection("applicationUpdateEvents").get());
 });
+
+test("Activity Engine: activityProgress, activityAttempts, savedActivities, and dailyPracticePlans security & schema bounds", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  const past = new Date(Date.now() - 5000);
+  const now = new Date(Date.now() - 1000);
+
+  // 1. activityProgress create & partial update
+  const progressRef = aliceDb
+    .collection("users")
+    .doc(ALICE_UID)
+    .collection("activityProgress")
+    .doc("m01_daily_english_speaking");
+
+  await assertSucceeds(
+    progressRef.set({
+      userId: ALICE_UID,
+      activityId: "m01_daily_english_speaking",
+      moduleId: "mod_01_english_fluency",
+      skillCategory: "ENGLISH_FLUENCY",
+      completed: true,
+      attemptsCount: 1,
+      bestObjectiveScore: 82,
+      latestObjectiveScore: 82,
+      latestConfidenceSelfRating: 70,
+      totalPracticeSeconds: 65,
+      lastPracticedDateKey: "2026-11-18",
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  await assertSucceeds(
+    progressRef.update({
+      skillCategory: "ENGLISH_FLUENCY",
+      completed: true,
+      attemptsCount: 2,
+      bestObjectiveScore: 88,
+      latestObjectiveScore: 88,
+      latestConfidenceSelfRating: 78,
+      totalPracticeSeconds: 130,
+      lastPracticedDateKey: "2026-11-18",
+      updatedAt: now,
+    })
+  );
+
+  // Reject createdAt tampering & ghost fields
+  await assertFails(
+    progressRef.update({
+      createdAt: now,
+      updatedAt: now,
+    })
+  );
+  await assertFails(
+    progressRef.update({
+      ghostField: "hack",
+      updatedAt: now,
+    })
+  );
+
+  // 2. activityAttempts create & immutability
+  const attemptRef = aliceDb
+    .collection("users")
+    .doc(ALICE_UID)
+    .collection("activityAttempts")
+    .doc("att_01");
+
+  await assertSucceeds(
+    attemptRef.set({
+      userId: ALICE_UID,
+      activityId: "m01_daily_english_speaking",
+      moduleId: "mod_01_english_fluency",
+      skillCategory: "ENGLISH_FLUENCY",
+      exerciseType: "SPEAKING_EXERCISE",
+      evaluatorName: "SpeakingEvaluator",
+      dateKey: "2026-11-18",
+      durationSeconds: 65,
+      objectiveScore: 82,
+      confidenceSelfRating: 70,
+      passed: true,
+      aiEvaluated: true,
+      responseSummary: "Today I practiced clear speaking without rushing.",
+      whatWentWell: ["Steady flow"],
+      specificMistakes: ["One 'um' filler"],
+      improvementSuggestions: ["Pause cleanly before examples"],
+      nextPracticeTask: "Try Impromptu Speaking next.",
+      recordedMediaPath: "",
+      wordsPerMinute: 128,
+      fillerCount: 1,
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  // Attempts are immutable audit logs
+  await assertFails(
+    attemptRef.update({
+      objectiveScore: 100,
+      updatedAt: now,
+    })
+  );
+
+  // Reject out-of-range score > 100
+  await assertFails(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("activityAttempts")
+      .doc("att_bad_score")
+      .set({
+        userId: ALICE_UID,
+        activityId: "m01_daily_english_speaking",
+        moduleId: "mod_01_english_fluency",
+        skillCategory: "ENGLISH_FLUENCY",
+        exerciseType: "SPEAKING_EXERCISE",
+        evaluatorName: "SpeakingEvaluator",
+        dateKey: "2026-11-18",
+        durationSeconds: 65,
+        objectiveScore: 140,
+        confidenceSelfRating: 70,
+        passed: true,
+        aiEvaluated: true,
+        createdAt: past,
+        updatedAt: past,
+      })
+  );
+
+  // 3. savedActivities create, list, delete
+  const savedRef = aliceDb
+    .collection("users")
+    .doc(ALICE_UID)
+    .collection("savedActivities")
+    .doc("m02_tongue_twisters");
+
+  await assertSucceeds(
+    savedRef.set({
+      userId: ALICE_UID,
+      activityId: "m02_tongue_twisters",
+      moduleId: "mod_02_pronunciation_articulation",
+      title: "Tongue Twisters",
+      note: "Practice before morning meetings",
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("savedActivities").get());
+
+  // 4. dailyPracticePlans create & update
+  const planRef = aliceDb
+    .collection("users")
+    .doc(ALICE_UID)
+    .collection("dailyPracticePlans")
+    .doc("2026-11-18");
+
+  await assertSucceeds(
+    planRef.set({
+      userId: ALICE_UID,
+      dateKey: "2026-11-18",
+      targetMinutes: 30,
+      plannedActivityIds: ["m02_pronunciation_drills", "m03_pause_practice", "m01_daily_english_speaking"],
+      completedActivityIds: ["m02_pronunciation_drills"],
+      pinnedActivityIds: [],
+      personalizationSummary: "30-min balanced plan",
+      createdAt: past,
+      updatedAt: past,
+    })
+  );
+
+  await assertSucceeds(
+    planRef.update({
+      targetMinutes: 45,
+      plannedActivityIds: ["m02_pronunciation_drills", "m03_pause_practice", "m01_daily_english_speaking", "m06_active_listening"],
+      completedActivityIds: ["m02_pronunciation_drills"],
+      pinnedActivityIds: ["m06_active_listening"],
+      personalizationSummary: "45-min customized plan",
+      updatedAt: now,
+    })
+  );
+
+  // 5. Cross-user isolation & unauthenticated rejection
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("activityProgress").get());
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("activityAttempts").get());
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("savedActivities").get());
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("dailyPracticePlans").get());
+  await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("activityProgress").get());
+
+  // 6. Owner queries match Kotlin repository queries
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("activityProgress").get());
+  await assertSucceeds(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("activityAttempts")
+      .orderBy("createdAt", "desc")
+      .limit(200)
+      .get()
+  );
+  await assertSucceeds(planRef.get());
+  await assertSucceeds(savedRef.delete());
+});
+

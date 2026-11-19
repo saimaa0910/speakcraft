@@ -95,6 +95,61 @@ service cloud.firestore {
              (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000));
     }
 
+    function isValidActivityProgress(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.activityId is string && isValidId(data.activityId) &&
+             data.moduleId is string && isValidId(data.moduleId) &&
+             data.skillCategory is string && data.skillCategory.size() >= 1 && data.skillCategory.size() <= 64 &&
+             data.completed is bool &&
+             data.attemptsCount is int && data.attemptsCount >= 0 && data.attemptsCount <= 10000 &&
+             isValidScore(data.bestObjectiveScore) &&
+             isValidScore(data.latestObjectiveScore) &&
+             isValidScore(data.latestConfidenceSelfRating) &&
+             data.totalPracticeSeconds is int && data.totalPracticeSeconds >= 0 && data.totalPracticeSeconds <= 10000000 &&
+             data.lastPracticedDateKey is string && data.lastPracticedDateKey.size() <= 20;
+    }
+
+    function isValidActivityAttempt(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.activityId is string && isValidId(data.activityId) &&
+             data.moduleId is string && isValidId(data.moduleId) &&
+             data.skillCategory is string && data.skillCategory.size() >= 1 && data.skillCategory.size() <= 64 &&
+             data.exerciseType is string && data.exerciseType.size() >= 1 && data.exerciseType.size() <= 64 &&
+             data.evaluatorName is string && data.evaluatorName.size() >= 1 && data.evaluatorName.size() <= 64 &&
+             data.dateKey is string && data.dateKey.size() >= 4 && data.dateKey.size() <= 20 &&
+             data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 14400 &&
+             isValidScore(data.objectiveScore) &&
+             isValidScore(data.confidenceSelfRating) &&
+             data.passed is bool &&
+             data.aiEvaluated is bool &&
+             (!('responseSummary' in data) || (data.responseSummary is string && data.responseSummary.size() <= 600)) &&
+             (!('whatWentWell' in data) || isBoundedStringList(data.whatWentWell, 5)) &&
+             (!('specificMistakes' in data) || isBoundedStringList(data.specificMistakes, 5)) &&
+             (!('improvementSuggestions' in data) || isBoundedStringList(data.improvementSuggestions, 5)) &&
+             (!('nextPracticeTask' in data) || (data.nextPracticeTask is string && data.nextPracticeTask.size() <= 300)) &&
+             (!('recordedMediaPath' in data) || (data.recordedMediaPath is string && data.recordedMediaPath.size() <= 400)) &&
+             (!('wordsPerMinute' in data) || (data.wordsPerMinute is int && data.wordsPerMinute >= 0 && data.wordsPerMinute <= 400)) &&
+             (!('fillerCount' in data) || (data.fillerCount is int && data.fillerCount >= 0 && data.fillerCount <= 500));
+    }
+
+    function isValidSavedActivity(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.activityId is string && isValidId(data.activityId) &&
+             data.moduleId is string && isValidId(data.moduleId) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 300));
+    }
+
+    function isValidDailyPracticePlan(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.dateKey is string && data.dateKey.size() >= 4 && data.dateKey.size() <= 32 &&
+             data.targetMinutes is int && data.targetMinutes >= 10 && data.targetMinutes <= 120 &&
+             isBoundedStringList(data.plannedActivityIds, 20) &&
+             isBoundedStringList(data.completedActivityIds, 20) &&
+             isBoundedStringList(data.pinnedActivityIds, 20) &&
+             (!('personalizationSummary' in data) || (data.personalizationSummary is string && data.personalizationSummary.size() <= 400));
+    }
+
     function isValidVocabularyEntry(data, userId) {
       return data.userId is string && data.userId == userId &&
              data.word is string && data.word.size() >= 1 && data.word.size() <= 80 &&
@@ -500,6 +555,124 @@ service cloud.firestore {
                          incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'reflection', 'linkedSessionId', 'updatedAt']);
 
         allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /activityProgress/{activityId} {
+        allow get: if isOwner(userId) && isValidId(activityId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(activityId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'activityId', 'moduleId', 'skillCategory', 'completed',
+                           'attemptsCount', 'bestObjectiveScore', 'latestObjectiveScore',
+                           'latestConfidenceSelfRating', 'totalPracticeSeconds', 'lastPracticedDateKey',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'activityId', 'moduleId', 'skillCategory', 'completed',
+                           'attemptsCount', 'bestObjectiveScore', 'latestObjectiveScore',
+                           'latestConfidenceSelfRating', 'totalPracticeSeconds', 'lastPracticedDateKey',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidActivityProgress(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(activityId) &&
+                         isValidActivityProgress(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().activityId == existing().activityId &&
+                         incoming().moduleId == existing().moduleId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'skillCategory', 'completed', 'attemptsCount', 'bestObjectiveScore',
+                           'latestObjectiveScore', 'latestConfidenceSelfRating',
+                           'totalPracticeSeconds', 'lastPracticedDateKey', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(activityId);
+      }
+
+      match /activityAttempts/{attemptId} {
+        allow get: if isOwner(userId) && isValidId(attemptId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(attemptId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'activityId', 'moduleId', 'skillCategory', 'exerciseType',
+                           'evaluatorName', 'dateKey', 'durationSeconds', 'objectiveScore',
+                           'confidenceSelfRating', 'passed', 'aiEvaluated', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'activityId', 'moduleId', 'skillCategory', 'exerciseType',
+                           'evaluatorName', 'dateKey', 'durationSeconds', 'objectiveScore',
+                           'confidenceSelfRating', 'passed', 'aiEvaluated', 'responseSummary',
+                           'whatWentWell', 'specificMistakes', 'improvementSuggestions',
+                           'nextPracticeTask', 'recordedMediaPath', 'wordsPerMinute',
+                           'fillerCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidActivityAttempt(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(attemptId);
+      }
+
+      match /savedActivities/{activityId} {
+        allow get: if isOwner(userId) && isValidId(activityId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(activityId) &&
+                         incoming().keys().hasAll(['userId', 'activityId', 'moduleId', 'title', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'activityId', 'moduleId', 'title', 'note', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidSavedActivity(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(activityId) &&
+                         isValidSavedActivity(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().activityId == existing().activityId &&
+                         incoming().moduleId == existing().moduleId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'note', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(activityId);
+      }
+
+      match /dailyPracticePlans/{planId} {
+        allow get: if isOwner(userId) && isValidId(planId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) && isValidId(planId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'dateKey', 'targetMinutes', 'plannedActivityIds',
+                           'completedActivityIds', 'pinnedActivityIds', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'dateKey', 'targetMinutes', 'plannedActivityIds',
+                           'completedActivityIds', 'pinnedActivityIds', 'personalizationSummary',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidDailyPracticePlan(incoming(), userId);
+
+        allow update: if isOwner(userId) && isValidId(planId) &&
+                         isValidDailyPracticePlan(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'targetMinutes', 'plannedActivityIds', 'completedActivityIds',
+                           'pinnedActivityIds', 'personalizationSummary', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(planId);
       }
     }
 
