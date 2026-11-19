@@ -7,6 +7,19 @@ import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
 
+sealed interface SignatureCompatibility {
+    data class Compatible(val certSha256: String) : SignatureCompatibility
+    data class MismatchWithInstalled(
+        val installedCertSha256: String,
+        val targetCertSha256: String
+    ) : SignatureCompatibility
+    data class MismatchWithExpected(
+        val expectedCertSha256: String,
+        val actualCertSha256: String
+    ) : SignatureCompatibility
+    data object Unknown : SignatureCompatibility
+}
+
 object ApkIntegrityVerifier {
 
     fun computeSha256(file: File): String {
@@ -28,7 +41,7 @@ object ApkIntegrityVerifier {
     }
 
     fun verifySha256(file: File, expectedSha256: String): Boolean {
-        val expected = expectedSha256.trim().lowercase()
+        val expected = normalizeHexDigest(expectedSha256)
         if (expected.length != 64 || !expected.all { it in '0'..'9' || it in 'a'..'f' }) {
             return false
         }
@@ -36,8 +49,97 @@ object ApkIntegrityVerifier {
         return constantTimeEquals(actual, expected)
     }
 
-    fun verifyDownloadedApkSignature(context: Context, apkFile: File, expectedCertSha256: String = ""): Boolean {
-        if (!apkFile.exists()) return false
+    fun normalizeHexDigest(raw: String): String =
+        raw.trim().replace(":", "").lowercase()
+
+    fun isValidSha256Hex(raw: String): Boolean {
+        val normalized = normalizeHexDigest(raw)
+        return normalized.length == 64 && normalized.all { it in '0'..'9' || it in 'a'..'f' }
+    }
+
+    fun formatShortFingerprint(sha256: String): String {
+        val normalized = normalizeHexDigest(sha256).uppercase()
+        if (normalized.length < 16) return normalized
+        return "${normalized.take(8)}…${normalized.takeLast(8)}"
+    }
+
+    /**
+     * Pure certificate compatibility evaluation between the installed app's signing certificates,
+     * a candidate APK's signing certificates (or advertised release certificate), and an optional
+     * expected release certificate digest.
+     */
+    fun evaluateCertificateCompatibility(
+        installedCerts: List<String>,
+        candidateCerts: List<String>,
+        expectedCertSha256: String = ""
+    ): SignatureCompatibility {
+        val normalizedInstalled = installedCerts.map(::normalizeHexDigest).filter(::isValidSha256Hex)
+        val normalizedCandidate = candidateCerts.map(::normalizeHexDigest).filter(::isValidSha256Hex)
+        val normalizedExpected = normalizeHexDigest(expectedCertSha256)
+
+        if (normalizedCandidate.isEmpty()) {
+            return SignatureCompatibility.Unknown
+        }
+
+        // 1. Verify downloaded/candidate APK matches the release metadata's advertised cert if provided.
+        if (normalizedExpected.isNotBlank()) {
+            if (!isValidSha256Hex(normalizedExpected) ||
+                normalizedCandidate.none { constantTimeEquals(it, normalizedExpected) }
+            ) {
+                return SignatureCompatibility.MismatchWithExpected(
+                    expectedCertSha256 = normalizedExpected,
+                    actualCertSha256 = normalizedCandidate.first()
+                )
+            }
+        }
+
+        // 2. Always verify against the currently installed app's signing certificate so Android
+        // PackageInstaller won't fail with INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+        if (normalizedInstalled.isNotEmpty()) {
+            val matched = normalizedCandidate.firstOrNull { candidate ->
+                normalizedInstalled.any { installed -> constantTimeEquals(installed, candidate) }
+            }
+            if (matched == null) {
+                return SignatureCompatibility.MismatchWithInstalled(
+                    installedCertSha256 = normalizedInstalled.first(),
+                    targetCertSha256 = normalizedCandidate.first()
+                )
+            }
+            return SignatureCompatibility.Compatible(matched)
+        }
+
+        return SignatureCompatibility.Compatible(normalizedCandidate.first())
+    }
+
+    /**
+     * Pre-download check comparing the release's advertised signing certificate SHA-256 against
+     * the currently installed SpeakCraft APK's signing certificate.
+     */
+    fun checkInstalledCertificateCompatibility(
+        context: Context,
+        releaseCertSha256: String
+    ): SignatureCompatibility {
+        val normalizedRelease = normalizeHexDigest(releaseCertSha256)
+        if (!isValidSha256Hex(normalizedRelease)) {
+            return SignatureCompatibility.Unknown
+        }
+        val installedCerts = getInstalledAppSigningCertSha256(context)
+        if (installedCerts.isEmpty()) {
+            return SignatureCompatibility.Unknown
+        }
+        return evaluateCertificateCompatibility(
+            installedCerts = installedCerts,
+            candidateCerts = listOf(normalizedRelease),
+            expectedCertSha256 = normalizedRelease
+        )
+    }
+
+    fun verifyDownloadedApkCompatibility(
+        context: Context,
+        apkFile: File,
+        expectedCertSha256: String = ""
+    ): SignatureCompatibility {
+        if (!apkFile.exists()) return SignatureCompatibility.Unknown
         return try {
             val pm = context.packageManager
             val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -46,21 +148,24 @@ object ApkIntegrityVerifier {
                 @Suppress("DEPRECATION")
                 PackageManager.GET_SIGNATURES
             }
-            val pkgInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, flags) ?: return false
+            val pkgInfo = pm.getPackageArchiveInfo(apkFile.absolutePath, flags)
+                ?: return SignatureCompatibility.Unknown
             val installedCerts = getInstalledAppSigningCertSha256(context)
             val apkCerts = extractCertSha256List(pkgInfo)
-            if (apkCerts.isEmpty()) return false
-
-            if (expectedCertSha256.isNotBlank()) {
-                val target = expectedCertSha256.trim().lowercase()
-                apkCerts.any { constantTimeEquals(it.lowercase(), target) }
-            } else if (installedCerts.isNotEmpty()) {
-                apkCerts.any { cert -> installedCerts.any { constantTimeEquals(it, cert) } }
-            } else {
-                true
-            }
+            evaluateCertificateCompatibility(
+                installedCerts = installedCerts,
+                candidateCerts = apkCerts,
+                expectedCertSha256 = expectedCertSha256
+            )
         } catch (_: Exception) {
-            false
+            SignatureCompatibility.Unknown
+        }
+    }
+
+    fun verifyDownloadedApkSignature(context: Context, apkFile: File, expectedCertSha256: String = ""): Boolean {
+        return when (verifyDownloadedApkCompatibility(context, apkFile, expectedCertSha256)) {
+            is SignatureCompatibility.Compatible -> true
+            else -> false
         }
     }
 

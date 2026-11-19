@@ -26,6 +26,11 @@ sealed interface UpdateDownloadState {
     data class Downloading(val progressFraction: Float, val bytesRead: Long, val totalBytes: Long) : UpdateDownloadState
     data object Verifying : UpdateDownloadState
     data class VerifiedReady(val apkFile: File, val sha256: String, val signatureVerified: Boolean) : UpdateDownloadState
+    data class SigningConflict(
+        val installedCertSha256: String,
+        val releaseCertSha256: String,
+        val reason: String
+    ) : UpdateDownloadState
     data class Failed(val reason: String) : UpdateDownloadState
 }
 
@@ -35,7 +40,10 @@ data class UpdateEvaluation(
     val latestRelease: ApplicationRelease?,
     val isUpdateAvailable: Boolean,
     val isMandatory: Boolean,
-    val statusSummary: String
+    val statusSummary: String,
+    val hasSigningConflictWithInstalled: Boolean = false,
+    val installedCertFingerprint: String = "",
+    val releaseCertFingerprint: String = ""
 )
 
 class ReleaseUpdateRepository(
@@ -107,11 +115,20 @@ class ReleaseUpdateRepository(
             SemVer.isBelowMinimum(currentName, newest.minSupportedVersion)
         val mandatory = hasNewer && ((newest?.mandatory == true) || forcedByMinVer)
 
+        val certCompat = if (hasNewer && newest != null) {
+            ApkIntegrityVerifier.checkInstalledCertificateCompatibility(context, newest.signingCertSha256)
+        } else {
+            SignatureCompatibility.Unknown
+        }
+        val signingConflict = certCompat as? SignatureCompatibility.MismatchWithInstalled
+
         val summary = when {
             newest == null && hasNewerBeta ->
                 "You are on SpeakCraft v$currentName (build $currentCode). Beta update v${newestBetaOnly!!.versionName} is available — switch to Beta channel to install."
             newest == null ->
                 "You are on SpeakCraft v$currentName (build $currentCode). No newer published releases on '$channel' channel."
+            hasNewer && signingConflict != null ->
+                "Update v${newest.versionName} uses a different signing key than your installed build — a one-time clean reinstall is required."
             hasNewer ->
                 "Update available: v${newest.versionName} (build ${newest.versionCode}) on ${newest.channel} channel."
             currentCode > newest.versionCode ->
@@ -128,7 +145,10 @@ class ReleaseUpdateRepository(
             latestRelease = newest,
             isUpdateAvailable = hasNewer,
             isMandatory = mandatory,
-            statusSummary = summary
+            statusSummary = summary,
+            hasSigningConflictWithInstalled = signingConflict != null,
+            installedCertFingerprint = signingConflict?.installedCertSha256.orEmpty(),
+            releaseCertFingerprint = signingConflict?.targetCertSha256.orEmpty()
         )
     }
 
@@ -157,6 +177,22 @@ class ReleaseUpdateRepository(
                 val msg = "Release download URL must use HTTPS for integrity protection."
                 _downloadState.value = UpdateDownloadState.Failed(msg)
                 return@withContext Result.failure(IllegalArgumentException(msg))
+            }
+
+            // Pre-flight signature compatibility check so we never waste bandwidth or hit Android's
+            // generic INSTALL_FAILED_UPDATE_INCOMPATIBLE package conflict error.
+            val preCheck = ApkIntegrityVerifier.checkInstalledCertificateCompatibility(
+                context = context,
+                releaseCertSha256 = release.signingCertSha256
+            )
+            if (preCheck is SignatureCompatibility.MismatchWithInstalled) {
+                val msg = buildSigningConflictMessage(preCheck.installedCertSha256, preCheck.targetCertSha256)
+                _downloadState.value = UpdateDownloadState.SigningConflict(
+                    installedCertSha256 = preCheck.installedCertSha256,
+                    releaseCertSha256 = preCheck.targetCertSha256,
+                    reason = msg
+                )
+                return@withContext Result.failure(SecurityException(msg))
             }
 
             // Create automatic pre-update snapshot before downloading/installing
@@ -222,23 +258,49 @@ class ReleaseUpdateRepository(
             }
 
             val actualHash = ApkIntegrityVerifier.computeSha256(targetFile)
-            val sigOk = ApkIntegrityVerifier.verifyDownloadedApkSignature(
+            val compat = ApkIntegrityVerifier.verifyDownloadedApkCompatibility(
                 context = context,
                 apkFile = targetFile,
                 expectedCertSha256 = release.signingCertSha256
             )
-            if (release.signingCertSha256.isNotBlank() && !sigOk) {
-                targetFile.delete()
-                val msg = "APK signing certificate mismatch. Installation aborted."
-                _downloadState.value = UpdateDownloadState.Failed(msg)
-                return@withContext Result.failure(SecurityException(msg))
+            when (compat) {
+                is SignatureCompatibility.MismatchWithInstalled -> {
+                    targetFile.delete()
+                    val msg = buildSigningConflictMessage(compat.installedCertSha256, compat.targetCertSha256)
+                    _downloadState.value = UpdateDownloadState.SigningConflict(
+                        installedCertSha256 = compat.installedCertSha256,
+                        releaseCertSha256 = compat.targetCertSha256,
+                        reason = msg
+                    )
+                    return@withContext Result.failure(SecurityException(msg))
+                }
+                is SignatureCompatibility.MismatchWithExpected -> {
+                    targetFile.delete()
+                    val msg = "APK signing certificate does not match the published release metadata. Installation aborted."
+                    _downloadState.value = UpdateDownloadState.Failed(msg)
+                    return@withContext Result.failure(SecurityException(msg))
+                }
+                is SignatureCompatibility.Compatible -> {
+                    _downloadState.value = UpdateDownloadState.VerifiedReady(
+                        apkFile = targetFile,
+                        sha256 = actualHash,
+                        signatureVerified = true
+                    )
+                }
+                SignatureCompatibility.Unknown -> {
+                    if (release.signingCertSha256.isNotBlank()) {
+                        targetFile.delete()
+                        val msg = "Could not verify APK signing certificate. Installation aborted."
+                        _downloadState.value = UpdateDownloadState.Failed(msg)
+                        return@withContext Result.failure(SecurityException(msg))
+                    }
+                    _downloadState.value = UpdateDownloadState.VerifiedReady(
+                        apkFile = targetFile,
+                        sha256 = actualHash,
+                        signatureVerified = false
+                    )
+                }
             }
-
-            _downloadState.value = UpdateDownloadState.VerifiedReady(
-                apkFile = targetFile,
-                sha256 = actualHash,
-                signatureVerified = sigOk
-            )
             Result.success(targetFile)
         } catch (e: Exception) {
             Log.e(TAG, "Download/verify error", e)
@@ -276,7 +338,27 @@ class ReleaseUpdateRepository(
         "Opened official release page in browser."
     }
 
+    fun openDirectDownloadLink(downloadUrl: String): Result<String> = runCatching {
+        val safeUrl = downloadUrl.trim()
+        require(safeUrl.startsWith("https://")) { "Direct APK download link must use HTTPS." }
+        val viewIntent = Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(viewIntent)
+        "Opened direct APK download link in browser."
+    }
+
     fun resetDownloadState() {
         _downloadState.value = UpdateDownloadState.Idle
+    }
+
+    companion object {
+        fun buildSigningConflictMessage(installedCertSha256: String, releaseCertSha256: String): String {
+            val installedShort = ApkIntegrityVerifier.formatShortFingerprint(installedCertSha256)
+            val releaseShort = ApkIntegrityVerifier.formatShortFingerprint(releaseCertSha256)
+            return "Signing certificate mismatch detected before install (installed: $installedShort, update: $releaseShort). " +
+                "Android prevents overwriting an app signed with a different keystore (for example, switching from a Debug build to a Release build). " +
+                "Your progress is safely synced in Firebase — download the APK via browser, uninstall the old build once, and install the new release. Future updates signed with the same key will install in-place."
+        }
     }
 }

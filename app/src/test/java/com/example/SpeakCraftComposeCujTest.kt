@@ -29,6 +29,7 @@ import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
+import com.example.ui.components.UpdateAvailableDialog
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.AnalyticsScreen
@@ -580,5 +581,100 @@ class SpeakCraftComposeCujTest {
 
         composeRule.onNodeWithTag("settings_replay_tutorials_button").performClick()
         assertTrue(replayed)
+    }
+
+    @Test
+    fun `update available dialog shows release notes, direct apk link, and triggers callbacks`() {
+        var openedDirectUrl = ""
+        var installClicked = false
+        var dismissed = false
+        val release = ApplicationRelease(
+            id = "rel_1_2_0",
+            versionCode = 5L,
+            versionName = "1.2.0",
+            channel = "stable",
+            releaseDate = "2026-11-19",
+            downloadUrl = "https://github.com/octocat/speakcraft/releases/download/v1.2.0/speakcraft_1.2.0.apk",
+            fileSizeBytes = 15_728_640L,
+            releaseNotes = "Improved editorial cards and OTA signing verification.",
+            features = listOf("Pre-flight signing check", "Direct APK download link"),
+            enabled = true
+        )
+        val evaluation = UpdateEvaluation(
+            currentVersionCode = 2L,
+            currentVersionName = "1.1.0-beta.1",
+            latestRelease = release,
+            isUpdateAvailable = true,
+            isMandatory = false,
+            statusSummary = "Update v1.2.0 available"
+        )
+
+        composeRule.setContent {
+            SpeakCraftTheme {
+                UpdateAvailableDialog(
+                    evaluation = evaluation,
+                    release = release,
+                    onDismiss = { dismissed = true },
+                    onInstallViaUpdater = { installClicked = true },
+                    onOpenDirectDownload = { openedDirectUrl = it }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("update_available_dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("update_dialog_release_notes").assertIsDisplayed()
+        composeRule.onNodeWithText("Improved editorial cards and OTA signing verification.").assertIsDisplayed()
+        composeRule.onNodeWithTag("update_dialog_direct_download_link").performScrollTo().performClick()
+        assertEquals(release.downloadUrl, openedDirectUrl)
+
+        composeRule.onNodeWithTag("update_dialog_confirm_button").performClick()
+        assertTrue(installClicked)
+
+        composeRule.onNodeWithTag("update_dialog_dismiss_button").performClick()
+        assertTrue(dismissed)
+    }
+
+    @Test
+    fun `update available dialog highlights signing key conflict and prioritizes direct apk download`() {
+        var openedDirectUrl = ""
+        val release = ApplicationRelease(
+            id = "rel_1_2_0_signed",
+            versionCode = 6L,
+            versionName = "1.2.0",
+            channel = "stable",
+            downloadUrl = "https://github.com/octocat/speakcraft/releases/download/v1.2.0/speakcraft_1.2.0.apk",
+            releaseNotes = "Signed with production upload keystore.",
+            signingCertSha256 = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+            enabled = true
+        )
+        val conflictEval = UpdateEvaluation(
+            currentVersionCode = 2L,
+            currentVersionName = "1.1.0-beta.1",
+            latestRelease = release,
+            isUpdateAvailable = true,
+            isMandatory = false,
+            statusSummary = "Signing conflict detected",
+            hasSigningConflictWithInstalled = true,
+            installedCertFingerprint = "3f7d14b32df7635fe1b48db5d09857df02a000e2204568323d9a60025fa75f9f",
+            releaseCertFingerprint = release.signingCertSha256
+        )
+
+        composeRule.setContent {
+            SpeakCraftTheme {
+                UpdateAvailableDialog(
+                    evaluation = conflictEval,
+                    release = release,
+                    onDismiss = {},
+                    onInstallViaUpdater = {},
+                    onOpenDirectDownload = { openedDirectUrl = it }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("update_dialog_signing_conflict_notice").assertIsDisplayed()
+        composeRule.onNodeWithTag("update_dialog_confirm_button").performClick()
+        assertEquals(release.downloadUrl, openedDirectUrl)
     }
 }

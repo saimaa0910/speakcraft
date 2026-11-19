@@ -6,6 +6,7 @@ import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.ThemePreference
 import com.example.data.update.ApkIntegrityVerifier
 import com.example.data.update.SemVer
+import com.example.data.update.SignatureCompatibility
 import com.example.data.update.UpdateBackupManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -238,5 +239,44 @@ class SemVerAndUpdateTest {
         assertTrue(evalFromV100.isUpdateAvailable)
         assertEquals("1.1.0-beta.2", evalFromV100.latestRelease?.versionName)
     }
+
+    @Test
+    fun `certificate compatibility detects debug vs release signing conflict even when expected cert matches release`() {
+        val debugCert = "3f7d14b32df7635fe1b48db5d09857df02a000e2204568323d9a60025fa75f9f"
+        val releaseCert = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+        val tamperedCert = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+
+        // Matching installed & candidate certs -> Compatible
+        val sameKey = ApkIntegrityVerifier.evaluateCertificateCompatibility(
+            installedCerts = listOf(releaseCert),
+            candidateCerts = listOf(releaseCert.uppercase()),
+            expectedCertSha256 = releaseCert
+        )
+        assertTrue(sameKey is SignatureCompatibility.Compatible)
+
+        // Installed app signed with debug keystore, downloaded release APK signed with upload key
+        // Even though expectedCertSha256 matches releaseCert, Android PackageManager will reject with
+        // INSTALL_FAILED_UPDATE_INCOMPATIBLE -> must return MismatchWithInstalled!
+        val conflict = ApkIntegrityVerifier.evaluateCertificateCompatibility(
+            installedCerts = listOf(debugCert),
+            candidateCerts = listOf(releaseCert),
+            expectedCertSha256 = releaseCert
+        )
+        assertTrue(conflict is SignatureCompatibility.MismatchWithInstalled)
+        val mismatch = conflict as SignatureCompatibility.MismatchWithInstalled
+        assertEquals(debugCert, mismatch.installedCertSha256)
+        assertEquals(releaseCert, mismatch.targetCertSha256)
+
+        // Tampered candidate cert does not match expected metadata cert -> MismatchWithExpected
+        val tampered = ApkIntegrityVerifier.evaluateCertificateCompatibility(
+            installedCerts = listOf(releaseCert),
+            candidateCerts = listOf(tamperedCert),
+            expectedCertSha256 = releaseCert
+        )
+        assertTrue(tampered is SignatureCompatibility.MismatchWithExpected)
+
+        assertEquals("3F7D14B3…5FA75F9F", ApkIntegrityVerifier.formatShortFingerprint(debugCert))
+    }
 }
+
 

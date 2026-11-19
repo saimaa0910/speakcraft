@@ -102,6 +102,7 @@ import com.example.ui.components.SpeakCraftLaunchOverlay
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
 import com.example.ui.components.TutorialOverlayStep
+import com.example.ui.components.UpdateAvailableDialog
 import com.example.ui.components.rememberReducedMotionEnabled
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AiMentorScreen
@@ -497,6 +498,38 @@ private fun AuthenticatedAppShell(
                     manualTourSteps != null -> manualTourTitle
                     showCoreTour -> "Welcome to SpeakCraft"
                     else -> "Module Quick Guide"
+                }
+
+                var dismissedDialogVersionThisSession by remember { mutableStateOf("") }
+                val latestRelease = updateEvaluation.latestRelease
+                val showUpdateDialog = prefsLoaded &&
+                    !activeOverlayVisible &&
+                    !showFeatureGuideDialog &&
+                    currentRoute != "app_updates" &&
+                    updateEvaluation.isUpdateAvailable &&
+                    latestRelease != null &&
+                    (updateEvaluation.isMandatory ||
+                        (latestReleaseVer != prefs.dismissedReleaseVersion &&
+                            latestReleaseVer != dismissedDialogVersionThisSession))
+
+                if (showUpdateDialog && latestRelease != null) {
+                    UpdateAvailableDialog(
+                        evaluation = updateEvaluation,
+                        release = latestRelease,
+                        onDismiss = {
+                            dismissedDialogVersionThisSession = latestRelease.versionName
+                            scope.launch { prefsRepo.dismissReleaseBanner(latestRelease.versionName) }
+                        },
+                        onInstallViaUpdater = {
+                            dismissedDialogVersionThisSession = latestRelease.versionName
+                            navigateTo("app_updates")
+                            updateAdminVm.downloadAndVerifyRelease(latestRelease, prefs)
+                        },
+                        onOpenDirectDownload = {
+                            dismissedDialogVersionThisSession = latestRelease.versionName
+                            updateAdminVm.openDirectDownloadLink(latestRelease)
+                        }
+                    )
                 }
 
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {

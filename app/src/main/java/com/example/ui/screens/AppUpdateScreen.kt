@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudSync
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ApplicationRelease
 import com.example.data.model.ApplicationUpdateEvent
 import com.example.data.preferences.AppPreferences
+import com.example.data.update.ApkIntegrityVerifier
 import com.example.data.update.BackupSnapshotInfo
 import com.example.data.update.UpdateDownloadState
 import com.example.data.update.UpdateEvaluation
@@ -181,6 +184,7 @@ fun AppUpdateScreen(
                                 downloadState = downloadState,
                                 onDownload = { rel -> vm.downloadAndVerifyRelease(rel, prefs) },
                                 onInstall = { rel -> vm.launchInstall(rel) },
+                                onOpenDirectDownload = { rel -> vm.openDirectDownloadLink(rel) },
                                 onResetDownload = { vm.resetDownloadState() }
                             )
                         }
@@ -222,6 +226,7 @@ fun AppUpdateScreen(
                         downloadState = downloadState,
                         onDownload = { rel -> vm.downloadAndVerifyRelease(rel, prefs) },
                         onInstall = { rel -> vm.launchInstall(rel) },
+                        onOpenDirectDownload = { rel -> vm.openDirectDownloadLink(rel) },
                         onResetDownload = { vm.resetDownloadState() }
                     )
                 }
@@ -358,6 +363,7 @@ private fun LatestReleaseSection(
     downloadState: UpdateDownloadState,
     onDownload: (ApplicationRelease) -> Unit,
     onInstall: (ApplicationRelease) -> Unit,
+    onOpenDirectDownload: (ApplicationRelease) -> Unit,
     onResetDownload: () -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
@@ -429,19 +435,80 @@ private fun LatestReleaseSection(
                     }
                 }
 
+                if (evaluation.hasSigningConflictWithInstalled) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f),
+                        shape = MaterialTheme.shapes.medium,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.55f)),
+                        modifier = Modifier.fillMaxWidth().testTag("update_signing_conflict_banner")
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                Text(
+                                    "Signing Key Conflict Detected (Clean Reinstall Needed)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                            Text(
+                                "Installed cert: ${ApkIntegrityVerifier.formatShortFingerprint(evaluation.installedCertFingerprint)} • Release cert: ${ApkIntegrityVerifier.formatShortFingerprint(evaluation.releaseCertFingerprint)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                "Android rejects in-place updates when switching between a Debug keystore and a Release keystore. Your cloud data is safe in Firebase — download the APK via browser below, uninstall the old build once, and install v${latest.versionName}. Future updates signed with the same key will install automatically.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+
                 when (downloadState) {
                     is UpdateDownloadState.Idle -> {
-                        Button(
-                            onClick = { onDownload(latest) },
-                            enabled = evaluation.isUpdateAvailable,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("download_update_button")
-                        ) {
-                            Icon(Icons.Default.Download, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text(if (evaluation.isUpdateAvailable) "Download & Verify v${latest.versionName}" else "Current Version Already Installed")
+                        if (evaluation.hasSigningConflictWithInstalled) {
+                            Button(
+                                onClick = { onOpenDirectDownload(latest) },
+                                enabled = latest.downloadUrl.startsWith("https://"),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("download_update_direct_browser_button")
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Download v${latest.versionName} APK in Browser")
+                            }
+                        } else {
+                            Button(
+                                onClick = { onDownload(latest) },
+                                enabled = evaluation.isUpdateAvailable,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("download_update_button")
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (evaluation.isUpdateAvailable) "Download & Verify v${latest.versionName}" else "Current Version Already Installed")
+                            }
+                            if (evaluation.isUpdateAvailable && latest.downloadUrl.startsWith("https://")) {
+                                OutlinedButton(
+                                    onClick = { onOpenDirectDownload(latest) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                        .testTag("open_direct_apk_link_button")
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Open Direct APK Download Link")
+                                }
+                            }
                         }
                     }
                     is UpdateDownloadState.Downloading -> {
@@ -478,6 +545,22 @@ private fun LatestReleaseSection(
                                 .testTag("install_verified_update_button")
                         ) {
                             Text("Launch Verified Installer")
+                        }
+                    }
+                    is UpdateDownloadState.SigningConflict -> {
+                        ErrorRecoveryCard(downloadState.reason) { onResetDownload() }
+                        if (latest.downloadUrl.startsWith("https://")) {
+                            Button(
+                                onClick = { onOpenDirectDownload(latest) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("download_update_direct_browser_button")
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Download APK in Browser for Clean Install")
+                            }
                         }
                     }
                     is UpdateDownloadState.Failed -> {

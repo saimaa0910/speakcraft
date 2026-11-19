@@ -133,7 +133,10 @@ class UpdateAndAdminViewModel(
     fun selectUpdateChannel(channel: String, currentPrefs: AppPreferences) {
         val safeChannel = if (channel == "beta") "beta" else "stable"
         val currentDl = downloadState.value
-        if (currentDl is UpdateDownloadState.VerifiedReady || currentDl is UpdateDownloadState.Failed) {
+        if (currentDl is UpdateDownloadState.VerifiedReady ||
+            currentDl is UpdateDownloadState.Failed ||
+            currentDl is UpdateDownloadState.SigningConflict
+        ) {
             updateRepository.resetDownloadState()
         }
         viewModelScope.launch {
@@ -173,15 +176,19 @@ class UpdateAndAdminViewModel(
                     detail = eval.statusSummary
                 )
                 if (eval.isUpdateAvailable && latest != null) {
-                    val currentDl = downloadState.value
-                    if (currentDl !is UpdateDownloadState.Downloading &&
-                        currentDl !is UpdateDownloadState.Verifying &&
-                        currentDl !is UpdateDownloadState.VerifiedReady
-                    ) {
-                        _statusMessage.value = "Update v${latest.versionName} found — downloading & verifying..."
-                        performDownloadAndVerify(latest, prefs)
+                    if (eval.hasSigningConflictWithInstalled) {
+                        _statusMessage.value = "v${latest.versionName} uses a different signing key — open the direct APK link for a one-time clean reinstall."
                     } else {
-                        _statusMessage.value = "Update v${latest.versionName} is ready."
+                        val currentDl = downloadState.value
+                        if (currentDl !is UpdateDownloadState.Downloading &&
+                            currentDl !is UpdateDownloadState.Verifying &&
+                            currentDl !is UpdateDownloadState.VerifiedReady
+                        ) {
+                            _statusMessage.value = "Update v${latest.versionName} found — downloading & verifying..."
+                            performDownloadAndVerify(latest, prefs)
+                        } else {
+                            _statusMessage.value = "Update v${latest.versionName} is ready."
+                        }
                     }
                 } else {
                     _statusMessage.value = eval.statusSummary
@@ -238,6 +245,24 @@ class UpdateAndAdminViewModel(
                 _statusMessage.value = msg
             }.onFailure { err ->
                 _statusMessage.value = err.message ?: "Unable to launch installer."
+            }
+        }
+    }
+
+    fun openDirectDownloadLink(release: ApplicationRelease) {
+        viewModelScope.launch {
+            val res = updateRepository.openDirectDownloadLink(release.downloadUrl)
+            res.onSuccess { msg ->
+                repository.logUpdateEvent(
+                    fromVersion = updateRepository.currentVersionName(),
+                    toVersion = release.versionName,
+                    channel = release.channel,
+                    status = "INSTALL_LAUNCHED",
+                    detail = msg
+                )
+                _statusMessage.value = msg
+            }.onFailure { err ->
+                _statusMessage.value = err.message ?: "Unable to open direct download link."
             }
         }
     }

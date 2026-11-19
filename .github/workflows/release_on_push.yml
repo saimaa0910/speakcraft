@@ -27,6 +27,15 @@ on:
         required: false
         default: false
         type: boolean
+      signing_mode:
+        description: "Signing keystore mode (auto uses release keystore when configured)"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - release
+          - debug
 
 permissions:
   contents: write
@@ -59,15 +68,17 @@ jobs:
           packages: "platform-tools platforms;android-36 build-tools;36.0.0"
 
       - name: Restore Firebase Android configuration
+        shell: bash
         env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLESERVICES }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON || secrets.GOOGLESERVICES }}
         run: |
           set -euo pipefail
-          if [ -z "${GOOGLE_SERVICES_JSON:-}" ]; then
-            echo "::error::Missing GOOGLESERVICES repository secret containing the Firebase google-services.json file."
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          elif [ ! -s app/google-services.json ]; then
+            echo "::error::Missing GOOGLE_SERVICES_JSON (or GOOGLESERVICES) repository secret and no committed app/google-services.json found."
             exit 1
           fi
-          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -219,12 +230,39 @@ jobs:
         shell: bash
         env:
           CHANNEL: ${{ steps.meta.outputs.channel }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SIGNING_MODE: ${{ github.event.inputs.signing_mode }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+          REQUESTED_MODE="auto"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "${INPUT_SIGNING_MODE:-}" ]; then
+            REQUESTED_MODE="$(printf '%s' "$INPUT_SIGNING_MODE" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          fi
+          if [ "$REQUESTED_MODE" != "auto" ] && [ "$REQUESTED_MODE" != "release" ] && [ "$REQUESTED_MODE" != "debug" ]; then
+            echo "::error::Invalid signing_mode '$REQUESTED_MODE'. Must be auto, release, or debug."
+            exit 1
+          fi
+
+          if [ "$CHANNEL" = "stable" ] && [ "$REQUESTED_MODE" = "debug" ]; then
+            echo "::error::Refusing to build a debug-signed APK for the stable channel."
+            exit 1
+          fi
+
+          USE_RELEASE="false"
+          if [ "$REQUESTED_MODE" = "release" ] || [ "$CHANNEL" = "stable" ]; then
+            USE_RELEASE="true"
+          elif [ "$REQUESTED_MODE" = "auto" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            USE_RELEASE="true"
+          fi
+
+          if [ "$USE_RELEASE" = "true" ]; then
+            if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+              echo "::error::Missing required release signing secret ANDROID_KEYSTORE_BASE64. Refusing to sign a release/stable APK without the persistent upload keystore."
+              exit 1
+            fi
             if [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
               echo "::error::Missing required STORE_PASSWORD or KEY_PASSWORD secret for release signing."
               exit 1
@@ -245,26 +283,21 @@ jobs:
             echo "apk_path=app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_OUTPUT"
             echo "signing_mode=release" >> "$GITHUB_OUTPUT"
           else
-            if [ "$CHANNEL" = "stable" ]; then
-              echo "::error::Missing required release signing secret ANDROID_KEYSTORE_BASE64. Refusing to publish a debug-signed APK to the stable channel."
+            # Deterministic debug keystore restoration ONLY — NEVER run keytool -genkeypair
+            # (generating a random key on the runner causes INSTALL_FAILED_UPDATE_INCOMPATIBLE
+            # conflicts with previously installed APKs and breaks Google Sign-In OAuth).
+            if [ ! -s debug.keystore ]; then
+              if [ ! -s debug.keystore.base64 ]; then
+                echo "::error::Missing deterministic debug.keystore.base64 in repository. Refusing to generate an ephemeral random keystore that would break in-place APK upgrades."
+                exit 1
+              fi
+              tr -d '[:space:]' < debug.keystore.base64 | base64 --decode > debug.keystore
+            fi
+            if ! keytool -list -keystore debug.keystore -alias androiddebugkey -storepass android >/dev/null 2>&1; then
+              echo "::error::Restored debug.keystore failed validation for alias 'androiddebugkey'."
               exit 1
             fi
-
-            if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
-              base64 --decode debug.keystore.base64 > debug.keystore
-            fi
-            if [ ! -s debug.keystore ]; then
-              # debug.keystore is gitignored, so generate a standard Android debug keystore on the runner.
-              keytool -genkeypair -v -keystore debug.keystore \
-                -storepass android -keypass android -alias androiddebugkey \
-                -keyalg RSA -keysize 2048 -validity 10000 \
-                -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
-            fi
-            if [ ! -s debug.keystore ]; then
-              echo "::error::Fallback debug.keystore could not be restored or generated for beta build."
-              exit 1
-            fi
-            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; building debug-signed APK for beta channel testing only."
+            echo "::warning::Building beta APK with the deterministic repository debug.keystore (in-place compatible with debug installs only; configure ANDROID_KEYSTORE_BASE64 for release-signed updates)."
             echo "gradle_task=assembleDebug" >> "$GITHUB_OUTPUT"
             echo "apk_path=app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_OUTPUT"
             echo "signing_mode=debug" >> "$GITHUB_OUTPUT"
@@ -299,6 +332,10 @@ jobs:
         shell: bash
         env:
           SRC_APK: ${{ steps.sign.outputs.apk_path }}
+          SIGNING_MODE: ${{ steps.sign.outputs.signing_mode }}
+          CHANNEL: ${{ steps.meta.outputs.channel }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
           APK_FILENAME: ${{ steps.meta.outputs.apk_filename }}
           TAG_NAME: ${{ steps.meta.outputs.tag_name }}
           GITHUB_REPO: ${{ github.repository }}
@@ -331,12 +368,39 @@ jobs:
 
           VERIFY_OUT="$("$APKSIGNER_BIN" verify --print-certs "$APK_FILE")"
           CERT_SHA256="$(printf '%s\n' "$VERIFY_OUT" | grep -m1 "SHA-256 digest:" | awk '{print $NF}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          CERT_SHA1="$(printf '%s\n' "$VERIFY_OUT" | grep -m1 "SHA-1 digest:" | awk '{print $NF}' | tr -d ':' | tr '[:upper:]' '[:lower:]' || true)"
           if ! [[ "$CERT_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
             echo "::error::Failed to extract valid 64-char SHA-256 signing certificate digest from APK."
             exit 1
           fi
 
+          KNOWN_DEBUG_CERT_SHA256="3f7d14b32df7635fe1b48db5d09857df02a000e2204568323d9a60025fa75f9f"
+          if [ "$SIGNING_MODE" = "release" ] && [ "$CERT_SHA256" = "$KNOWN_DEBUG_CERT_SHA256" ]; then
+            echo "::error::Release APK was unexpectedly signed with the repository debug certificate. Check signingConfigs.release and ANDROID_KEYSTORE_BASE64."
+            exit 1
+          fi
+
           DL_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG_NAME}/${APK_FILENAME}"
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "### SpeakCraft OTA Release Signing Summary"
+              echo ""
+              echo "| Field | Value |"
+              echo "| --- | --- |"
+              echo "| Application ID | \`com.aistudio.speakcraft.qxmvkp\` |"
+              echo "| Version | \`v${VERSION_NAME}\` (build \`${VERSION_CODE}\`) |"
+              echo "| Channel | \`${CHANNEL}\` |"
+              echo "| Signing Mode | \`${SIGNING_MODE}\` |"
+              echo "| APK SHA-256 | \`${SHA256}\` |"
+              echo "| Signing Cert SHA-256 | \`${CERT_SHA256}\` |"
+              if [ -n "$CERT_SHA1" ]; then
+                echo "| Signing Cert SHA-1 | \`${CERT_SHA1}\` |"
+              fi
+              echo ""
+              echo "> In-place Android updates succeed only when the installed APK has the **same Signing Cert SHA-256** as this release. Switching from a \`debug\` build to a \`release\` build requires uninstalling the debug APK once."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           {
             echo "apk_file=$APK_FILE"
