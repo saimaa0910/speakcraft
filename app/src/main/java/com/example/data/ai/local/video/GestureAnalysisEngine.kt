@@ -6,7 +6,6 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
-import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerOptions
 import java.io.File
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -58,7 +57,7 @@ class GestureAnalysisEngine(private val context: Context) {
                 }
             }
 
-            val options = HandLandmarkerOptions.builder()
+            val options = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(baseOptionsBuilder.build())
                 .setRunningMode(RunningMode.IMAGE)
                 .setNumHands(2)

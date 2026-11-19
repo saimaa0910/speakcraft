@@ -36,9 +36,17 @@ function requiredEnv(env, name) {
 }
 
 export function parseAndValidateServiceAccount(rawCreds, expectedProjectId) {
+  const trimmed = String(rawCreds || '').trim();
+  let jsonText = trimmed;
+  if (trimmed && !trimmed.startsWith('{') && /^[A-Za-z0-9+/=\s]+$/.test(trimmed)) {
+    const decoded = Buffer.from(trimmed.replace(/\s+/g, ''), 'base64').toString('utf8').trim();
+    if (decoded.startsWith('{')) {
+      jsonText = decoded;
+    }
+  }
   let serviceAccount;
   try {
-    serviceAccount = JSON.parse(rawCreds);
+    serviceAccount = JSON.parse(jsonText);
   } catch {
     throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.');
   }

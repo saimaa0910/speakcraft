@@ -36,7 +36,7 @@ class SpeechRecognitionManagerTest {
         assertEquals("", result.transcript)
         assertEquals(0, result.wordCount)
         assertEquals("none", result.recognitionMode)
-        assertTrue(result.limitationNotice.contains("not found", ignoreCase = true))
+        assertTrue(result.limitationNotice?.contains("not found", ignoreCase = true) == true)
     }
 
     @Test
@@ -52,9 +52,9 @@ class SpeechRecognitionManagerTest {
         assertEquals("", result.transcript)
         assertEquals(0, result.wordCount)
         assertEquals("audio-only", result.recognitionMode)
-        assertTrue(result.limitationNotice.contains("Audio volume, pauses", ignoreCase = true))
+        assertTrue(result.limitationNotice?.contains("Audio volume, pauses", ignoreCase = true) == true)
         // Verify privacy guarantee: no remote upload notice
-        assertFalse(result.limitationNotice.contains("cloud", ignoreCase = true))
+        assertFalse(result.limitationNotice?.contains("cloud", ignoreCase = true) == true)
     }
 
     @Test

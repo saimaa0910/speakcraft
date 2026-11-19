@@ -72,7 +72,7 @@ class ZeroCloudAiNetworkBoundaryTest {
     }
 
     @Test
-    fun deprecated_gemini_coach_service_strictly_throws_unsupported_operation() = runTest {
+    fun deprecated_gemini_coach_service_strictly_throws_unsupported_operation() {
         val deprecatedService = GeminiCoachService()
 
         assertThrows(UnsupportedOperationException::class.java) {

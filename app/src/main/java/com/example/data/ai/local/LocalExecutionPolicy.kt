@@ -12,6 +12,8 @@ object LocalExecutionPolicy {
 
     const val POLICY = "LOCAL_ONLY"
 
+    fun isLocalOnly(): Boolean = POLICY == "LOCAL_ONLY"
+
     /** Domains whose traffic is considered "cloud AI" and must be blocked. */
     val BLOCKED_AI_DOMAINS = listOf(
         "generativelanguage.googleapis.com",

@@ -6,7 +6,6 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerOptions
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.pow
@@ -36,28 +35,30 @@ data class PostureAnalysisResult(
 class BodyLanguageAnalysisEngine(private val context: Context) {
     private var poseLandmarker: PoseLandmarker? = null
 
-    fun initialize(customModelFile: File? = null): Boolean = try {
-        val baseOptionsBuilder = BaseOptions.builder()
-        val downloadedFile = File(context.filesDir, "ai_models/pose_landmarker_lite.task")
-        when {
-            customModelFile != null && customModelFile.exists() -> baseOptionsBuilder.setModelAssetPath(customModelFile.absolutePath)
-            hasAsset(MODEL_ASSET_PATH) -> baseOptionsBuilder.setModelAssetPath(MODEL_ASSET_PATH)
-            downloadedFile.exists() -> baseOptionsBuilder.setModelAssetPath(downloadedFile.absolutePath)
-            else -> {
-                Log.w(TAG, "PoseLandmarker model file not found in assets or storage")
-                return false
+    fun initialize(customModelFile: File? = null): Boolean {
+        return try {
+            val baseOptionsBuilder = BaseOptions.builder()
+            val downloadedFile = File(context.filesDir, "ai_models/pose_landmarker_lite.task")
+            when {
+                customModelFile != null && customModelFile.exists() -> baseOptionsBuilder.setModelAssetPath(customModelFile.absolutePath)
+                hasAsset(MODEL_ASSET_PATH) -> baseOptionsBuilder.setModelAssetPath(MODEL_ASSET_PATH)
+                downloadedFile.exists() -> baseOptionsBuilder.setModelAssetPath(downloadedFile.absolutePath)
+                else -> {
+                    Log.w(TAG, "PoseLandmarker model file not found in assets or storage")
+                    return false
+                }
             }
+            val options = PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(baseOptionsBuilder.build())
+                .setRunningMode(RunningMode.IMAGE)
+                .setNumPoses(1)
+                .build()
+            poseLandmarker = PoseLandmarker.createFromOptions(context, options)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "PoseLandmarker initialization failed", e)
+            false
         }
-        val options = PoseLandmarkerOptions.builder()
-            .setBaseOptions(baseOptionsBuilder.build())
-            .setRunningMode(RunningMode.IMAGE)
-            .setNumPoses(1)
-            .build()
-        poseLandmarker = PoseLandmarker.createFromOptions(context, options)
-        true
-    } catch (e: Exception) {
-        Log.e(TAG, "PoseLandmarker initialization failed", e)
-        false
     }
 
     fun analyzeFrames(frames: List<ExtractedFrame>): PostureAnalysisResult {

@@ -308,7 +308,7 @@ object LocalLanguageAnalysisEngine {
                 val modal = m.groupValues[1].replace("n't", "").lowercase()
                 "$modal"
             },
-            explanationFn = { "Avoid double negatives in formal English ('${m.value}'). Use a single negative or positive phrasing." }
+            explanationFn = { m -> "Avoid double negatives in formal English ('${m.value}'). Use a single negative or positive phrasing." }
         ),
         ModularRule(
             ruleId = "STR_002",

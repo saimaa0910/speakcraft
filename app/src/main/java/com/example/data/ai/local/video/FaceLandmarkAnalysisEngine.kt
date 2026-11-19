@@ -7,7 +7,6 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
-import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerOptions
 import java.io.File
 import kotlin.math.abs
 
@@ -15,15 +14,15 @@ private const val TAG = "FaceLandmarkAnalysis"
 private const val MODEL_ASSET_PATH = "models/face_landmarker.task"
 
 data class FaceAnalysisResult(
-    val framesAnalyzed: Int,
-    val faceDetectedFrames: Int,
-    val faceDetectionRate: Float,
-    val averageHeadYaw: Float,
-    val averageHeadPitch: Float,
-    val faceVisibilityNote: String,
-    val cameraPresenceGuidance: String,
-    val facingCameraEstimate: String,
-    val limitations: List<String>
+    val framesAnalyzed: Int = 0,
+    val faceDetectedFrames: Int = 0,
+    val faceDetectionRate: Float = 0f,
+    val averageHeadYaw: Float = 0f,
+    val averageHeadPitch: Float = 0f,
+    val faceVisibilityNote: String = "",
+    val cameraPresenceGuidance: String = "",
+    val facingCameraEstimate: String = "",
+    val limitations: List<String> = emptyList()
 )
 
 class FaceLandmarkAnalysisEngine(private val context: Context) {
@@ -56,7 +55,7 @@ class FaceLandmarkAnalysisEngine(private val context: Context) {
                 }
             }
 
-            val options = FaceLandmarkerOptions.builder()
+            val options = FaceLandmarker.FaceLandmarkerOptions.builder()
                 .setBaseOptions(baseOptionsBuilder.build())
                 .setRunningMode(RunningMode.IMAGE)
                 .setNumFaces(1)

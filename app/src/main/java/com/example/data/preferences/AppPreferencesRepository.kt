@@ -109,7 +109,8 @@ class AppPreferencesRepository(private val context: Context) {
             ?: ThemePreference.SYSTEM
         val rate = prefs[ttsRateKey] ?: 1.0f
         val apiKey = KeystoreCipherHelper.decrypt(prefs[ytKey].orEmpty())
-        val channel = prefs[updateChannelKey]?.takeIf { it in listOf("stable", "beta") } ?: "stable"
+        val defaultChannel = com.example.BuildConfig.BUILD_CHANNEL.takeIf { it in listOf("stable", "beta") } ?: "stable"
+        val channel = prefs[updateChannelKey]?.takeIf { it in listOf("stable", "beta") } ?: defaultChannel
         val defaultRepo = com.example.BuildConfig.GITHUB_RELEASE_REPO
         val storedRepo = prefs[githubReleaseRepoKey].orEmpty().ifBlank { defaultRepo }
         AppPreferences(

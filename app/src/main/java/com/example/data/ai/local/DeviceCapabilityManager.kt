@@ -141,11 +141,11 @@ class DeviceCapabilityManager(private val context: Context? = null) {
     // Profile Computation
     // -----------------------------------------------------------------------
 
-    fun computeProfile(ramMb: Long, apiLevel: Int): DeviceProfile {
+    fun computeProfile(totalRamMb: Long, apiLevel: Int): DeviceProfile {
         return when {
-            ramMb < 2048 || apiLevel < 24 -> DeviceProfile.BASIC
-            ramMb < 4096                  -> DeviceProfile.STANDARD
-            else                          -> DeviceProfile.ADVANCED
+            totalRamMb < 2048 || apiLevel < 24 -> DeviceProfile.BASIC
+            totalRamMb < 4096 || apiLevel < 30 -> DeviceProfile.STANDARD
+            else                               -> DeviceProfile.ADVANCED
         }
     }
 

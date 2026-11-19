@@ -80,7 +80,7 @@ class ActivityEngineViewModel(
     private val localOrchestrator: LocalIntelligenceOrchestrator? = null,
     val audioRecorder: AudioRecorderManager?,
     private val userId: String,
-    @Deprecated("Deprecated in favor of localOrchestrator") geminiCoach: com.example.data.ai.GeminiCoachService? = null
+    @Suppress("UNUSED_PARAMETER", "DEPRECATION") geminiCoach: com.example.data.ai.GeminiCoachService? = null
 ) : ViewModel() {
 
     val todayDateKey: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
