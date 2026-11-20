@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.ai.HybridAiCoachCoordinator
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.RecommendationEngine
 import com.example.data.ai.RecommendedNextAction
@@ -45,7 +46,8 @@ private const val STOP_TIMEOUT_MS = 5000L
 class MainCoachViewModel(
     private val repository: SpeakCraftRepository,
     private val localOrchestrator: LocalIntelligenceOrchestrator,
-    private val currentUserId: String
+    private val currentUserId: String,
+    private val hybridCoordinator: HybridAiCoachCoordinator? = null
 ) : ViewModel() {
 
     @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
@@ -58,6 +60,19 @@ class MainCoachViewModel(
         localOrchestrator = LocalIntelligenceOrchestrator(),
         currentUserId = currentUserId
     )
+
+    private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
+        hybridCoordinator ?: HybridAiCoachCoordinator(localOrchestrator = localOrchestrator)
+    }
+
+    val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setCloudAiEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            effectiveCoordinator.setCloudAiEnabled(enabled)
+        }
+    }
 
     val todayDateKey: String
         get() = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -396,7 +411,12 @@ class MainCoachViewModel(
         }
         viewModelScope.launch {
             _vocabEvalState.value = UiState.Loading
-            val eval = localOrchestrator.evaluateVocabularyUsage(seed.word, seed.meaning, userSentence)
+            val eval = effectiveCoordinator.evaluateVocabularyUsage(
+                word = seed.word,
+                meaning = seed.meaning,
+                userSentence = userSentence,
+                difficulty = seed.level.ifBlank { "Intermediate" }
+            )
             eval.onSuccess { result ->
                 _vocabEvalState.value = UiState.Success(result)
                 if (result.usedCorrectly) {

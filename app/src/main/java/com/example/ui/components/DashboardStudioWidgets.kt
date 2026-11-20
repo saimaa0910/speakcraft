@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Star
@@ -63,9 +64,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -1059,9 +1063,13 @@ fun StudioMetricCard(
 @Composable
 fun InlineAiMentorCard(
     onOpenMentor: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    cloudAiEnabled: Boolean = false,
+    onAskPrompt: (String) -> Unit = { onOpenMentor() }
 ) {
     val ext = MaterialTheme.speakCraftColors
+    var quickPromptInput by rememberSaveable { mutableStateOf("") }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -1076,54 +1084,68 @@ fun InlineAiMentorCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = ext.pastelLavenderBg,
-                    modifier = Modifier.size(38.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = ext.pastelLavenderInk,
-                            modifier = Modifier.size(20.dp)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = ext.pastelLavenderBg,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                                contentDescription = null,
+                                tint = ext.pastelLavenderInk,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "AI Mentor",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Your personal coach for confident communication.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Column {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (cloudAiEnabled) MaterialTheme.colorScheme.primaryContainer else ext.infoContainer
+                ) {
                     Text(
-                        text = "AI Mentor",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Your personal coach for confident communication.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = if (cloudAiEnabled) "Cloud Gemini" else "Local AI",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (cloudAiEnabled) MaterialTheme.colorScheme.onPrimaryContainer else ext.info,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            // Rounded prompt bar mirroring reference screenshot
+            // Interactive rounded prompt composer
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(onClick = onOpenMentor)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
@@ -1139,27 +1161,48 @@ fun InlineAiMentorCard(
                             )
                         }
                     }
-                    Text(
-                        text = "Ask me anything about speaking, vocabulary, pronunciation, or your practice plan...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Open AI Mentor",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(17.dp)
+                    OutlinedTextField(
+                        value = quickPromptInput,
+                        onValueChange = { quickPromptInput = it },
+                        placeholder = {
+                            Text(
+                                text = "Ask anything about speaking, vocabulary, or your plan...",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                        }
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("dashboard_ai_mentor_input")
+                    )
+                    IconButton(
+                        onClick = {
+                            val prompt = quickPromptInput.trim()
+                            if (prompt.isNotBlank()) {
+                                quickPromptInput = ""
+                                onAskPrompt(prompt)
+                            } else {
+                                onOpenMentor()
+                            }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .testTag("dashboard_ai_mentor_send")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Ask AI Mentor",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -1188,7 +1231,7 @@ fun InlineAiMentorCard(
                         modifier = Modifier
                             .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                             .clip(RoundedCornerShape(50))
-                            .clickable(onClick = onOpenMentor)
+                            .clickable { onAskPrompt(promptText) }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),

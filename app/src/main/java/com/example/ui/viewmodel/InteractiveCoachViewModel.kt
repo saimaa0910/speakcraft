@@ -3,6 +3,8 @@ package com.example.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.ai.HybridAiCoachCoordinator
+import com.example.data.ai.cloud.LiveVoiceHandle
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.model.SpeakingSession
@@ -10,12 +12,15 @@ import com.example.data.model.SpeechFeedback
 import com.example.data.model.UiState
 import com.example.data.model.UserProfile
 import com.example.data.model.YouTubeSource
+import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.youtube.YouTubeIntelligenceClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
@@ -38,7 +43,9 @@ class InteractiveCoachViewModel(
     private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val youtubeClient: YouTubeIntelligenceClient,
     private val appContext: Context? = null,
-    private val currentUserId: String = "default"
+    private val currentUserId: String = "default",
+    private val hybridCoordinator: HybridAiCoachCoordinator? = null,
+    private val prefsRepo: AppPreferencesRepository? = null
 ) : ViewModel() {
 
     @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
@@ -56,9 +63,23 @@ class InteractiveCoachViewModel(
         currentUserId = currentUserId
     )
 
+    private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
+        hybridCoordinator ?: HybridAiCoachCoordinator(
+            localOrchestrator = localOrchestrator,
+            prefsRepo = prefsRepo,
+            appContext = appContext
+        )
+    }
+
+    val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val cloudAiModelTier: StateFlow<String> = effectiveCoordinator.cloudAiModelTierFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "balanced")
+
     private val defaultMentorGreeting = ChatTurn(
         isUser = false,
-        text = "Ask me anything about your speaking scores, recurring mistakes, or @askvinh techniques."
+        text = "Ask me anything about your speaking scores, recurring mistakes, or paste any sentence for a line-by-line rewrite."
     )
 
     private val _selectedScenario = MutableStateFlow("Job interviews")
@@ -70,8 +91,25 @@ class InteractiveCoachViewModel(
     private val _isPartnerTyping = MutableStateFlow(false)
     val isPartnerTyping: StateFlow<Boolean> = _isPartnerTyping.asStateFlow()
 
+    private val _conversationError = MutableStateFlow<String?>(null)
+    val conversationError: StateFlow<String?> = _conversationError.asStateFlow()
+
+    private val _voiceLiveActive = MutableStateFlow(false)
+    val voiceLiveActive: StateFlow<Boolean> = _voiceLiveActive.asStateFlow()
+
+    private val _voiceLiveStatus = MutableStateFlow("Ready for Voice Call")
+    val voiceLiveStatus: StateFlow<String> = _voiceLiveStatus.asStateFlow()
+
+    private val _voiceAutoSpeak = MutableStateFlow(true)
+    val voiceAutoSpeak: StateFlow<Boolean> = _voiceAutoSpeak.asStateFlow()
+
+    private var activeLiveHandle: LiveVoiceHandle? = null
+
     private val _coachDebrief = MutableStateFlow<UiState<String>?>(null)
     val coachDebrief: StateFlow<UiState<String>?> = _coachDebrief.asStateFlow()
+
+    private val _selectedMentorRole = MutableStateFlow("mentor")
+    val selectedMentorRole: StateFlow<String> = _selectedMentorRole.asStateFlow()
 
     private val _mentorMessages = MutableStateFlow(loadPersistedMentorHistory())
     val mentorMessages: StateFlow<List<ChatTurn>> = _mentorMessages.asStateFlow()
@@ -89,6 +127,31 @@ class InteractiveCoachViewModel(
 
     private val _ytAuditState = MutableStateFlow(YouTubeAuditUiState())
     val ytAuditState: StateFlow<YouTubeAuditUiState> = _ytAuditState.asStateFlow()
+
+    private var lastQuestionText: String = ""
+    private var lastProfileSnapshot: UserProfile? = null
+    private var lastSessionsSnapshot: List<SpeakingSession> = emptyList()
+    private var lastFeedbackSnapshot: List<SpeechFeedback> = emptyList()
+
+    private var lastConversationMsg: String = ""
+    private var lastConversationLevel: String = "Intermediate"
+
+    fun setCloudAiEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            effectiveCoordinator.setCloudAiEnabled(enabled)
+        }
+    }
+
+    fun setMentorRole(roleKey: String) {
+        _selectedMentorRole.value = roleKey
+    }
+
+    fun setVoiceAutoSpeak(enabled: Boolean) {
+        _voiceAutoSpeak.value = enabled
+        viewModelScope.launch {
+            prefsRepo?.setVoiceAutoSpeakEnabled(enabled)
+        }
+    }
 
     private fun mentorHistoryFile(): File? {
         val ctx = appContext ?: return null
@@ -125,8 +188,10 @@ class InteractiveCoachViewModel(
     }
 
     fun startScenario(scenario: String, userLevel: String) {
+        stopVoiceLiveSession()
         _selectedScenario.value = scenario
         _coachDebrief.value = null
+        _conversationError.value = null
         val greeting = when (scenario) {
             "Job interviews" -> "Thanks for coming in today. To kick things off, walk me through a challenging project you led or contributed to."
             "Handling disagreements" -> "I hear your perspective, though I still think shipping the simpler version on Friday makes more sense. What makes you push for the redesign?"
@@ -143,19 +208,109 @@ class InteractiveCoachViewModel(
     ) {
         val trimmed = message.trim()
         if (trimmed.isBlank()) return
+        lastConversationMsg = trimmed
+        lastConversationLevel = userLevel
+        _conversationError.value = null
+
         val currentHistory = _chatTurns.value
         _chatTurns.value = currentHistory + ChatTurn(isUser = true, text = trimmed)
 
         viewModelScope.launch {
             _isPartnerTyping.value = true
             val historyPairs = currentHistory.map { (if (it.isUser) "user" else "model") to it.text }
-            val res = localOrchestrator.generateConversationTurn(_selectedScenario.value, userLevel, historyPairs, trimmed)
+            val res = effectiveCoordinator.generateConversationTurn(_selectedScenario.value, userLevel, historyPairs, trimmed)
             _isPartnerTyping.value = false
             res.onSuccess { reply ->
                 _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = reply)
                 onPartnerReply(reply)
             }.onFailure { err ->
-                _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = "[Connection issue: ${err.localizedMessage}]")
+                _conversationError.value = err.localizedMessage ?: "AI conversation turn failed. Check your connection or switch to Local Intelligence."
+            }
+        }
+    }
+
+    fun retryLastConversationMessage(onPartnerReply: (String) -> Unit) {
+        if (lastConversationMsg.isBlank()) return
+        _conversationError.value = null
+        val historyWithoutRetryDup = _chatTurns.value
+        viewModelScope.launch {
+            _isPartnerTyping.value = true
+            val historyPairs = historyWithoutRetryDup.dropLastWhile { it.isUser }
+                .map { (if (it.isUser) "user" else "model") to it.text }
+            val res = effectiveCoordinator.generateConversationTurn(
+                _selectedScenario.value,
+                lastConversationLevel,
+                historyPairs,
+                lastConversationMsg
+            )
+            _isPartnerTyping.value = false
+            res.onSuccess { reply ->
+                _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = reply)
+                onPartnerReply(reply)
+            }.onFailure { err ->
+                _conversationError.value = err.localizedMessage ?: "Retry failed."
+            }
+        }
+    }
+
+    fun startCloudLiveVoiceCall(
+        userLevel: String,
+        onPartnerCaption: (String) -> Unit
+    ) {
+        if (_voiceLiveActive.value) return
+        _conversationError.value = null
+        _voiceLiveStatus.value = "Connecting Gemini Live Voice..."
+        viewModelScope.launch {
+            val res = effectiveCoordinator.startLiveVoiceSession(
+                scenario = _selectedScenario.value,
+                userLevel = userLevel,
+                onInputTranscript = { userText ->
+                    viewModelScope.launch {
+                        _chatTurns.value = _chatTurns.value + ChatTurn(isUser = true, text = userText)
+                    }
+                },
+                onOutputTranscript = { aiText ->
+                    viewModelScope.launch {
+                        _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = aiText)
+                        onPartnerCaption(aiText)
+                    }
+                },
+                onGoAway = { notice ->
+                    viewModelScope.launch { _voiceLiveStatus.value = notice }
+                },
+                onError = { err ->
+                    viewModelScope.launch {
+                        _voiceLiveActive.value = false
+                        _voiceLiveStatus.value = "Live Voice disconnected"
+                        _conversationError.value = err.localizedMessage ?: "Gemini Live Voice session ended."
+                    }
+                }
+            )
+            res.onSuccess { handle ->
+                activeLiveHandle = handle
+                _voiceLiveActive.value = true
+                _voiceLiveStatus.value = "Gemini Live Voice Active • Speak naturally"
+            }.onFailure { err ->
+                _voiceLiveActive.value = false
+                _voiceLiveStatus.value = "Live Voice unavailable"
+                _conversationError.value = err.localizedMessage ?: "Unable to open Gemini Live Voice."
+            }
+        }
+    }
+
+    fun setLocalVoiceCallState(active: Boolean, status: String) {
+        _voiceLiveActive.value = active
+        _voiceLiveStatus.value = status
+    }
+
+    fun stopVoiceLiveSession() {
+        val handle = activeLiveHandle
+        activeLiveHandle = null
+        _voiceLiveActive.value = false
+        _voiceLiveStatus.value = "Ready for Voice Call"
+        if (handle != null) {
+            viewModelScope.launch {
+                runCatching { handle.stopAndClose() }
             }
         }
     }
@@ -166,7 +321,7 @@ class InteractiveCoachViewModel(
         viewModelScope.launch {
             _coachDebrief.value = UiState.Loading
             val transcript = turns.joinToString("\n") { (if (it.isUser) "Learner: " else "Partner: ") + it.text }
-            val res = localOrchestrator.generateConversationCheckIn(_selectedScenario.value, transcript)
+            val res = effectiveCoordinator.generateConversationCheckIn(_selectedScenario.value, transcript)
             res.onSuccess { feedback ->
                 _coachDebrief.value = UiState.Success(feedback)
                 repository.saveConversationSession(
@@ -190,10 +345,20 @@ class InteractiveCoachViewModel(
     ) {
         val trimmed = question.trim()
         if (trimmed.isBlank() || _isMentorResponding.value) return
+        lastQuestionText = trimmed
+        lastProfileSnapshot = profile
+        lastSessionsSnapshot = sessions
+        lastFeedbackSnapshot = feedbackList
+
         val priorHistory = _mentorMessages.value
         val withUser = priorHistory + ChatTurn(isUser = true, text = trimmed)
         _mentorMessages.value = withUser
         persistMentorHistory(withUser)
+
+        val historyPairs = priorHistory
+            .drop(1) // skip static greeting
+            .takeLast(10)
+            .map { (if (it.isUser) "user" else "model") to it.text }
 
         val recentContextSnippet = priorHistory.takeLast(4).joinToString("\n") {
             (if (it.isUser) "User: " else "Mentor: ") + it.text.take(300)
@@ -202,15 +367,59 @@ class InteractiveCoachViewModel(
             "Recent chat context:\n$recentContextSnippet\n\nFollow-up question: $trimmed"
         } else trimmed
 
+        runMentorStreamRequest(
+            withUser = withUser,
+            historyPairs = historyPairs,
+            questionText = if (cloudAiEnabled.value) trimmed else contextualQuestion,
+            profile = profile,
+            sessions = sessions,
+            feedbackList = feedbackList
+        )
+    }
+
+    fun retryLastMentorQuestion() {
+        if (lastQuestionText.isBlank() || _isMentorResponding.value) return
+        val current = _mentorMessages.value
+        val withUser = if (current.lastOrNull()?.isUser == true) {
+            current
+        } else {
+            current + ChatTurn(isUser = true, text = lastQuestionText)
+        }
+        val historyPairs = withUser.dropLast(1).drop(1).takeLast(10)
+            .map { (if (it.isUser) "user" else "model") to it.text }
+        runMentorStreamRequest(
+            withUser = withUser,
+            historyPairs = historyPairs,
+            questionText = lastQuestionText,
+            profile = lastProfileSnapshot,
+            sessions = lastSessionsSnapshot,
+            feedbackList = lastFeedbackSnapshot
+        )
+    }
+
+    private fun runMentorStreamRequest(
+        withUser: List<ChatTurn>,
+        historyPairs: List<Pair<String, String>>,
+        questionText: String,
+        profile: UserProfile?,
+        sessions: List<SpeakingSession>,
+        feedbackList: List<SpeechFeedback>
+    ) {
         viewModelScope.launch {
             _isMentorResponding.value = true
             _mentorError.value = null
             _mentorAnswer.value = UiState.Loading
             val sb = StringBuilder()
-            val placeholder = withUser + ChatTurn(isUser = false, text = "")
             try {
                 withTimeout(60_000L) {
-                    localOrchestrator.askMentorStream(profile, sessions, feedbackList, contextualQuestion).collect { chunk ->
+                    effectiveCoordinator.askMentorStream(
+                        profile = profile,
+                        recentSessions = sessions,
+                        recentFeedback = feedbackList,
+                        history = historyPairs,
+                        userQuestion = questionText,
+                        roleKey = _selectedMentorRole.value
+                    ).collect { chunk ->
                         sb.append(chunk)
                         if (sb.isNotBlank()) {
                             val partial = sb.toString()
@@ -267,6 +476,7 @@ class InteractiveCoachViewModel(
                 )
             }.onSuccess { audit ->
                 var extractedCount = 0
+                var extractionError: String? = null
                 audit.videos.forEachIndexed { idx, video ->
                     _ytAuditState.value = YouTubeAuditUiState(
                         isAuditing = true,
@@ -293,7 +503,7 @@ class InteractiveCoachViewModel(
                             techniques = emptyList()
                         )
                     } else {
-                        val bundleRes = localOrchestrator.extractYouTubeLessons(
+                        val bundleRes = effectiveCoordinator.extractYouTubeLessons(
                             videoId = video.videoId,
                             videoTitle = video.title,
                             videoUrl = video.videoUrl,
@@ -321,14 +531,22 @@ class InteractiveCoachViewModel(
                                 ),
                                 techniques = bundle.techniques
                             )
+                        }.onFailure { err ->
+                            extractionError = err.localizedMessage ?: "Extraction error"
                         }
                     }
                 }
                 _ytAuditState.value = YouTubeAuditUiState(
                     isAuditing = false,
-                    statusSummary = "${audit.statusNote} Saved $extractedCount source-attributed techniques."
+                    statusSummary = "${audit.statusNote} Saved $extractedCount source-attributed techniques.",
+                    error = if (extractedCount == 0 && extractionError != null) extractionError else null
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        stopVoiceLiveSession()
+        super.onCleared()
     }
 }

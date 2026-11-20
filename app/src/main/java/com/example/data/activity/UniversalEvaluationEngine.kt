@@ -196,6 +196,17 @@ class UniversalEvaluationEngine(
         caveat: String,
         recommendedNextIds: List<String>
     ): ActivityEvaluationResult {
+        val textForAnalysis = response.combinedTextForAnalysis.trim()
+        val lang = if (textForAnalysis.isNotBlank()) {
+            com.example.data.ai.local.language.LocalLanguageAnalysisEngine.analyze(textForAnalysis)
+        } else null
+        val draftInsights = if (textForAnalysis.isNotBlank()) {
+            com.example.data.ai.local.language.DynamicLocalCoachEngine.analyzeUserDraft(
+                text = textForAnalysis,
+                topicHint = activity.title
+            )
+        } else null
+
         val checklistTotal = activity.interactionConfiguration.checklistItems.size
         val checklistRatio = if (checklistTotal > 0) {
             response.completedChecklistItems.size.toFloat() / checklistTotal.toFloat()
@@ -203,20 +214,37 @@ class UniversalEvaluationEngine(
         val hasAudioOrVideo = response.recordedAudioPath.isNotBlank() || response.recordedVideoPath.isNotBlank()
         val lengthRatio = (metrics.wordCount.toFloat() / activity.interactionConfiguration.targetWordCountMin.coerceAtLeast(8)).coerceIn(0f, 1.35f)
         val fillerPenalty = (metrics.fillerCount * 4).coerceAtMost(18)
+        val grammarPenalty = ((lang?.grammarIssues?.size ?: 0) * 5).coerceAtMost(16)
+        val discourseBonus = listOfNotNull(
+            draftInsights?.discourse?.hasOpeningAnchor?.takeIf { it }?.let { 3 },
+            draftInsights?.discourse?.hasConcreteExample?.takeIf { it }?.let { 4 },
+            draftInsights?.discourse?.hasTransitionSignals?.takeIf { it }?.let { 2 },
+            draftInsights?.discourse?.hasStrongClosing?.takeIf { it }?.let { 3 }
+        ).sum()
 
         val baseScore = when {
             metrics.wordCount == 0 && !hasAudioOrVideo && checklistTotal == 0 -> 35
-            checklistTotal > 0 && metrics.wordCount < 6 -> (48 + (checklistRatio * 34)).toInt()
-            else -> (55 + (lengthRatio * 24).toInt() + (if (hasAudioOrVideo) 8 else 0) + (checklistRatio * 8).toInt() - fillerPenalty)
-        }.coerceIn(30, 88)
+            checklistTotal > 0 && metrics.wordCount < 6 -> (50 + (checklistRatio * 36)).toInt()
+            else -> (56 + (lengthRatio * 22).toInt() + (if (hasAudioOrVideo) 8 else 0) + (checklistRatio * 8).toInt() + discourseBonus - fillerPenalty - grammarPenalty)
+        }.coerceIn(30, 96)
 
         val dimensions = activity.scoringRubric.mapIndexed { idx, dim ->
-            val dimScore = (baseScore + (if (idx == 0) 2 else -idx)).coerceIn(30, 90)
+            val dimScore = (baseScore + (if (idx == 0) 2 else -idx)).coerceIn(30, 96)
+            val dimNote = when {
+                dim.key.contains("grammar", ignoreCase = true) && (lang?.grammarIssues?.isNotEmpty() == true) ->
+                    "${lang.grammarIssues.size} phrasing polish item(s) spotted in local check."
+                dim.key.contains("vocab", ignoreCase = true) && lang != null ->
+                    "Lexical diversity ${lang.vocabularyAnalysis.vocabularyDiversityScore}% across ${metrics.wordCount} words."
+                dim.key.contains("pace", ignoreCase = true) || dim.key.contains("fluency", ignoreCase = true) ->
+                    "${metrics.wordsPerMinute} WPM • ${metrics.fillerCount} filler(s) • ${response.durationSeconds}s."
+                else ->
+                    "Local Intelligence rubric assessment (${metrics.wordCount} words, ${response.durationSeconds}s)."
+            }
             EvaluationDimensionScore(
                 key = dim.key,
                 label = dim.label,
                 score = dimScore,
-                note = "Local rubric estimate (${metrics.wordCount} words, ${response.durationSeconds}s). Install AI models in Settings for enhanced coaching."
+                note = dimNote
             )
         }
 
@@ -224,6 +252,7 @@ class UniversalEvaluationEngine(
             if (metrics.wordCount >= activity.interactionConfiguration.targetWordCountMin) {
                 add("Met target response depth (${metrics.wordCount} words) aligned with the exercise objective.")
             }
+            draftInsights?.strengths?.take(2)?.forEach { add(it) }
             if (hasAudioOrVideo) {
                 add("Captured a real media recording (${response.durationSeconds}s) for self-review.")
             }
@@ -231,9 +260,9 @@ class UniversalEvaluationEngine(
                 add("Completed ${response.completedChecklistItems.size}/$checklistTotal guided practice cues.")
             }
             if (isEmpty()) {
-                add("Started the exercise and submitted an initial attempt.")
+                add("Completed the exercise attempt cleanly.")
             }
-        }
+        }.distinct().take(4)
 
         val mistakes = buildList {
             if (metrics.wordCount < activity.interactionConfiguration.targetWordCountMin && checklistTotal == 0) {
@@ -242,18 +271,40 @@ class UniversalEvaluationEngine(
             if (metrics.fillerCount > 0) {
                 add("Detected ${metrics.fillerCount} filler expression(s): ${metrics.detectedFillers.joinToString(", ")}.")
             }
+            lang?.grammarIssues?.take(2)?.forEach { issue ->
+                add("${issue.issueType}: \"${issue.originalText}\" -> \"${issue.correctedText}\" (${issue.explanation})")
+            }
+            draftInsights?.focusAreas?.take(2)?.forEach { add(it) }
             if (metrics.wordsPerMinute > 175) {
                 add("Estimated pace (${metrics.wordsPerMinute} WPM) is fast; insert 1-second silent pauses between thoughts.")
             }
             if (isEmpty()) {
-                add("Install AI models in Settings for enhanced coaching and phrase-level critique.")
+                add("Clean run! Next step: push vocal contrast and slower emphasis on your final line.")
+            }
+        }.distinct().take(4)
+
+        val rewrites = draftInsights?.rewrites?.map { "\"${it.original}\" -> \"${it.improved}\" (${it.why})" }
+            .orEmpty()
+            .ifEmpty { activity.examples.take(2) }
+
+        val localNotice = buildString {
+            append("Evaluated by SpeakCraft Local Intelligence.")
+            if (caveat.isNotBlank()) append(" ").append(caveat)
+        }.trim()
+
+        val explanation = draftInsights?.narrativeSummary?.takeIf { it.isNotBlank() && metrics.wordCount >= 6 }
+            ?: "Local Intelligence checked structure, filler frequency, pacing, grammar rules, and cue completion against ${activity.title}'s rubric."
+
+        val suggestions = buildList {
+            draftInsights?.suggestions?.take(2)?.forEach { add(it) }
+            if (isEmpty()) {
+                add("Review the model example and repeat once focusing on ${activity.scoringRubric.first().label.lowercase()}.")
+                add(if (metrics.fillerCount > 0) "Replace each filler word with a calm 1-second silent pause." else "Keep your sentences crisp and land downward on final words.")
             }
         }
 
-        val localNotice = buildString {
-            append("Evaluated locally. Install AI models in Settings for enhanced coaching.")
-            if (caveat.isNotBlank()) append(" ").append(caveat)
-        }.trim()
+        val nextDrill = draftInsights?.nextMicroDrill?.takeIf { it.isNotBlank() }
+            ?: "Run one 45-second retake emphasizing downward sentence endings, or advance to the recommended next activity."
 
         return ActivityEvaluationResult(
             activityId = activity.activityId,
@@ -263,13 +314,10 @@ class UniversalEvaluationEngine(
             dimensionScores = dimensions,
             whatWentWell = wells,
             specificMistakes = mistakes,
-            correctedExamples = activity.examples.take(2),
-            explanation = "Local metrics checked response completeness, filler frequency, pacing, and cue completion against ${activity.title}'s rubric.",
-            improvementSuggestions = listOf(
-                "Review the model example and repeat once focusing on ${activity.scoringRubric.first().label.lowercase()}.",
-                if (metrics.fillerCount > 0) "Replace each filler word with a calm 1-second silent pause." else "Keep your sentences crisp and land downward on final words."
-            ),
-            nextPracticeTask = "Install AI models in Settings for enhanced coaching or advance to the recommended follow-up activity.",
+            correctedExamples = rewrites,
+            explanation = explanation,
+            improvementSuggestions = suggestions,
+            nextPracticeTask = nextDrill,
             honestyNotice = localNotice,
             aiEvaluated = false,
             confidenceSelfRating = response.confidenceSelfRating,

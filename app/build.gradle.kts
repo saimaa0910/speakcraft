@@ -130,8 +130,9 @@ dependencies {
   implementation(libs.okhttp)
   implementation(libs.androidx.datastore.preferences)
 
-  // Firebase Auth, Firestore & App Check + Credential Manager Google Sign-In
+  // Firebase Auth, Firestore, AI Logic & App Check + Credential Manager Google Sign-In
   implementation(platform(libs.firebase.bom))
+  implementation(libs.firebase.ai)
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.auth)
   implementation(libs.firebase.appcheck.recaptcha)

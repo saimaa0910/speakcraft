@@ -35,8 +35,16 @@ class UpdateAndAdminViewModel(
     private val youtubeClient: YouTubeIntelligenceClient,
     private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val currentUserId: String,
-    private val githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient()
+    private val githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient(),
+    private val hybridCoordinator: com.example.data.ai.HybridAiCoachCoordinator? = null
 ) : ViewModel() {
+
+    private val effectiveCoordinator: com.example.data.ai.HybridAiCoachCoordinator by lazy {
+        hybridCoordinator ?: com.example.data.ai.HybridAiCoachCoordinator(
+            localOrchestrator = localOrchestrator,
+            prefsRepo = prefsRepo
+        )
+    }
 
     @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
     constructor(
@@ -344,7 +352,7 @@ class UpdateAndAdminViewModel(
                 var savedCount = 0
                 audit.videos.forEach { video ->
                     val techniques = if (video.extractionStatus != "INACCESSIBLE") {
-                        localOrchestrator.extractYouTubeLessons(
+                        effectiveCoordinator.extractYouTubeLessons(
                             videoId = video.videoId,
                             videoTitle = video.title,
                             videoUrl = video.videoUrl,

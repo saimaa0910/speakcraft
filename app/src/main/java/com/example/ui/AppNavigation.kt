@@ -318,7 +318,12 @@ private fun AuthenticatedAppShell(
         factory = viewModelFactory {
             initializer {
                 checkNotNull(this[APPLICATION_KEY])
-                MainCoachViewModel(container.repository, container.localIntelligenceOrchestrator, userId)
+                MainCoachViewModel(
+                    repository = container.repository,
+                    localOrchestrator = container.localIntelligenceOrchestrator,
+                    currentUserId = userId,
+                    hybridCoordinator = container.hybridAiCoordinator
+                )
             }
         }
     )
@@ -329,9 +334,10 @@ private fun AuthenticatedAppShell(
             initializer {
                 checkNotNull(this[APPLICATION_KEY])
                 SpeakingAndLabsViewModel(
-                    container.repository,
-                    container.localIntelligenceOrchestrator,
-                    container.audioRecorderManager
+                    repository = container.repository,
+                    localOrchestrator = container.localIntelligenceOrchestrator,
+                    audioManager = container.audioRecorderManager,
+                    hybridCoordinator = container.hybridAiCoordinator
                 )
             }
         }
@@ -347,7 +353,9 @@ private fun AuthenticatedAppShell(
                     localOrchestrator = container.localIntelligenceOrchestrator,
                     youtubeClient = container.youtubeClient,
                     appContext = context.applicationContext,
-                    currentUserId = userId
+                    currentUserId = userId,
+                    hybridCoordinator = container.hybridAiCoordinator,
+                    prefsRepo = container.preferencesRepository
                 )
             }
         }
@@ -366,7 +374,8 @@ private fun AuthenticatedAppShell(
                     youtubeClient = container.youtubeClient,
                     localOrchestrator = container.localIntelligenceOrchestrator,
                     currentUserId = userId,
-                    githubReleaseClient = container.githubReleaseClient
+                    githubReleaseClient = container.githubReleaseClient,
+                    hybridCoordinator = container.hybridAiCoordinator
                 )
             }
         }
@@ -382,7 +391,8 @@ private fun AuthenticatedAppShell(
                     activityEngine = container.activityEngine,
                     localOrchestrator = container.localIntelligenceOrchestrator,
                     audioRecorder = container.audioRecorderManager,
-                    userId = userId
+                    userId = userId,
+                    hybridCoordinator = container.hybridAiCoordinator
                 )
             }
         }
@@ -903,7 +913,17 @@ private fun AuthenticatedAppShell(
                                         onCompleteDailyTask = { taskId ->
                                             learningProgressManager.completeDailyTask(taskId)
                                         },
-                                        onOpenProfile = { navigateTo("profile") }
+                                        onOpenProfile = { navigateTo("profile") },
+                                        cloudAiEnabled = prefs.cloudAiEnabled,
+                                        onQuickAskMentor = { promptText ->
+                                            coachVm.askMentor(
+                                                profile = profile,
+                                                sessions = sessions,
+                                                feedbackList = feedbackList,
+                                                question = promptText
+                                            )
+                                            navigateTo("ai_mentor")
+                                        }
                                     )
                                 }
                                 composable("daily_practice") {
@@ -933,7 +953,11 @@ private fun AuthenticatedAppShell(
                                         onReviewCard = { seed, existing, ok -> mainVm.reviewVocabularyCard(seed, existing, ok) },
                                         onEvaluateUsage = { seed, existing, sent -> mainVm.evaluateVocabUsage(seed, existing, sent) },
                                         onSaveCustomWord = { w, m, l, e, n -> mainVm.saveCustomVocabularyWord(w, m, l, e, n) },
-                                        onClearEval = { mainVm.clearVocabEval() }
+                                        onClearEval = { mainVm.clearVocabEval() },
+                                        cloudAiEnabled = prefs.cloudAiEnabled,
+                                        onToggleCloudAi = { enabled ->
+                                            scope.launch { prefsRepo.setCloudAiEnabled(enabled) }
+                                        }
                                     )
                                 }
                                 composable("speaking_lab") {
@@ -1044,7 +1068,8 @@ private fun AuthenticatedAppShell(
                                         coachVm = coachVm,
                                         profile = profile,
                                         sessions = sessions,
-                                        feedbackList = feedbackList
+                                        feedbackList = feedbackList,
+                                        ttsHelper = ttsHelper
                                     )
                                 }
                                 composable("app_updates") {
@@ -1090,6 +1115,12 @@ private fun AuthenticatedAppShell(
                                                 tutorialStateManager.resetUserTutorials(userId)
                                                 navigateTo("dashboard")
                                             }
+                                        },
+                                        onSetCloudAiEnabled = { enabled ->
+                                            scope.launch { prefsRepo.setCloudAiEnabled(enabled) }
+                                        },
+                                        onSetCloudAiModelTier = { tier ->
+                                            scope.launch { prefsRepo.setCloudAiModelTier(tier) }
                                         }
                                     )
                                 }

@@ -80,8 +80,22 @@ class ActivityEngineViewModel(
     private val localOrchestrator: LocalIntelligenceOrchestrator? = null,
     val audioRecorder: AudioRecorderManager?,
     private val userId: String,
-    @Suppress("UNUSED_PARAMETER", "DEPRECATION") geminiCoach: com.example.data.ai.GeminiCoachService? = null
+    @Suppress("UNUSED_PARAMETER", "DEPRECATION") geminiCoach: com.example.data.ai.GeminiCoachService? = null,
+    private val hybridCoordinator: com.example.data.ai.HybridAiCoachCoordinator? = null
 ) : ViewModel() {
+
+    private val effectiveCoordinator: com.example.data.ai.HybridAiCoachCoordinator? by lazy {
+        hybridCoordinator ?: localOrchestrator?.let { com.example.data.ai.HybridAiCoachCoordinator(it) }
+    }
+
+    val cloudAiEnabled: StateFlow<Boolean> = (effectiveCoordinator?.cloudAiEnabledFlow ?: kotlinx.coroutines.flow.flowOf(false))
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setCloudAiEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            effectiveCoordinator?.setCloudAiEnabled(enabled)
+        }
+    }
 
     val todayDateKey: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
 
@@ -303,13 +317,25 @@ class ActivityEngineViewModel(
         viewModelScope.launch {
             val scenario = "${activity.title}: ${activity.interactionConfiguration.dialoguePartnerRole.ifBlank { activity.description }}"
             val pairs = historyBefore.map { it.role to it.text }
-            val reply = localOrchestrator?.generateConversationTurn(scenario, userLevel, pairs, clean)?.getOrNull()
-                ?: "That makes sense! Could you share one specific example or next step?"
-            _activeState.update { state ->
-                state.copy(
-                    dialogueTurns = state.dialogueTurns + DialogueTurn("model", reply),
-                    dialogueReplyLoading = false
-                )
+            val result = effectiveCoordinator?.generateConversationTurn(scenario, userLevel, pairs, clean)
+            if (result != null && result.isFailure) {
+                val msg = result.exceptionOrNull()?.localizedMessage
+                    ?: "Cloud AI dialogue failed. Retry or switch to Local Intelligence."
+                _activeState.update { state ->
+                    state.copy(
+                        dialogueReplyLoading = false,
+                        validationError = msg
+                    )
+                }
+            } else {
+                val reply = result?.getOrNull()
+                    ?: "That makes sense! Could you share one specific example or next step?"
+                _activeState.update { state ->
+                    state.copy(
+                        dialogueTurns = state.dialogueTurns + DialogueTurn("model", reply),
+                        dialogueReplyLoading = false
+                    )
+                }
             }
         }
     }
@@ -349,15 +375,27 @@ class ActivityEngineViewModel(
 
         viewModelScope.launch {
             val existingProgress = progressList.value.firstOrNull { it.activityId == activity.activityId }
-            val outcome = activityEngine.evaluateAndBuildOutcome(
-                userId = userId,
-                activity = activity,
-                response = userResponse,
-                existingProgress = existingProgress,
-                allProgress = progressList.value,
-                recentAttempts = attemptHistory.value,
-                todayDateKey = todayDateKey
-            )
+            val outcome = try {
+                activityEngine.evaluateAndBuildOutcome(
+                    userId = userId,
+                    activity = activity,
+                    response = userResponse,
+                    existingProgress = existingProgress,
+                    allProgress = progressList.value,
+                    recentAttempts = attemptHistory.value,
+                    todayDateKey = todayDateKey
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _activeState.update {
+                    it.copy(
+                        stage = ActivitySessionStage.Active,
+                        validationError = e.localizedMessage ?: "Cloud AI evaluation failed. Retry or switch to Local Intelligence in Settings."
+                    )
+                }
+                return@launch
+            }
 
             // Update local shadow immediately
             _localProgress.update { current ->

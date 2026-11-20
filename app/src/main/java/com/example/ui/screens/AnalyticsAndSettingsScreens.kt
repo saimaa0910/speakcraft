@@ -23,11 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -397,7 +399,9 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     firstUseTutorialsEnabled: Boolean = prefs.firstUseTutorialsEnabled,
     onToggleFirstUseTutorials: (Boolean) -> Unit = {},
-    onReplayTutorials: () -> Unit = {}
+    onReplayTutorials: () -> Unit = {},
+    onSetCloudAiEnabled: (Boolean) -> Unit = {},
+    onSetCloudAiModelTier: (String) -> Unit = {}
 ) {
     val ext = MaterialTheme.speakCraftColors
     var apiKeyDraft by remember(prefs.youtubeApiKey) { mutableStateOf(prefs.youtubeApiKey) }
@@ -553,6 +557,89 @@ fun SettingsScreen(
             }
         }
 
+        val aiIntelligenceCard: @Composable () -> Unit = {
+            val tierLabel = when (prefs.cloudAiModelTier) {
+                "deep" -> "Deep Coaching (Gemini 4 Argon)"
+                "fast" -> "Fast (Gemini 3.5 Flash-Lite)"
+                else -> "Balanced (Gemini 3.8 Flash)"
+            }
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(
+                    1.dp,
+                    if (prefs.cloudAiEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SettingsCardHeader(
+                        icon = if (prefs.cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                        tint = MaterialTheme.colorScheme.primary,
+                        bg = MaterialTheme.colorScheme.primaryContainer,
+                        title = "AI Coaching Engine"
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (prefs.cloudAiEnabled) MaterialTheme.colorScheme.primaryContainer else ext.infoContainer
+                    ) {
+                        Text(
+                            text = if (prefs.cloudAiEnabled) {
+                                "Active Engine: Cloud AI Coach • $tierLabel"
+                            } else {
+                                "Active Engine: On-Device Local Intelligence (Private & Offline)"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (prefs.cloudAiEnabled) MaterialTheme.colorScheme.onPrimaryContainer else ext.info,
+                            modifier = Modifier
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .testTag("settings_ai_engine_status")
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("Enable Cloud AI Coach (Gemini)", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Uses Firebase AI Logic for multimodal audio/video coaching, Gemini Live voice calls, deep YouTube extraction, and AI Mentor streaming. When off, SpeakCraft runs upgraded On-Device Local Intelligence.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = prefs.cloudAiEnabled,
+                            onCheckedChange = onSetCloudAiEnabled,
+                            modifier = Modifier.testTag("settings_cloud_ai_switch")
+                        )
+                    }
+
+                    Text("Cloud Model Tier", style = MaterialTheme.typography.titleSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        listOf(
+                            "balanced" to "Balanced (3.8 Flash)",
+                            "deep" to "Deep (4 Argon)",
+                            "fast" to "Fast (3.5 Lite)"
+                        ).forEach { (tierKey, label) ->
+                            FilterChip(
+                                selected = prefs.cloudAiModelTier == tierKey,
+                                enabled = prefs.cloudAiEnabled,
+                                onClick = { onSetCloudAiModelTier(tierKey) },
+                                label = { Text(label) },
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("settings_ai_tier_$tierKey")
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         val integrationsCard: @Composable () -> Unit = {
             Card(
                 shape = MaterialTheme.shapes.large,
@@ -567,7 +654,7 @@ fun SettingsScreen(
                         title = "Integrations & Keystore Protection"
                     )
                     Text(
-                        "• AI Coaching: Active via Firebase AI Logic (Gemini 3.8 Flash, no API key needed).\n" +
+                        "• AI Engine: Dual-mode Hybrid Intelligence (Cloud AI Coach via Firebase AI Logic with App Check when enabled; On-Device Local Intelligence by default—no API key needed).\n" +
                             "• YouTube Channel Audit: Uses live public RSS feeds & timedtext captions automatically. Optional YouTube Data API v3 key is encrypted at rest with Android Keystore.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -648,6 +735,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
+                            aiIntelligenceCard()
                             updatesCard()
                             integrationsCard()
                         }
@@ -661,6 +749,7 @@ fun SettingsScreen(
                     }
                 }
             } else {
+                item { aiIntelligenceCard() }
                 item { updatesCard() }
                 item { appearanceAndTutorialsCard() }
                 item { integrationsCard() }

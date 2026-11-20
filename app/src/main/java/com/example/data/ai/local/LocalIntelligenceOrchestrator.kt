@@ -10,6 +10,7 @@ import com.example.data.ai.local.audio.FillerWordDetectionEngine
 import com.example.data.ai.local.audio.PronunciationAnalysisEngine
 import com.example.data.ai.local.audio.SpeechRecognitionManager
 import com.example.data.ai.local.fusion.MultimodalFeatureFusionEngine
+import com.example.data.ai.local.language.DynamicLocalCoachEngine
 import com.example.data.ai.local.language.LocalFeedbackEngine
 import com.example.data.ai.local.language.LocalFeedbackEvidence
 import com.example.data.ai.local.language.LocalLanguageAnalysisEngine
@@ -368,94 +369,107 @@ class LocalIntelligenceOrchestrator(
             LocalExecutionPolicy.verifyLocalOnly()
 
             val turnNumber = historyPairs.count { it.first.equals("user", ignoreCase = true) } + 1
+            val priorPartnerTexts = historyPairs
+                .filter { !it.first.equals("user", ignoreCase = true) }
+                .map { it.second.lowercase() }
+            val priorTopics = historyPairs
+                .filter { it.first.equals("user", ignoreCase = true) }
+                .flatMap { extractTopKeywords(it.second) }
+                .distinct()
+
             val cleanMsg = userMessage.trim()
             val words = LocalLanguageAnalysisEngine.tokenizeWords(cleanMsg)
             val fillers = FillerWordDetectionEngine.detect(cleanMsg)
             val lang = LocalLanguageAnalysisEngine.analyze(cleanMsg)
+            val draftInsights = DynamicLocalCoachEngine.analyzeUserDraft(cleanMsg, scenario)
             val isQuestion = cleanMsg.endsWith("?") ||
                 Regex("^(what|why|how|when|where|who|can|could|would|do|does|did|is|are|should)\\b", RegexOption.IGNORE_CASE)
                     .containsMatchIn(cleanMsg)
             val hasMetric = Regex("\\b\\d+(%|\\s*(percent|days|weeks|months|years|hours|people|users|million|thousand|x))\\b", RegexOption.IGNORE_CASE)
                 .containsMatchIn(cleanMsg)
             val keywords = extractTopKeywords(cleanMsg)
-            val primaryTopic = keywords.firstOrNull()
+            val novelTopic = keywords.firstOrNull { it !in priorTopics }
+            val primaryTopic = novelTopic ?: keywords.firstOrNull()
             val secondaryTopic = keywords.getOrNull(1)
             val scenarioKey = scenario.lowercase()
 
-            // 1. Genuine contextual response to what the learner actually said
+            // 1. Genuine contextual response referencing earlier thread & current input
+            val continuityBridge = if (priorTopics.isNotEmpty() && novelTopic != null && turnNumber >= 2) {
+                "Building on what you shared earlier about ${priorTopics.first()}, connecting that to $novelTopic adds helpful context. "
+            } else ""
+
             val responseLead = when {
                 isQuestion && primaryTopic != null ->
-                    "Great question about $primaryTopic — from my side, clarity on the goal and next step matters most."
+                    "${continuityBridge}Great question about $primaryTopic — from my perspective, aligning on the core outcome and timeline matters most."
                 isQuestion ->
-                    "That's a thoughtful question — I'd focus on the practical impact and a clear timeline."
+                    "${continuityBridge}That's a fair question — I'd focus on the practical impact and who owns the next step."
                 hasMetric && primaryTopic != null ->
-                    "Adding concrete numbers around $primaryTopic immediately makes your point more persuasive."
+                    "${continuityBridge}Anchoring $primaryTopic with concrete numbers immediately makes your point credible."
                 words.size < 6 ->
-                    "Thanks for starting with that — try expanding it into a fuller thought with a brief reason."
+                    "${continuityBridge}I hear you — could you unpack that into two clear sentences with a quick reason?"
                 primaryTopic != null && secondaryTopic != null ->
-                    "You connected $primaryTopic and $secondaryTopic clearly — that gives me a solid picture."
+                    "${continuityBridge}You linked $primaryTopic and $secondaryTopic cleanly, which clarifies your reasoning."
                 primaryTopic != null ->
-                    "That's a strong angle on $primaryTopic."
+                    "${continuityBridge}That's a focused angle on $primaryTopic."
                 else ->
-                    "I hear your point clearly."
+                    "${continuityBridge}I see where you're heading with that."
             }
 
-            // 2. Scenario-adaptive, non-repetitive follow-up question
-            val followUp = when {
-                scenarioKey.contains("interview") -> when {
-                    !hasMetric && turnNumber == 1 ->
-                        "Could you share a specific measurable result or outcome from that experience?"
-                    turnNumber == 1 ->
-                        "What was the hardest trade-off you had to navigate while delivering that result?"
-                    turnNumber == 2 ->
-                        "How did you handle pushback or align someone who initially disagreed with your approach?"
-                    turnNumber == 3 ->
-                        "Looking back, what single lesson from that moment still shapes how you work today?"
-                    else ->
-                        "To close cleanly, what impact would you want to make in your first 90 days here?"
-                }
-                scenarioKey.contains("meeting") || scenarioKey.contains("workplace") || scenarioKey.contains("manager") -> when (turnNumber) {
-                    1 -> if (primaryTopic != null) {
-                        "Regarding $primaryTopic, what specific decision or resource do you need from the team right now?"
-                    } else {
-                        "What is the single highest-priority decision we need to lock in before this meeting ends?"
-                    }
-                    2 -> "If we commit to that plan today, what risk or dependency should we flag early?"
-                    else -> "Can you recap the owner, deadline, and next milestone in one crisp sentence?"
-                }
-                scenarioKey.contains("negotiat") || scenarioKey.contains("client") || scenarioKey.contains("disagree") -> when (turnNumber) {
-                    1 -> "I appreciate your perspective, though we have tight constraints on scope and schedule. How could we test a smaller first phase?"
-                    2 -> "What evidence or past outcome shows that this option protects both teams' goals?"
-                    else -> "What mutual next step feels fair to both sides so we can move forward today?"
-                }
-                scenarioKey.contains("small talk") || scenarioKey.contains("network") || scenarioKey.contains("casual") || scenarioKey.contains("introducing") -> when (turnNumber) {
-                    1 -> if (primaryTopic != null) {
-                        "That sounds interesting! What first sparked your interest in $primaryTopic?"
-                    } else {
-                        "That sounds genuinely interesting — what got you into that?"
-                    }
-                    2 -> "What has been the most rewarding or surprising part of it for you lately?"
-                    else -> "I've really enjoyed chatting — what's one thing you're excited to explore next?"
-                }
-                else -> when (turnNumber) {
-                    1 -> if (primaryTopic != null) {
-                        "Can you walk me through a concrete real-life moment involving $primaryTopic?"
-                    } else {
-                        "Can you back that up with one vivid example from your own experience?"
-                    }
-                    2 -> "What made that moment memorable, and how did others react?"
-                    else -> "How would you sum up your core message in one memorable closing line?"
-                }
+            // 2. Candidate follow-up prompts filtered so partner never asks an already-asked question
+            val candidates: List<String> = when {
+                scenarioKey.contains("interview") -> listOf(
+                    if (!hasMetric) "What measurable result or number best captures the impact of that work?"
+                    else "What was the toughest trade-off you navigated while delivering that outcome?",
+                    "How did you handle pushback or align a stakeholder who saw things differently?",
+                    "Looking back, what single lesson from that experience shapes your approach today?",
+                    "If you stepped into this role tomorrow, what would be your top 30-day priority?"
+                )
+                scenarioKey.contains("meeting") || scenarioKey.contains("workplace") || scenarioKey.contains("manager") -> listOf(
+                    if (primaryTopic != null) "Regarding $primaryTopic, what concrete decision or blocker should we resolve in this meeting?"
+                    else "What is the single highest-priority decision we need to lock in before this meeting wraps?",
+                    "What risk or dependency could slow down that plan over the next two weeks?",
+                    "If resources stay tight, what scope option would you protect first?",
+                    "Can you summarize the owner, milestone, and target date in one crisp sentence?"
+                )
+                scenarioKey.contains("negotiat") || scenarioKey.contains("client") || scenarioKey.contains("disagree") -> listOf(
+                    "I appreciate your reasoning, though timeline pressure is real on our side. How could we pilot a smaller first step?",
+                    "What evidence or earlier success gives you confidence that this approach holds up?",
+                    "Where do you see genuine common ground we both agree on right now?",
+                    "What mutual next step feels realistic so both teams leave aligned today?"
+                )
+                scenarioKey.contains("small talk") || scenarioKey.contains("network") || scenarioKey.contains("casual") || scenarioKey.contains("introducing") -> listOf(
+                    if (primaryTopic != null) "That sounds intriguing! What first sparked your interest in $primaryTopic?"
+                    else "That sounds genuinely interesting — what first got you started with it?",
+                    "What has been the most rewarding or surprising part of it for you lately?",
+                    "Have you picked up any favorite books, projects, or habits around that recently?",
+                    "I've really enjoyed catching up — what are you most looking forward to next month?"
+                )
+                else -> listOf(
+                    if (primaryTopic != null) "Could you share a specific real-life moment involving $primaryTopic?"
+                    else "Could you ground that in one concrete example from your week?",
+                    "What shifted for you when you handled it that way?",
+                    "How would someone on the outside summarize your main takeaway from that moment?",
+                    "In one clear closing sentence, what is the big idea you want listeners to keep?"
+                )
             }
 
-            // 3. Subtle inline local coaching tip when helpful (never noisy)
+            val followUp = candidates.firstOrNull { candidate ->
+                val stem = candidate.lowercase().take(28)
+                priorPartnerTexts.none { prev -> prev.contains(stem) }
+            } ?: candidates[(turnNumber - 1).coerceIn(0, candidates.lastIndex)]
+
+            // 3. Targeted inline coaching tip using LocalLanguageAnalysisEngine + DynamicLocalCoachEngine
             val inlineTip = when {
                 lang.grammarIssues.isNotEmpty() -> {
                     val issue = lang.grammarIssues.first()
                     "\n\n[Coach tip: Try \"${issue.correctedText}\" instead of \"${issue.originalText}\".]"
                 }
+                draftInsights.discourse.hedgesDetected.isNotEmpty() -> {
+                    val hedge = draftInsights.discourse.hedgesDetected.first()
+                    "\n\n[Coach tip: Dropping softeners like \"$hedge\" makes your point land with more conviction.]"
+                }
                 fillers.totalFillerCount >= 2 ->
-                    "\n\n[Coach tip: ${fillers.totalFillerCount} filler words spotted (${fillers.detectedFillers.keys.take(2).joinToString()}). Try a 1-second silent pause instead.]"
+                    "\n\n[Coach tip: ${fillers.totalFillerCount} filler expressions spotted (${fillers.detectedFillers.keys.take(2).joinToString()}). Try a 1-second silent pause instead.]"
                 userLevel.equals("Beginner", ignoreCase = true) || userLevel.equals("Elementary", ignoreCase = true) ->
                     "\n\n[Tip: Aim for 2 short, clear sentences using Point + Example.]"
                 else -> ""
@@ -520,7 +534,9 @@ class LocalIntelligenceOrchestrator(
         profile: UserProfile?,
         recentSessions: List<SpeakingSession>,
         recentFeedback: List<SpeechFeedback> = emptyList(),
-        userQuestion: String
+        userQuestion: String,
+        history: List<Pair<String, String>> = emptyList(),
+        roleKey: String = "mentor"
     ): Flow<String> = flow {
         LocalExecutionPolicy.verifyLocalOnly()
 
@@ -529,109 +545,193 @@ class LocalIntelligenceOrchestrator(
         val goal = profile?.primaryGoal?.takeIf { it.isNotBlank() } ?: "confident communication"
         val weakest = identifyWeakestSkill(profile)
         val strongest = identifyStrongestSkill(profile)
-        val q = userQuestion.lowercase()
+        val cleanQuestion = extractCurrentTurnText(userQuestion)
+        val q = cleanQuestion.lowercase()
+        val isFollowUp = history.count { it.first.equals("user", ignoreCase = true) } >= 1
 
         // Compute real session analytics trends
         val avgWpm = recentSessions.mapNotNull { it.wordsPerMinute.takeIf { w -> w > 0 } }
             .takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+        val latestSession = recentSessions.firstOrNull()
+        val previousSession = recentSessions.getOrNull(1)
+        val latestComposite = latestSession?.let {
+            ((it.fluencyScore + it.grammarScore + it.vocabularyScore + it.articulationScore) / 4.0).roundToInt()
+        }
+        val prevComposite = previousSession?.let {
+            ((it.fluencyScore + it.grammarScore + it.vocabularyScore + it.articulationScore) / 4.0).roundToInt()
+        }
+        val compositeDelta = if (latestComposite != null && prevComposite != null) latestComposite - prevComposite else null
+
         val recentFillers = recentSessions.take(5).flatMap { it.fillerWordsDetected }
             .groupingBy { it.lowercase() }.eachCount()
             .entries.sortedByDescending { it.value }.take(3)
         val recurringMistakes = recentSessions.take(5).flatMap { it.mistakes }
             .filter { it.isNotBlank() }.distinct().take(2)
+        val recentUpgrades = recentSessions.take(3).flatMap { it.betterAlternatives }
+            .filter { it.isNotBlank() }.distinct().take(2)
+
+        // Check if the learner pasted a sentence/speech draft for direct rewriting & critique
+        val pastedDraft = extractDraftForCritique(cleanQuestion)
+        val isQuickCoach = roleKey.equals("quick_coach", ignoreCase = true)
+
+        val roleHeader = when (roleKey.lowercase()) {
+            "analyst" -> "SpeakCraft Data Analyst ($level • Goal: $goal)"
+            "interviewer" -> "Executive & Interview Coach ($level • Goal: $goal)"
+            "quick_coach" -> "Quick Action Coach ($level)"
+            else -> "Personal Communication Mentor ($level • Goal: $goal)"
+        }
 
         val response = buildString {
-            appendLine("Hi $name — here is your personalized on-device SpeakCraft guidance ($level • Goal: $goal):")
+            if (!isFollowUp) {
+                appendLine("Hi $name — $roleHeader:")
+            } else {
+                appendLine("Following up ($roleHeader):")
+            }
             appendLine()
 
-            when {
-                q.contains("mistake") || q.contains("fix") || q.contains("weak") || q.contains("improve") -> {
-                    appendLine("1. Your Top Priorities From Real Practice Data")
+            if (pastedDraft != null) {
+                val lang = LocalLanguageAnalysisEngine.analyze(pastedDraft)
+                val draftInsights = DynamicLocalCoachEngine.analyzeUserDraft(pastedDraft, "Mentor Draft Review")
+                val cleanedGrammar = LocalLanguageAnalysisEngine.applyCorrections(pastedDraft, lang.grammarIssues)
+
+                appendLine("1. Direct Line-by-Line Upgrade For Your Draft")
+                appendLine("• Intent detected: ${draftInsights.discourse.intent.label.replaceFirstChar { it.uppercase() }} (${LocalLanguageAnalysisEngine.tokenizeWords(pastedDraft).size} words)")
+                if (lang.grammarIssues.isNotEmpty()) {
+                    lang.grammarIssues.take(3).forEach { issue ->
+                        appendLine("• Grammar polish (${issue.issueType}): \"${issue.originalText}\" -> \"${issue.correctedText}\" (${issue.explanation})")
+                    }
+                } else {
+                    appendLine("• Grammar check: Clean subject-verb control and natural tense framing.")
+                }
+                if (draftInsights.rewrites.isNotEmpty()) {
+                    val topRewrite = draftInsights.rewrites.first()
+                    appendLine("• Executive spoken rewrite: \"${topRewrite.improved}\"")
+                    appendLine("• Why this works: ${topRewrite.why}")
+                } else if (!cleanedGrammar.equals(pastedDraft, ignoreCase = true)) {
+                    appendLine("• Polished version: \"$cleanedGrammar\"")
+                }
+                if (!isQuickCoach) {
+                    if (draftInsights.focusAreas.isNotEmpty()) {
+                        appendLine("• Next refinement: ${draftInsights.focusAreas.first()}")
+                    }
+                    appendLine("• Try now: ${draftInsights.nextMicroDrill}")
+                }
+            } else when {
+                roleKey.equals("analyst", ignoreCase = true) ||
+                    q.contains("mistake") || q.contains("fix") || q.contains("weak") || q.contains("improve") || q.contains("score") -> {
+                    appendLine("1. Data-Driven Priorities From Your Practice History")
+                    if (latestComposite != null) {
+                        val trendText = when {
+                            compositeDelta != null && compositeDelta > 0 -> " (+$compositeDelta pts vs prior session)"
+                            compositeDelta != null && compositeDelta < 0 -> " ($compositeDelta pts vs prior session)"
+                            else -> ""
+                        }
+                        appendLine("• Latest composite delivery score: $latestComposite/100$trendText.")
+                    }
                     if (recurringMistakes.isNotEmpty()) {
-                        recurringMistakes.forEach { appendLine("• Observed issue: $it") }
+                        recurringMistakes.forEach { appendLine("• Recurring observation: $it") }
                     } else {
-                        appendLine("• Priority skill right now: ${weakest.first} (${weakest.second}/100) vs your strength in ${strongest.first} (${strongest.second}/100).")
+                        appendLine("• Biggest growth lever: ${weakest.first} (${weakest.second}/100) vs top strength in ${strongest.first} (${strongest.second}/100).")
                     }
                     if (recentFillers.isNotEmpty()) {
-                        appendLine("• Most frequent fillers: ${recentFillers.joinToString(", ") { "\"${it.key}\" (${it.value}x)" }} — replace each with a 1-second silent breath.")
+                        appendLine("• Most frequent fillers: ${recentFillers.joinToString(", ") { "\"${it.key}\" (${it.value}x)" }} — replace each with a 1-second silent pause.")
                     }
                     if (avgWpm != null) {
                         val paceDiagnosis = when {
-                            avgWpm > 175 -> "Your average pace ($avgWpm WPM) is rushing slightly — pause 1s between ideas to drop into 135–155 WPM."
-                            avgWpm < 105 -> "Your average pace ($avgWpm WPM) is quite slow — practice 60s continuous flow drills to build momentum."
-                            else -> "Your average pace ($avgWpm WPM) sits right in the clear 120–165 WPM zone."
+                            avgWpm > 175 -> "Your average pace ($avgWpm WPM) runs fast — pause 1s between ideas to settle near 140–155 WPM."
+                            avgWpm < 105 -> "Your average pace ($avgWpm WPM) is very slow — run a 60s flow sprint to raise momentum."
+                            else -> "Your average pace ($avgWpm WPM) lands squarely inside the crisp 120–165 WPM target zone."
                         }
-                        appendLine("• Pacing check: $paceDiagnosis")
+                        appendLine("• Pacing metric: $paceDiagnosis")
+                    }
+                    if (!isQuickCoach && recentUpgrades.isNotEmpty()) {
+                        appendLine("• Saved phrasing upgrade to rehearse: ${recentUpgrades.first()}")
+                    }
+                }
+                roleKey.equals("interviewer", ignoreCase = true) ||
+                    q.contains("interview") || q.contains("meeting") || q.contains("work") || q.contains("career") -> {
+                    appendLine("1. Executive & Interview Delivery Upgrade")
+                    appendLine("• Open with the headline outcome in the first 10 seconds, then unpack STAR (Situation, Task, Action, measurable Result).")
+                    appendLine("• Cut softeners like 'I kind of think' or 'maybe' — lead with 'I recommend...' or 'Our data showed...'")
+                    if (!isQuickCoach) {
+                        appendLine("• Keep answers to 60–75 seconds cleanly ending on downward vocal inflection.")
+                        appendLine("• Tip: Paste your exact interview answer here anytime and I'll tighten every sentence locally.")
                     }
                 }
                 q.contains("fluency") || q.contains("pace") || q.contains("fast") || q.contains("slow") || q.contains("filler") -> {
-                    appendLine("1. Control Speaking Pace & Fluency")
-                    if (avgWpm != null) appendLine("• Your recent average pace is $avgWpm WPM (target sweet spot: 130–160 WPM).")
-                    appendLine("• Replace filler words ('um', 'uh', 'like') by closing your lips for one silent beat while forming your next thought.")
-                    appendLine("• Practice the PREP frame (Point → Reason → Example → Point) in a 60-second sprint so your mind always knows where the sentence goes next.")
+                    appendLine("1. Control Speaking Pace & Flow")
+                    if (avgWpm != null) appendLine("• Your recent average pace is $avgWpm WPM (sweet spot: 130–160 WPM).")
+                    appendLine("• Replace filler habits ('um', 'uh', 'like') by closing your lips for one clean silent beat between thoughts.")
+                    if (!isQuickCoach) {
+                        appendLine("• Practice the PREP frame (Point -> Reason -> Example -> Point) in a 60-second sprint so your next sentence is always anchored.")
+                    }
                 }
                 q.contains("pronun") || q.contains("articulat") || q.contains("accent") || q.contains("clear") -> {
-                    appendLine("1. Sharpen Pronunciation & Articulation")
-                    appendLine("• Warm up for 2 minutes with lip trills, jaw relaxation, and crisp final consonants (t, d, k, p).")
-                    appendLine("• Slow down by 15% on multi-syllable words and stress the primary syllable clearly.")
-                    appendLine("• Focus on intelligibility and steady rhythm — clear syllable separation matters far more than erasing your natural accent.")
+                    appendLine("1. Enunciation & Vocal Projection")
+                    appendLine("• Warm up for 90 seconds with lip trills, jaw drops, and crisp final consonants (t, d, k, p).")
+                    appendLine("• Slow by 15% on multi-syllable keywords and land primary stress cleanly rather than rushing endings.")
+                    if (!isQuickCoach) {
+                        appendLine("• Clarity and steady breath support outweigh erasing your natural accent.")
+                    }
                 }
                 q.contains("grammar") || q.contains("sentence") || q.contains("tense") -> {
-                    appendLine("1. Clean Spoken Grammar & Sentence Clarity")
-                    appendLine("• Keep spoken sentences between 10 and 18 words so subject-verb agreement and tense stay effortless.")
-                    appendLine("• Anchor stories with one clear time frame (Past Simple for actions + Past Continuous for background).")
-                    appendLine("• Practice 3 original spoken sentences daily in Vocabulary Builder Stage 4 to get instant local grammar feedback.")
+                    appendLine("1. Crisp Spoken Grammar & Phrasing")
+                    appendLine("• Aim for 10–18 word spoken sentences so subject-verb agreement and tense stay effortless.")
+                    appendLine("• Paste any sentence you want checked (e.g., \"Check: Despite of the rain I was agree\") for an instant rewrite and rule breakdown.")
+                    if (!isQuickCoach && langExampleHint(recentUpgrades).isNotBlank()) {
+                        appendLine("• From your recent practice: ${langExampleHint(recentUpgrades)}")
+                    }
                 }
                 q.contains("vocab") || q.contains("word") -> {
-                    appendLine("1. Turn Passive Words Into Active Speaking Vocabulary")
-                    appendLine("• Complete all 5 stages for 2–3 words daily in Vocabulary Builder (Learn → Speak Word → Practice Sentences → Create Own Sentence → Complete).")
-                    appendLine("• Swap vague words ('good', 'thing', 'nice') for precise verbs and collocations during your next 60s recording.")
+                    appendLine("1. Turn Passive Vocabulary Into Active Fluency")
+                    appendLine("• Complete Stages 1–5 for 2–3 words daily in Vocabulary Builder (especially Stage 4 contextual sentence crafting).")
+                    appendLine("• Swap generic fillers ('very good', 'do things') for concrete verbs ('compelling', 'deliver outcomes').")
                 }
                 q.contains("story") || q.contains("persuad") || q.contains("present") || q.contains("public") -> {
-                    appendLine("1. High-Impact Storytelling & Presentations")
-                    appendLine("• Skip 'Today I will talk about...' — open with a bold question, contrast, or specific scene.")
-                    appendLine("• Relive moments with direct dialogue instead of flatly reporting facts.")
-                    appendLine("• Use the Rule of 3 for structure and drop your pitch on the final word of each key takeaway.")
-                }
-                q.contains("interview") || q.contains("meeting") || q.contains("work") || q.contains("career") -> {
-                    appendLine("1. Executive & Interview Readiness")
-                    appendLine("• Answer behavioral questions in 60–75 seconds using STAR (Situation, Task, Action, Result with a metric).")
-                    appendLine("• Lead meeting updates with the headline decision first, then supporting context.")
-                    appendLine("• Run 3 turns in Conversation Simulation under 'Job interviews' or 'Professional meetings' to sharpen follow-up poise.")
+                    appendLine("1. High-Impact Storytelling & Audience Hook")
+                    appendLine("• Skip 'Today I will talk about...' — open with a vivid moment, question, or stark contrast.")
+                    appendLine("• Use VAKS cues (Visual, Auditory, Kinesthetic sensory detail) and pause 1 full second right before the punchline.")
                 }
                 q.contains("7-day") || q.contains("plan") || q.contains("routine") || q.contains("next lesson") -> {
                     val dailyMins = profile?.dailyGoalMinutes ?: 15L
                     appendLine("1. Personalized 7-Day Plan ($dailyMins min/day • $level)")
-                    appendLine("• Days 1–2: Focus on ${weakest.first} (currently ${weakest.second}/100) + 2 Vocabulary Builder 5-stage words.")
+                    appendLine("• Days 1–2: Target ${weakest.first} (${weakest.second}/100) + 2 Vocabulary Builder 5-stage cards.")
                     appendLine("• Days 3–4: Zero-Filler 60s Sprint + PREP clarity drills with Live Speech Capture.")
-                    appendLine("• Days 5–6: Conversation Simulation (3+ turns) + Shadowing cadence drill.")
-                    appendLine("• Day 7: Record a 90-second self-review clip and compare WPM and filler count against Day 1.")
+                    if (!isQuickCoach) {
+                        appendLine("• Days 5–6: Conversation Simulator (3+ turns in '${goal.take(28)}') + Shadowing cadence drill.")
+                        appendLine("• Day 7: Record a 90-second self-review clip and compare WPM and filler drops against Day 1.")
+                    }
                 }
                 else -> {
-                    appendLine("1. Actionable Coaching For Your Question")
-                    appendLine("• Lead with your core takeaway in the first 10 seconds, then back it up with one real example.")
-                    appendLine("• Pair 1-second silent pauses with steady breath support and calm downward endings.")
-                    appendLine("• Complete today's personalized practice plan (targeting ${weakest.first}) and review one short recording locally.")
+                    val keywords = extractTopKeywords(cleanQuestion)
+                    val topicHint = keywords.firstOrNull()?.let { " around \"$it\"" }.orEmpty()
+                    appendLine("1. Focused Coaching Guidance$topicHint")
+                    appendLine("• Lead with your single clearest takeaway in the first 10 seconds, then prove it with one concrete example.")
+                    appendLine("• Target your highest-ROI lever right now: ${weakest.first} (${weakest.second}/100).")
+                    if (!isQuickCoach) {
+                        appendLine("• Tip: Paste any sentence or talk outline here and ask me to 'Rewrite this' for direct line-by-line coaching.")
+                    }
                 }
             }
 
-            appendLine()
-            appendLine("2. Snapshot From Your Profile")
-            appendLine("• Strongest skill: ${strongest.first} (${strongest.second}/100) • Focus lever: ${weakest.first} (${weakest.second}/100)")
-            if (recentSessions.isNotEmpty()) {
-                val latest = recentSessions.first()
-                appendLine("• Latest recording '${latest.promptTitle}': fluency ${latest.fluencyScore}/100, grammar ${latest.grammarScore}/100, pace ${latest.wordsPerMinute} WPM.")
-            } else {
-                appendLine("• Record a quick 30-second clip in Speaking Lab to unlock trend tracking across pace, fillers, and clarity.")
-            }
-            if (recentFeedback.isNotEmpty()) {
-                val topNext = recentFeedback.first().nextRecommendedActivity
-                if (topNext.isNotBlank()) {
-                    appendLine("• Recommended next drill: $topNext")
+            if (!isQuickCoach) {
+                appendLine()
+                appendLine("2. Your Live SpeakCraft Baseline")
+                appendLine("• Strongest skill: ${strongest.first} (${strongest.second}/100) • Next milestone: ${weakest.first} (${weakest.second}/100)")
+                if (latestSession != null) {
+                    appendLine("• Latest recording '${latestSession.promptTitle}': fluency ${latestSession.fluencyScore}/100, grammar ${latestSession.grammarScore}/100, pace ${latestSession.wordsPerMinute} WPM.")
+                } else {
+                    appendLine("• Record one 30-second clip in Speaking Lab to unlock pace, filler, and clarity trendlines.")
+                }
+                if (recentFeedback.isNotEmpty()) {
+                    val topNext = recentFeedback.first().nextRecommendedActivity
+                    if (topNext.isNotBlank()) {
+                        appendLine("• Recommended next drill: $topNext")
+                    }
                 }
             }
             appendLine()
-            append("100% On-Device SpeakCraft Local Intelligence — private, offline, zero cloud AI.")
+            append("On-Device SpeakCraft Local Intelligence • Fast, private, deterministic coaching.")
         }
 
         val chunks = response.chunked(56)
@@ -640,6 +740,43 @@ class LocalIntelligenceOrchestrator(
             delay(4L)
         }
     }
+
+    private fun extractCurrentTurnText(rawPrompt: String): String {
+        val marker = "Follow-up question:"
+        val idx = rawPrompt.lastIndexOf(marker, ignoreCase = true)
+        return if (idx >= 0) rawPrompt.substring(idx + marker.length).trim() else rawPrompt.trim()
+    }
+
+    private fun extractDraftForCritique(question: String): String? {
+        val trimmed = question.trim()
+        val quoted = Regex("\"([^\"]{12,400})\"").find(trimmed)?.groupValues?.getOrNull(1)
+        if (!quoted.isNullOrBlank()) return quoted.trim()
+
+        val colonIdx = trimmed.indexOf(':')
+        if (colonIdx in 2..40) {
+            val prefix = trimmed.substring(0, colonIdx).lowercase()
+            val after = trimmed.substring(colonIdx + 1).trim()
+            if (after.length >= 12 &&
+                (prefix.contains("rewrite") || prefix.contains("check") || prefix.contains("improve") ||
+                    prefix.contains("correct") || prefix.contains("fix") || prefix.contains("draft") || prefix.contains("polish"))
+            ) {
+                return after
+            }
+        }
+        val startsWithCommand = Regex(
+            "^(rewrite|check|improve|correct|polish|edit)\\s+(?:my\\s+)?(?:sentence|speech|line|answer|intro|draft)?\\s*(.+)$",
+            RegexOption.IGNORE_CASE
+        ).find(trimmed)
+        val commandPayload = startsWithCommand?.groupValues?.getOrNull(2)?.trim()
+        if (!commandPayload.isNullOrBlank() && LocalLanguageAnalysisEngine.tokenizeWords(commandPayload).size >= 5) {
+            return commandPayload
+        }
+        val sentenceLikeWords = LocalLanguageAnalysisEngine.tokenizeWords(trimmed).size
+        val isGenericQuestion = trimmed.endsWith("?") && sentenceLikeWords <= 14
+        return if (sentenceLikeWords >= 16 && !isGenericQuestion) trimmed else null
+    }
+
+    private fun langExampleHint(upgrades: List<String>): String = upgrades.firstOrNull().orEmpty()
 
     // ─────────────────────────────────────────────────────────────────────────
     // 5. Local YouTube Lesson & Technique Extractor
@@ -677,30 +814,37 @@ class LocalIntelligenceOrchestrator(
             val sourceText = (transcriptText?.takeIf { it.isNotBlank() } ?: description).trim()
             val candidateSentences = sourceText
                 .split(Regex("[.!?\\n]+"))
-                .map { it.trim() }
-                .filter { it.length in 35..220 }
+                .map { it.replace(Regex("^\\s*(?:\\[?\\d{1,2}:\\d{2}\\]?\\s*[-–:]?\\s*)"), "").trim() }
+                .filter { it.length in 30..240 }
+                .filterNot { it.startsWith("subscribe", ignoreCase = true) || it.startsWith("http", ignoreCase = true) }
                 .distinct()
-                .take(3)
+                .take(5)
 
             val techniques = if (candidateSentences.isNotEmpty()) {
                 candidateSentences.mapIndexed { idx, insight ->
+                    val shortCue = insight.split(Regex("[,;:]")).firstOrNull()?.take(48)?.trim().orEmpty()
+                    val drillTitle = if (shortCue.length >= 16) {
+                        shortCue.replaceFirstChar { it.uppercase() }
+                    } else {
+                        "${videoTitle.take(36).trim()} — Drill ${idx + 1}"
+                    }
                     ExtractedTechnique(
                         videoId = videoId,
-                        title = "${videoTitle.take(42).trim()} — Drill ${idx + 1}",
+                        title = drillTitle,
                         category = category,
                         difficulty = difficulty,
                         creatorAdvice = insight,
-                        aiExplanation = "Extracted locally from video metadata/transcript to build actionable $category habits.",
+                        aiExplanation = "Creator-attributed $category habit: practicing this explicitly locks in clearer vocal phrasing and listener engagement.",
                         originalContext = videoTitle,
-                        instructions = "1. Read the key cue aloud.\n2. Record a 45-second response applying it intentionally.\n3. Review playback for vocal clarity and steady pauses.",
-                        practicalExercise = "Record a 45-second clip practicing: $insight",
-                        expectedOutcome = "Stronger $category control with measurable delivery consistency.",
+                        instructions = "1. Read the creator insight aloud twice.\n2. Record a 45–60s spoken take putting it into your own example.\n3. Compare your second take for deliberate pauses and energy shifts.",
+                        practicalExercise = "Record a 60-second response applying: \"$insight\"",
+                        expectedOutcome = "Noticeably stronger $category control and steadier phrasing.",
                         suggestedDurationMinutes = 5L,
-                        commonMistake = "Rushing through the key point without pausing for emphasis.",
-                        correction = "Pause for 1 full second before and after your main takeaway.",
+                        commonMistake = "Knowing the concept intellectually without vocalizing it cleanly under real speaking tempo.",
+                        correction = "Anchor this drill with a deliberate 1-second breath pause right before your key point.",
                         sourceVideoTitle = videoTitle,
                         sourceVideoUrl = videoUrl,
-                        timestampLabel = "00:${String.format("%02d", idx * 15)}",
+                        timestampLabel = String.format("%02d:%02d", (idx * 45) / 60, (idx * 45) % 60),
                         isCreatorDerived = true,
                         moderationStatus = "PUBLISHED"
                     )

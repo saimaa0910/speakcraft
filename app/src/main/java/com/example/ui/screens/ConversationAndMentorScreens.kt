@@ -27,16 +27,25 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,6 +59,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,6 +96,7 @@ private fun bubbleShapeFor(isUser: Boolean): RoundedCornerShape = if (isUser) {
     RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConversationSimulatorScreen(
     coachVm: InteractiveCoachViewModel,
@@ -98,18 +109,42 @@ fun ConversationSimulatorScreen(
     val turns by coachVm.chatTurns.collectAsStateWithLifecycle()
     val isPartnerTyping by coachVm.isPartnerTyping.collectAsStateWithLifecycle()
     val coachDebrief by coachVm.coachDebrief.collectAsStateWithLifecycle()
+    val conversationError by coachVm.conversationError.collectAsStateWithLifecycle()
+    val cloudAiEnabled by coachVm.cloudAiEnabled.collectAsStateWithLifecycle()
+    val voiceLiveActive by coachVm.voiceLiveActive.collectAsStateWithLifecycle()
+    val voiceLiveStatus by coachVm.voiceLiveStatus.collectAsStateWithLifecycle()
+    val voiceAutoSpeak by coachVm.voiceAutoSpeak.collectAsStateWithLifecycle()
     val isDictating by ttsHelper.isListening.collectAsStateWithLifecycle()
 
     var messageInput by remember { mutableStateOf("") }
     var voiceStatus by remember { mutableStateOf<String?>(null) }
+    var voiceModeEnabled by remember { mutableStateOf(false) }
     var pendingScenarioSwitch by remember { mutableStateOf<String?>(null) }
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) {
-            ttsHelper.startDictation(
-                onResult = { spoken -> messageInput = spoken },
-                onError = { err -> voiceStatus = err }
-            )
+            if (voiceModeEnabled && cloudAiEnabled) {
+                coachVm.startCloudLiveVoiceCall(userLevel) { }
+            } else {
+                ttsHelper.startDictation(
+                    onResult = { spoken ->
+                        if (voiceModeEnabled) {
+                            coachVm.sendConversationMessage(spoken, userLevel) { reply ->
+                                if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
+                            }
+                        } else {
+                            messageInput = spoken
+                        }
+                    },
+                    onError = { err -> voiceStatus = err }
+                )
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            coachVm.stopVoiceLiveSession()
         }
     }
 
@@ -212,11 +247,35 @@ fun ConversationSimulatorScreen(
                         }
                     }
 
+                    if (conversationError != null) {
+                        item {
+                            ErrorRecoveryCard(
+                                message = conversationError.orEmpty(),
+                                onRetry = {
+                                    coachVm.retryLastConversationMessage { reply ->
+                                        if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
+                                    }
+                                },
+                                secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
+                                onSecondaryAction = if (cloudAiEnabled) {
+                                    { coachVm.setCloudAiEnabled(false) }
+                                } else null
+                            )
+                        }
+                    }
+
                     if (!tier.isExpandedTablet) {
                         item {
                             when (val debrief = coachDebrief) {
                                 is UiState.Loading -> CircularProgressIndicator()
-                                is UiState.Error -> ErrorRecoveryCard(debrief.message)
+                                is UiState.Error -> ErrorRecoveryCard(
+                                    message = debrief.message,
+                                    onRetry = { coachVm.requestCoachCheckInAndSave(userLevel) },
+                                    secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
+                                    onSecondaryAction = if (cloudAiEnabled) {
+                                        { coachVm.setCloudAiEnabled(false) }
+                                    } else null
+                                )
                                 is UiState.Success -> {
                                     Card(
                                         shape = MaterialTheme.shapes.large,
@@ -236,6 +295,104 @@ fun ConversationSimulatorScreen(
 
                 if (voiceStatus != null) {
                     Text(voiceStatus.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+
+                if (voiceModeEnabled) {
+                    Card(
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (voiceLiveActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                            else MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(
+                            1.2.dp,
+                            if (voiceLiveActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        Icons.Default.GraphicEq,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Column {
+                                        Text(
+                                            text = if (cloudAiEnabled) "Gemini Live Voice Call" else "Local Hands-Free Voice Loop",
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        Text(
+                                            text = voiceLiveStatus,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                            Button(
+                                onClick = {
+                                    voiceStatus = null
+                                    if (voiceLiveActive) {
+                                        coachVm.stopVoiceLiveSession()
+                                        ttsHelper.stopSpeaking()
+                                    } else {
+                                        val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                        if (!ok) {
+                                            micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                        } else if (cloudAiEnabled) {
+                                            coachVm.startCloudLiveVoiceCall(userLevel) { }
+                                        } else {
+                                            coachVm.setLocalVoiceCallState(true, "Listening for your spoken turn...")
+                                            ttsHelper.startDictation(
+                                                onResult = { spoken ->
+                                                    coachVm.setLocalVoiceCallState(false, "Partner replying...")
+                                                    coachVm.sendConversationMessage(spoken, userLevel) { reply ->
+                                                        if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
+                                                        coachVm.setLocalVoiceCallState(false, "Ready for next voice turn")
+                                                    }
+                                                },
+                                                onError = { err ->
+                                                    coachVm.setLocalVoiceCallState(false, "Ready for Voice Call")
+                                                    voiceStatus = err
+                                                }
+                                            )
+                                        }
+                                    }
+                                },
+                                colors = if (voiceLiveActive) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("conversation_live_call_button")
+                            ) {
+                                Icon(
+                                    if (voiceLiveActive) Icons.Default.CallEnd else Icons.Default.Call,
+                                    contentDescription = null
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    when {
+                                        voiceLiveActive -> "End Voice Call"
+                                        cloudAiEnabled -> "Start Gemini Live Voice Call"
+                                        else -> "Speak Voice Turn"
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Surface(
@@ -284,7 +441,7 @@ fun ConversationSimulatorScreen(
                                 val msg = messageInput
                                 messageInput = ""
                                 coachVm.sendConversationMessage(msg, userLevel) { reply ->
-                                    ttsHelper.speak(reply, ttsRate)
+                                    if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
                                 }
                             },
                             modifier = Modifier
@@ -322,8 +479,59 @@ fun ConversationSimulatorScreen(
         ) {
             SectionHeader(
                 title = "Conversation Simulator",
-                subtitle = "Adaptive $userLevel dialogue • Natural flow without mid-chat interruptions"
+                subtitle = "Adaptive $userLevel dialogue • ${if (cloudAiEnabled) "Cloud Gemini + Live Voice" else "On-Device Local AI"}"
             )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
+            ) {
+                FilterChip(
+                    selected = cloudAiEnabled,
+                    onClick = { coachVm.setCloudAiEnabled(!cloudAiEnabled) },
+                    leadingIcon = {
+                        Icon(
+                            if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("conversation_cloud_toggle_chip")
+                )
+                FilterChip(
+                    selected = voiceModeEnabled,
+                    onClick = {
+                        voiceModeEnabled = !voiceModeEnabled
+                        if (!voiceModeEnabled) {
+                            coachVm.stopVoiceLiveSession()
+                        }
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                    label = { Text(if (voiceModeEnabled) "Live Voice Mode" else "Text + Voice") },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("conversation_voice_live_toggle")
+                )
+                FilterChip(
+                    selected = voiceAutoSpeak,
+                    onClick = { coachVm.setVoiceAutoSpeak(!voiceAutoSpeak) },
+                    leadingIcon = {
+                        Icon(
+                            if (voiceAutoSpeak) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    label = { Text(if (voiceAutoSpeak) "Auto-Speak On" else "Muted Replies") },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("conversation_autospeak_toggle")
+                )
+            }
             FeatureGuideStrip(featureKey = "conversation")
 
             if (tier.isExpandedTablet) {
@@ -361,7 +569,14 @@ fun ConversationSimulatorScreen(
                             item {
                                 when (val debrief = coachDebrief) {
                                     is UiState.Loading -> CircularProgressIndicator()
-                                    is UiState.Error -> ErrorRecoveryCard(debrief.message)
+                                    is UiState.Error -> ErrorRecoveryCard(
+                                        message = debrief.message,
+                                        onRetry = { coachVm.requestCoachCheckInAndSave(userLevel) },
+                                        secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
+                                        onSecondaryAction = if (cloudAiEnabled) {
+                                            { coachVm.setCloudAiEnabled(false) }
+                                        } else null
+                                    )
                                     is UiState.Success -> {
                                         Card(
                                             shape = MaterialTheme.shapes.large,
@@ -421,14 +636,35 @@ fun AiMentorScreen(
     coachVm: InteractiveCoachViewModel,
     profile: UserProfile?,
     sessions: List<SpeakingSession>,
-    feedbackList: List<SpeechFeedback> = emptyList()
+    feedbackList: List<SpeechFeedback> = emptyList(),
+    ttsHelper: TtsAndSpeechHelper? = null
 ) {
+    val context = LocalContext.current
     val mentorMessages by coachVm.mentorMessages.collectAsStateWithLifecycle()
     val isResponding by coachVm.isMentorResponding.collectAsStateWithLifecycle()
     val mentorError by coachVm.mentorError.collectAsStateWithLifecycle()
+    val cloudAiEnabled by coachVm.cloudAiEnabled.collectAsStateWithLifecycle()
+    val selectedRole by coachVm.selectedMentorRole.collectAsStateWithLifecycle()
 
     var question by remember { mutableStateOf("") }
+    var voiceNoteError by remember { mutableStateOf<String?>(null) }
     var showClearConfirm by remember { mutableStateOf(false) }
+
+    val mentorMicLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && ttsHelper != null) {
+            ttsHelper.startDictation(
+                onResult = { spoken -> question = spoken },
+                onError = { err -> voiceNoteError = err }
+            )
+        }
+    }
+
+    val roleOptions = listOf(
+        "mentor" to "Mentor",
+        "analyst" to "Data Analyst",
+        "interviewer" to "Interview Coach",
+        "quick_coach" to "Quick Coach"
+    )
 
     val quickPrompts = listOf(
         "Create my personalized 7-day improvement plan",
@@ -459,7 +695,7 @@ fun AiMentorScreen(
                 .fillMaxSize()
                 .widthIn(max = containerMaxWidth)
                 .padding(SpeakCraftSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
+            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
         ) {
             Surface(
                 shape = MaterialTheme.shapes.large,
@@ -475,31 +711,61 @@ fun AiMentorScreen(
                         Image(
                             painter = painterResource(R.drawable.img_mentor_avatar),
                             contentDescription = "SpeakCraft AI Mentor emblem",
-                            modifier = Modifier.size(50.dp).clip(CircleShape),
+                            modifier = Modifier.size(48.dp).clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("Personalized AI Mentor", style = MaterialTheme.typography.headlineMedium)
                             Text(
-                                "Grounded in @askvinh • ${sessions.size} sessions synced",
+                                "${if (cloudAiEnabled) "Cloud Gemini" else "Local AI"} • ${sessions.size} sessions synced",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    if (mentorMessages.size > 1) {
-                        TextButton(
-                            onClick = { showClearConfirm = true },
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilterChip(
+                            selected = cloudAiEnabled,
+                            onClick = { coachVm.setCloudAiEnabled(!cloudAiEnabled) },
+                            leadingIcon = {
+                                Icon(
+                                    if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            label = { Text(if (cloudAiEnabled) "Cloud" else "Local AI") },
                             modifier = Modifier
                                 .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("mentor_clear_thread_button")
-                        ) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Clear")
+                                .testTag("mentor_cloud_toggle_chip")
+                        )
+                        if (mentorMessages.size > 1) {
+                            TextButton(
+                                onClick = { showClearConfirm = true },
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("mentor_clear_thread_button")
+                            ) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Clear")
+                            }
                         }
                     }
+                }
+            }
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                items(roleOptions) { (roleKey, roleLabel) ->
+                    FilterChip(
+                        selected = selectedRole == roleKey,
+                        onClick = { coachVm.setMentorRole(roleKey) },
+                        label = { Text(roleLabel) },
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            .testTag("mentor_role_chip_$roleKey")
+                    )
                 }
             }
 
@@ -580,15 +846,28 @@ fun AiMentorScreen(
 
                 if (isResponding) {
                     item {
-                        AnimatedThinkingDots(label = "Reviewing your scores and @askvinh curriculum...")
+                        AnimatedThinkingDots(
+                            label = if (cloudAiEnabled) "Streaming Cloud Gemini coaching..." else "Analyzing scores with Local AI..."
+                        )
                     }
                 }
 
                 if (mentorError != null) {
                     item {
-                        ErrorRecoveryCard(mentorError.orEmpty())
+                        ErrorRecoveryCard(
+                            message = mentorError.orEmpty(),
+                            onRetry = { coachVm.retryLastMentorQuestion() },
+                            secondaryActionLabel = if (cloudAiEnabled) "Use Local AI" else null,
+                            onSecondaryAction = if (cloudAiEnabled) {
+                                { coachVm.setCloudAiEnabled(false) }
+                            } else null
+                        )
                     }
                 }
+            }
+
+            if (voiceNoteError != null) {
+                Text(voiceNoteError.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
 
             Surface(
@@ -602,10 +881,31 @@ fun AiMentorScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
                 ) {
+                    if (ttsHelper != null) {
+                        IconButton(
+                            onClick = {
+                                voiceNoteError = null
+                                val hasMic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                if (hasMic) {
+                                    ttsHelper.startDictation(
+                                        onResult = { spoken -> question = spoken },
+                                        onError = { err -> voiceNoteError = err }
+                                    )
+                                } else {
+                                    mentorMicLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = SpeakCraftSpacing.minTouchTarget, minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("mentor_voice_input_button")
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = "Dictate question", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                     OutlinedTextField(
                         value = question,
                         onValueChange = { question = it },
-                        label = { Text("Ask your communication mentor...") },
+                        label = { Text("Ask or paste any draft for instant rewrite...") },
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.weight(1f).testTag("mentor_question_input")
                     )

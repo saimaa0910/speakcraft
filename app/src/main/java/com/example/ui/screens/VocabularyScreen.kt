@@ -22,10 +22,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -57,6 +60,7 @@ import com.example.data.model.UiState
 import com.example.data.model.VocabSeed
 import com.example.data.model.VocabularyEntry
 import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.SpeakCraftSpacing
@@ -72,7 +76,9 @@ fun VocabularyScreen(
     onReviewCard: (VocabSeed, VocabularyEntry?, Boolean) -> Unit,
     onEvaluateUsage: (VocabSeed, VocabularyEntry?, String) -> Unit,
     onSaveCustomWord: (word: String, meaning: String, level: String, example: String, note: String) -> Unit,
-    onClearEval: () -> Unit
+    onClearEval: () -> Unit,
+    cloudAiEnabled: Boolean = false,
+    onToggleCloudAi: ((Boolean) -> Unit)? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -302,7 +308,35 @@ fun VocabularyScreen(
                                 verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
                             ) {
                                 item {
-                                    SectionHeader("Contextual Usage Assessment", "Use the word naturally in a real conversation—not rote memorization")
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            SectionHeader(
+                                                "Contextual Usage Assessment",
+                                                "Use the word naturally in a real conversation"
+                                            )
+                                        }
+                                        if (onToggleCloudAi != null) {
+                                            FilterChip(
+                                                selected = cloudAiEnabled,
+                                                onClick = { onToggleCloudAi(!cloudAiEnabled) },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                },
+                                                label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
+                                                modifier = Modifier
+                                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                                    .testTag("vocabulary_cloud_toggle_chip")
+                                            )
+                                        }
+                                    }
                                 }
                                 item {
                                     Card(
@@ -348,7 +382,17 @@ fun VocabularyScreen(
                                 item {
                                     when (vocabEvalState) {
                                         is UiState.Loading -> CircularProgressIndicator()
-                                        is UiState.Error -> Text(vocabEvalState.message, color = MaterialTheme.colorScheme.error)
+                                        is UiState.Error -> ErrorRecoveryCard(
+                                            message = vocabEvalState.message,
+                                            onRetry = { onEvaluateUsage(target, existing, sentenceInput) },
+                                            secondaryActionLabel = if (cloudAiEnabled && onToggleCloudAi != null) "Switch to Local AI" else null,
+                                            onSecondaryAction = if (cloudAiEnabled && onToggleCloudAi != null) {
+                                                {
+                                                    onClearEval()
+                                                    onToggleCloudAi(false)
+                                                }
+                                            } else null
+                                        )
                                         is UiState.Success -> {
                                             val r = vocabEvalState.data
                                             Card(

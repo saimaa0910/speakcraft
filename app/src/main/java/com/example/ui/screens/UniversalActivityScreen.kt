@@ -21,17 +21,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -52,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.activity.ActivityDefinition
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.ui.components.ActivityStructuredFeedbackCard
+import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.ExerciseTemplateInteractionPanel
 import com.example.ui.components.SeparateConfidenceSliderCard
 import com.example.ui.theme.SpeakCraftSpacing
@@ -75,6 +79,7 @@ fun ActivityScreen(
 
     val uiState by vm.activeState.collectAsStateWithLifecycle()
     val savedList by vm.savedActivities.collectAsStateWithLifecycle()
+    val cloudAiEnabled by vm.cloudAiEnabled.collectAsStateWithLifecycle()
     val isAudioRecording by (vm.audioRecorder?.isRecording?.collectAsStateWithLifecycle() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) })
     val amplitude by (vm.audioRecorder?.amplitude?.collectAsStateWithLifecycle() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) })
 
@@ -209,6 +214,33 @@ fun ActivityScreen(
                                     MetaBadge(activity.exerciseType.displayName, ext.pastelMintBg, ext.pastelMintInk)
                                 }
 
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Evaluator: ${if (cloudAiEnabled) "Cloud Gemini AI" else "Local Intelligence"}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    FilterChip(
+                                        selected = cloudAiEnabled,
+                                        onClick = { vm.setCloudAiEnabled(!cloudAiEnabled) },
+                                        leadingIcon = {
+                                            Icon(
+                                                if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
+                                        modifier = Modifier
+                                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                            .testTag("activity_cloud_toggle_chip")
+                                    )
+                                }
+
                                 // Progress & Live Timer Strip
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Row(
@@ -341,18 +373,14 @@ fun ActivityScreen(
 
                             if (!uiState.validationError.isNullOrBlank()) {
                                 item {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.errorContainer,
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = uiState.validationError.orEmpty(),
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.padding(12.dp)
-                                        )
-                                    }
+                                    ErrorRecoveryCard(
+                                        message = uiState.validationError.orEmpty(),
+                                        onRetry = { vm.submitActiveResponse() },
+                                        secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
+                                        onSecondaryAction = if (cloudAiEnabled) {
+                                            { vm.setCloudAiEnabled(false) }
+                                        } else null
+                                    )
                                 }
                             }
 

@@ -36,7 +36,10 @@ data class AppPreferences(
     val hasCompletedInitialLaunch: Boolean = false,
     val githubReleaseRepo: String = "",
     val fontScalePreference: Float = 1.0f,
-    val reducedMotion: Boolean = false
+    val reducedMotion: Boolean = false,
+    val cloudAiEnabled: Boolean = false,
+    val cloudAiModelTier: String = "balanced",
+    val voiceAutoSpeakEnabled: Boolean = true
 )
 
 private object KeystoreCipherHelper {
@@ -107,6 +110,9 @@ class AppPreferencesRepository(private val context: Context) {
     private val githubReleaseRepoKey = stringPreferencesKey("github_release_repo")
     private val fontScaleKey = floatPreferencesKey("font_scale_preference")
     private val reducedMotionKey = booleanPreferencesKey("reduced_motion")
+    private val cloudAiEnabledKey = booleanPreferencesKey("cloud_ai_enabled")
+    private val cloudAiModelTierKey = stringPreferencesKey("cloud_ai_model_tier")
+    private val voiceAutoSpeakKey = booleanPreferencesKey("voice_auto_speak_enabled")
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
         val theme = enumValues<ThemePreference>().firstOrNull { it.name == prefs[themeKey] }
@@ -117,6 +123,7 @@ class AppPreferencesRepository(private val context: Context) {
         val channel = prefs[updateChannelKey]?.takeIf { it in listOf("stable", "beta") } ?: defaultChannel
         val defaultRepo = com.example.BuildConfig.GITHUB_RELEASE_REPO
         val storedRepo = prefs[githubReleaseRepoKey].orEmpty().ifBlank { defaultRepo }
+        val modelTier = prefs[cloudAiModelTierKey]?.takeIf { it in listOf("balanced", "deep", "fast") } ?: "balanced"
         AppPreferences(
             themeMode = theme,
             ttsRate = rate,
@@ -130,7 +137,10 @@ class AppPreferencesRepository(private val context: Context) {
             hasCompletedInitialLaunch = prefs[initialLaunchCompletedKey] ?: false,
             githubReleaseRepo = storedRepo,
             fontScalePreference = (prefs[fontScaleKey] ?: 1.0f).coerceIn(0.85f, 1.3f),
-            reducedMotion = prefs[reducedMotionKey] ?: false
+            reducedMotion = prefs[reducedMotionKey] ?: false,
+            cloudAiEnabled = prefs[cloudAiEnabledKey] ?: false,
+            cloudAiModelTier = modelTier,
+            voiceAutoSpeakEnabled = prefs[voiceAutoSpeakKey] ?: true
         )
     }
 
@@ -212,6 +222,25 @@ class AppPreferencesRepository(private val context: Context) {
     suspend fun setReducedMotion(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[reducedMotionKey] = enabled
+        }
+    }
+
+    suspend fun setCloudAiEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[cloudAiEnabledKey] = enabled
+        }
+    }
+
+    suspend fun setCloudAiModelTier(tier: String) {
+        val safe = tier.takeIf { it in listOf("balanced", "deep", "fast") } ?: "balanced"
+        context.dataStore.edit { prefs ->
+            prefs[cloudAiModelTierKey] = safe
+        }
+    }
+
+    suspend fun setVoiceAutoSpeakEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[voiceAutoSpeakKey] = enabled
         }
     }
 }

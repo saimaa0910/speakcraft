@@ -384,6 +384,117 @@ object LocalLanguageAnalysisEngine {
             confidence = 0.90f,
             correctionFn = { m -> "I am ${m.groupValues[2]} ${m.groupValues[3]}" },
             explanationFn = { "Include the linking verb 'am' between 'I' and the adjective phrase." }
+        ),
+
+        // 9. High-Precision Spoken Idioms, Modals, & Countability (SPK / COL)
+        ModularRule(
+            ruleId = "SPK_001",
+            category = "Agreement & Be-Verb",
+            pattern = Regex("\\b(i)\\s+(am)\\s+(agree|disagree|understand|believing|knowing|wanting)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.95f,
+            correctionFn = { m ->
+                val verb = when (m.groupValues[3].lowercase()) {
+                    "believing" -> "believe"; "knowing" -> "know"; "wanting" -> "want"
+                    else -> m.groupValues[3].lowercase()
+                }
+                "I $verb"
+            },
+            explanationFn = { m -> "Action and stative verbs like '${m.groupValues[3]}' do not take 'am' in simple statements ('I ${m.groupValues[3].lowercase()}')." }
+        ),
+        ModularRule(
+            ruleId = "SPK_002",
+            category = "Preposition",
+            pattern = Regex("\\bdespite\\s+of\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.96f,
+            correctionFn = { "despite" },
+            explanationFn = { "Use 'despite' directly without 'of' (or say 'in spite of')." }
+        ),
+        ModularRule(
+            ruleId = "SPK_003",
+            category = "Verb Pattern",
+            pattern = Regex("\\bsuggest\\s+(me|him|her|us|them)\\s+to\\s+([a-z]+)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.94f,
+            correctionFn = { m -> "suggest that ${if (m.groupValues[1].equals("me", true)) "I" else "they"} ${m.groupValues[2]}" },
+            explanationFn = { "After 'suggest', use 'suggest [doing]' or 'suggest that [person] [verb]' rather than 'suggest [person] to [verb]'." }
+        ),
+        ModularRule(
+            ruleId = "SPK_004",
+            category = "Gerund After Preposition",
+            pattern = Regex("\\blook(?:ing)?\\s+forward\\s+to\\s+(meet|see|hear|work|speak|talk|visit|join)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.94f,
+            correctionFn = { m ->
+                val gerund = when (m.groupValues[1].lowercase()) {
+                    "meet" -> "meeting"; "see" -> "seeing"; "hear" -> "hearing"
+                    "work" -> "working"; "speak" -> "speaking"; "talk" -> "talking"
+                    "visit" -> "visiting"; else -> "joining"
+                }
+                "looking forward to $gerund"
+            },
+            explanationFn = { "In 'look forward to', 'to' is a preposition, so follow it with the '-ing' gerund form." }
+        ),
+        ModularRule(
+            ruleId = "SPK_005",
+            category = "Uncountable Noun",
+            pattern = Regex("\\b(informations|advices|equipments|feedbacks|knowledges|researches)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.95f,
+            correctionFn = { m -> m.value.dropLast(1) },
+            explanationFn = { m -> "'${m.value.dropLast(1)}' is uncountable in English — keep it singular without '-s'." }
+        ),
+        ModularRule(
+            ruleId = "SPK_006",
+            category = "Modal Infinitive",
+            pattern = Regex("\\b(can|must|should|might|could|would|will)\\s+to\\s+([a-z]+)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.95f,
+            correctionFn = { m -> "${m.groupValues[1]} ${m.groupValues[2]}" },
+            explanationFn = { m -> "Modal verbs ('${m.groupValues[1]}') are followed directly by the base verb without 'to'." }
+        ),
+        ModularRule(
+            ruleId = "SPK_007",
+            category = "Auxiliary Form",
+            pattern = Regex("\\b(would|could|should|might)\\s+of\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.95f,
+            correctionFn = { m -> "${m.groupValues[1]} have" },
+            explanationFn = { m -> "Use '${m.groupValues[1]} have' (or '${m.groupValues[1]}'ve') instead of '${m.groupValues[1]} of'." }
+        ),
+        ModularRule(
+            ruleId = "SPK_008",
+            category = "Time Preposition",
+            pattern = Regex("\\bsince\\s+(\\d+|two|three|four|five|six|several|many)\\s+(minutes|hours|days|weeks|months|years)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.92f,
+            correctionFn = { m -> "for ${m.groupValues[1]} ${m.groupValues[2]}" },
+            explanationFn = { "Use 'for' before durations of time (e.g., 'for two years'); use 'since' before starting points (e.g., 'since 2022')." }
+        ),
+        ModularRule(
+            ruleId = "SPK_009",
+            category = "Countability Agreement",
+            pattern = Regex("\\bone\\s+of\\s+the\\s+(most\\s+)?(important\\s+|best\\s+|biggest\\s+|main\\s+)?(reason|thing|problem|mistake|skill|way|challenge|question|goal|factor)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.91f,
+            correctionFn = { m ->
+                "one of the ${m.groupValues[1]}${m.groupValues[2]}${m.groupValues[3]}s".replace(Regex("\\s{2,}"), " ")
+            },
+            explanationFn = { m -> "'One of the' refers to a group, so the noun must be plural ('one of the ${m.groupValues[3]}s')." }
+        ),
+        ModularRule(
+            ruleId = "SPK_010",
+            category = "Preposition",
+            pattern = Regex("\\bcomplain\\s+for\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.89f,
+            correctionFn = { "complain about" },
+            explanationFn = { "Use 'complain about [an issue]' in standard spoken English." }
+        ),
+        ModularRule(
+            ruleId = "SPK_011",
+            category = "Singular Quantifier",
+            pattern = Regex("\\b(each|every)\\s+(people|students|persons|team\\s+members|ideas|days)\\s+(have|are|were)\\b", RegexOption.IGNORE_CASE),
+            confidence = 0.90f,
+            correctionFn = { m ->
+                val verb = when (m.groupValues[3].lowercase()) {
+                    "have" -> "has"; "are" -> "is"; else -> "was"
+                }
+                val singularNoun = m.groupValues[2].lowercase().removeSuffix("s").let { if (it == "peopl") "person" else it }
+                "${m.groupValues[1]} $singularNoun $verb"
+            },
+            explanationFn = { m -> "'${m.groupValues[1]}' takes a singular noun and singular verb." }
         )
     )
 

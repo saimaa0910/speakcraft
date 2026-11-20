@@ -375,27 +375,35 @@ object LocalVocabularyEvaluator {
             transcriptConfidence = asrConfidence
         )
 
-        // Check contextual richness: collocations, meaning keywords, adequate clause length
+        // Check contextual richness: collocations, meaning keywords, subordinating/coordinating connectors
         val lower = clean.lowercase()
         val usesCollocation = collocations.any { it.isNotBlank() && lower.contains(it.lowercase()) }
+        val hasRichConnector = Regex(
+            "\\b(because|although|though|while|since|so that|whenever|during|before|after|unless|despite|whereas)\\b",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(lower)
         val meaningTokens = LocalLanguageAnalysisEngine.tokenizeWords(meaning)
             .filter { it.length >= 4 }
             .toSet()
         val contextOverlap = words.count { it in meaningTokens || it in synonyms.map(String::lowercase) }
 
         val completenessScore = when {
-            words.size >= 8 && !isTrivial -> 100
-            words.size in 5..7 && !isTrivial -> 86
-            words.size == 4 && !isTrivial -> 72
+            words.size >= 8 && hasRichConnector && !isTrivial -> 100
+            words.size >= 8 && !isTrivial -> 94
+            words.size in 5..7 && !isTrivial -> 84
+            words.size == 4 && !isTrivial -> 70
             else -> 40
         }
         val grammarScore = (100 - lang.grammarIssues.size * 16).coerceIn(30, 100)
         val contextScore = when {
             !includesTarget -> 15
             isTrivial -> 45
-            usesCollocation -> 98
-            contextOverlap >= 1 || words.size >= 8 -> 88
-            else -> 76
+            usesCollocation && hasRichConnector -> 99
+            usesCollocation -> 95
+            contextOverlap >= 1 && hasRichConnector -> 93
+            contextOverlap >= 1 || (words.size >= 8 && hasRichConnector) -> 89
+            words.size >= 8 -> 84
+            else -> 75
         }
 
         val rawComposite = if (!includesTarget) {
@@ -408,10 +416,15 @@ object LocalVocabularyEvaluator {
             rawComposite >= thresholds.ownSentencePassScore && lang.grammarIssues.size <= 1
 
         val corrected = LocalLanguageAnalysisEngine.applyCorrections(clean, lang.grammarIssues)
-        val naturalSuggestion = if (lang.grammarIssues.isEmpty() && passed) {
-            corrected
-        } else {
-            buildNaturalExample(targetWord, meaning, collocations, exampleFallback)
+        val polishedDraft = DynamicLocalCoachEngine.analyzeUserDraft(corrected, targetWord)
+            .rewrites.firstOrNull()?.improved?.takeIf { !it.equals(corrected, ignoreCase = true) }
+
+        val naturalSuggestion = when {
+            !includesTarget -> buildNaturalExample(targetWord, meaning, collocations, exampleFallback)
+            polishedDraft != null -> polishedDraft
+            lang.grammarIssues.isNotEmpty() -> corrected
+            passed && words.size >= 6 -> corrected
+            else -> buildNaturalExample(targetWord, meaning, collocations, exampleFallback)
         }
 
         val mistakes = buildList {
@@ -421,6 +434,9 @@ object LocalVocabularyEvaluator {
             lang.grammarIssues.forEach { issue ->
                 add("${issue.issueType}: \"${issue.originalText}\" → \"${issue.correctedText}\" (${issue.explanation})")
             }
+            if (includesTarget && !isTrivial && !hasRichConnector && words.size < 9) {
+                add("To elevate naturalness, connect a cause or outcome using 'because', 'while', or 'so that'.")
+            }
         }
 
         val fluencyNote = if (durationSeconds > 0.5 || acousticFeatures != null) {
@@ -428,10 +444,12 @@ object LocalVocabularyEvaluator {
             val wpm = ((words.size / dur.coerceAtLeast(1.0)) * 60.0).roundToInt().coerceIn(40, 280)
             "Spoken clarity: ~$wpm WPM (${words.size} words)."
         } else {
-            "${words.size} words • $difficulty-level evaluation."
+            "${words.size} words • $difficulty-level semantic & grammar evaluation."
         }
 
         val explanation = when {
+            passed && lang.grammarIssues.isEmpty() && (usesCollocation || hasRichConnector) ->
+                "Executive-grade sentence! \"$targetWord\" flows naturally with rich context and clean grammar."
             passed && lang.grammarIssues.isEmpty() ->
                 "Strong original sentence! You used \"$targetWord\" naturally with clean grammar and clear context."
             passed ->

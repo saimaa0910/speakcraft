@@ -672,7 +672,7 @@ fun ActivityStructuredFeedbackCard(
                         color = if (evaluation.passedCriteria) ext.success else MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "${evaluation.evaluatorName} • ${if (evaluation.aiEvaluated) "Gemini AI Coaching" else "Local Rubric Check"}",
+                        text = "${evaluation.evaluatorName} • ${if (evaluation.aiEvaluated) "Cloud Gemini AI" else "Local Intelligence"}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

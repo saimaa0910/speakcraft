@@ -952,10 +952,13 @@ fun AnimatedThinkingDots(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ErrorRecoveryCard(
     message: String,
-    onRetry: (() -> Unit)? = null
+    onRetry: (() -> Unit)? = null,
+    secondaryActionLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
@@ -965,11 +968,28 @@ fun ErrorRecoveryCard(
                 Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
             }
-            if (onRetry != null) {
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                ) { Text("Try Again") }
+            if (onRetry != null || (secondaryActionLabel != null && onSecondaryAction != null)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (onRetry != null) {
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("error_recovery_retry_button")
+                        ) { Text("Try Again") }
+                    }
+                    if (secondaryActionLabel != null && onSecondaryAction != null) {
+                        OutlinedButton(
+                            onClick = onSecondaryAction,
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("error_recovery_secondary_button")
+                        ) { Text(secondaryActionLabel) }
+                    }
+                }
             }
         }
     }

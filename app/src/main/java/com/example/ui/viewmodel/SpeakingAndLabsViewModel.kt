@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.ai.HybridAiCoachCoordinator
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
@@ -14,8 +15,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,7 +29,8 @@ private const val MAX_MEDIA_BYTES = 19 * 1024 * 1024L
 class SpeakingAndLabsViewModel(
     private val repository: SpeakCraftRepository,
     private val localOrchestrator: LocalIntelligenceOrchestrator,
-    val audioManager: AudioRecorderManager
+    val audioManager: AudioRecorderManager,
+    private val hybridCoordinator: HybridAiCoachCoordinator? = null
 ) : ViewModel() {
 
     @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
@@ -39,6 +43,16 @@ class SpeakingAndLabsViewModel(
         localOrchestrator = LocalIntelligenceOrchestrator(audioManager.context),
         audioManager = audioManager
     )
+
+    private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
+        hybridCoordinator ?: HybridAiCoachCoordinator(
+            localOrchestrator = localOrchestrator,
+            appContext = audioManager.context
+        )
+    }
+
+    val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _analysisState = MutableStateFlow<UiState<SpeakingSession>?>(null)
     val analysisState: StateFlow<UiState<SpeakingSession>?> = _analysisState.asStateFlow()
@@ -70,11 +84,59 @@ class SpeakingAndLabsViewModel(
     private val _liveTranscriptConfidence = MutableStateFlow(0.85f)
     val liveTranscriptConfidence: StateFlow<Float> = _liveTranscriptConfidence.asStateFlow()
 
+    private val _isTranscribing = MutableStateFlow(false)
+    val isTranscribing: StateFlow<Boolean> = _isTranscribing.asStateFlow()
+
+    private val _transcriptionError = MutableStateFlow<String?>(null)
+    val transcriptionError: StateFlow<String?> = _transcriptionError.asStateFlow()
+
     var onSessionCompleted: ((SpeakingSession) -> Unit)? = null
 
     fun setLiveTranscript(text: String, confidence: Float = 0.85f) {
         _liveTranscript.value = text
         _liveTranscriptConfidence.value = confidence.coerceIn(0f, 1f)
+    }
+
+    fun setCloudAiEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            effectiveCoordinator.setCloudAiEnabled(enabled)
+        }
+    }
+
+    fun clearTranscriptionError() {
+        _transcriptionError.value = null
+    }
+
+    fun transcribeRecordedMedia(hintPrompt: String = "") {
+        viewModelScope.launch {
+            if (audioManager.isRecording.value) {
+                stopRecording()
+            }
+            val bytes = uploadedMediaBytes ?: audioManager.readRecordedBytes()
+            val path = if (uploadedMediaPath.isNotBlank()) uploadedMediaPath else audioManager.recordedFilePath.value.orEmpty()
+            val mime = if (uploadedMediaBytes != null) uploadedMimeType else "audio/mp4"
+            val file = path.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.exists() }
+            if ((bytes == null || bytes.isEmpty()) && file == null) {
+                _transcriptionError.value = "Record or attach audio first before transcribing."
+                return@launch
+            }
+            _isTranscribing.value = true
+            _transcriptionError.value = null
+            val mediaBytes = bytes ?: withContext(Dispatchers.IO) { file!!.readBytes() }
+            val result = effectiveCoordinator.transcribeAudio(
+                audioBytes = mediaBytes,
+                mimeType = mime,
+                hintPrompt = hintPrompt,
+                mediaFile = file
+            )
+            _isTranscribing.value = false
+            result.onSuccess { text ->
+                _liveTranscript.value = text
+                _liveTranscriptConfidence.value = 0.94f
+            }.onFailure { err ->
+                _transcriptionError.value = err.localizedMessage ?: "Audio transcription failed."
+            }
+        }
     }
 
     private var pendingUnsavedSession: SpeakingSession? = null
@@ -297,7 +359,7 @@ class SpeakingAndLabsViewModel(
             _cloudSyncError.value = null
             pendingUnsavedSession = null
 
-            val analysisResult = localOrchestrator.analyzeSpeechRecording(
+            val analysisResult = effectiveCoordinator.analyzeSpeechRecording(
                 mediaBytes = bytes ?: ByteArray(0),
                 mimeType = mime,
                 moduleType = moduleType,
@@ -321,12 +383,12 @@ class SpeakingAndLabsViewModel(
                 } else {
                     pendingUnsavedSession = session
                     val errDetail = saveRes.exceptionOrNull()?.localizedMessage ?: "Firestore unreachable"
-                    _cloudSyncError.value = "Local AI feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
+                    _cloudSyncError.value = "Coaching feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
                     _analysisState.value = UiState.Success(session)
                     onSessionCompleted?.invoke(session)
                 }
             }.onFailure { err ->
-                _analysisState.value = UiState.Error(err.localizedMessage ?: "Local AI speech analysis failed.")
+                _analysisState.value = UiState.Error(err.localizedMessage ?: "Speech analysis failed.")
             }
         }
     }

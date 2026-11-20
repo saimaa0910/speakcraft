@@ -159,7 +159,9 @@ fun DashboardScreen(
     learningSnapshot: PersistedLearningSnapshot? = null,
     reducedMotion: Boolean = false,
     onCompleteDailyTask: (String) -> Unit = {},
-    onOpenProfile: () -> Unit = { onNavigate("settings") }
+    onOpenProfile: () -> Unit = { onNavigate("settings") },
+    cloudAiEnabled: Boolean = false,
+    onQuickAskMentor: (String) -> Unit = { onNavigate("ai_mentor") }
 ) {
     val ext = MaterialTheme.speakCraftColors
     var reportPeriod by remember { mutableStateOf("Weekly") }
@@ -456,7 +458,9 @@ fun DashboardScreen(
                     ) {
                         InlineAiMentorCard(
                             onOpenMentor = { onNavigate("ai_mentor") },
-                            modifier = Modifier.weight(1.0f)
+                            modifier = Modifier.weight(1.0f),
+                            cloudAiEnabled = cloudAiEnabled,
+                            onAskPrompt = onQuickAskMentor
                         )
                         QuickAccessPastelGrid(
                             columns = 4,
@@ -550,7 +554,11 @@ fun DashboardScreen(
                 }
 
                 item {
-                    InlineAiMentorCard(onOpenMentor = { onNavigate("ai_mentor") })
+                    InlineAiMentorCard(
+                        onOpenMentor = { onNavigate("ai_mentor") },
+                        cloudAiEnabled = cloudAiEnabled,
+                        onAskPrompt = onQuickAskMentor
+                    )
                 }
 
                 item {

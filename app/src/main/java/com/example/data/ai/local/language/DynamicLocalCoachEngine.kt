@@ -126,6 +126,40 @@ object DynamicLocalCoachEngine {
         )
     }
 
+    /**
+     * Analyzes any standalone written or spoken draft pasted into Mentor chat or Practice Lab,
+     * returning concrete sentence rewrites, grammar polish, and delivery structure guidance.
+     */
+    fun analyzeUserDraft(
+        text: String,
+        topicHint: String = "Communication Draft"
+    ): DynamicCoachInsights {
+        val clean = text.trim()
+        val lang = LocalLanguageAnalysisEngine.analyze(clean)
+        val wordCount = LocalLanguageAnalysisEngine.tokenizeWords(clean).size
+        val evidence = com.example.data.ai.local.language.LocalFeedbackEvidence(
+            evaluatorName = "MentorDraftAnalyzer",
+            exerciseTitle = topicHint,
+            transcript = clean,
+            expectedText = null,
+            wordCount = wordCount,
+            speechDurationSeconds = (wordCount / 2.3).coerceAtLeast(3.0),
+            wordsPerMinute = if (wordCount >= 10) 140 else 0,
+            fillerCount = 0,
+            detectedFillers = emptyList(),
+            pauseCount = 0,
+            meanPauseDurationMs = 0.0,
+            grammarIssues = lang.grammarIssues,
+            vocabularyAnalysis = lang.vocabularyAnalysis,
+            audioFeatures = null,
+            faceAnalysis = null,
+            postureAnalysis = null,
+            gestureAnalysis = null,
+            limitationNotices = emptyList()
+        )
+        return analyze(evidence, previousSessionDelta = null)
+    }
+
     private fun splitSentences(text: String): List<String> {
         if (text.isBlank()) return emptyList()
         return text

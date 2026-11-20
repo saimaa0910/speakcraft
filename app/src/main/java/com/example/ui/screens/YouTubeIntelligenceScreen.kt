@@ -18,8 +18,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
@@ -47,6 +50,7 @@ import com.example.data.model.CurriculumCatalog
 import com.example.data.model.ExtractedTechnique
 import com.example.data.model.YouTubeSource
 import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.LessonAttributionBadge
 import com.example.ui.components.SectionHeader
@@ -66,6 +70,7 @@ fun YouTubeIntelligenceScreen(
 ) {
     val uriHandler = LocalUriHandler.current
     val auditState by coachVm.ytAuditState.collectAsStateWithLifecycle()
+    val cloudAiEnabled by coachVm.cloudAiEnabled.collectAsStateWithLifecycle()
 
     val mergedTechniques = remember(userTechniques, sharedTechniques) {
         (userTechniques + sharedTechniques).distinctBy { it.id.ifBlank { it.title } }
@@ -115,6 +120,32 @@ fun YouTubeIntelligenceScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Extraction: ${if (cloudAiEnabled) "Cloud Gemini (5-Drill Structured)" else "Local AI Analyzer"}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            FilterChip(
+                                selected = cloudAiEnabled,
+                                onClick = { coachVm.setCloudAiEnabled(!cloudAiEnabled) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("youtube_cloud_toggle_chip")
+                            )
+                        }
                         OutlinedTextField(
                             value = urlInput,
                             onValueChange = { urlInput = it },
@@ -144,7 +175,14 @@ fun YouTubeIntelligenceScreen(
                             Text(auditState.statusSummary, style = MaterialTheme.typography.bodySmall, color = AcousticTeal)
                         }
                         if (auditState.error != null) {
-                            Text(auditState.error.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            ErrorRecoveryCard(
+                                message = auditState.error.orEmpty(),
+                                onRetry = { coachVm.auditYouTubeUrl(urlInput, youtubeApiKey) },
+                                secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
+                                onSecondaryAction = if (cloudAiEnabled) {
+                                    { coachVm.setCloudAiEnabled(false) }
+                                } else null
+                            )
                         }
                     }
                 }
