@@ -54,7 +54,10 @@ class SpeechRecognitionManager(
             else -> null
         }
 
-        val hasSecondaryOffline = context != null && SpeechRecognizer.isRecognitionAvailable(context)
+        val ctx = context
+        val hasSecondaryOffline = ctx != null &&
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(ctx) }.getOrDefault(false)
 
         val activeMode = when {
             hasPrimary -> "primary-tflite-model (${primaryId?.name})"
@@ -64,8 +67,8 @@ class SpeechRecognitionManager(
 
         val status = when {
             hasPrimary -> "On-device neural speech recognizer active (${primaryId?.name})."
-            hasSecondaryOffline -> "Using Android on-device speech recognition."
-            else -> "Speech recognition model not installed. Running audio-only evaluation without transcript."
+            hasSecondaryOffline -> "Using Android verified on-device speech recognition."
+            else -> "Verified offline speech recognition unavailable. Running audio-only evaluation without fabricated transcript."
         }
 
         return SpeechRecognitionAvailability(

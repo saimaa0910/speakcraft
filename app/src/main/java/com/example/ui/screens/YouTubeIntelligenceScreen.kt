@@ -126,25 +126,21 @@ fun YouTubeIntelligenceScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Extraction: ${if (cloudAiEnabled) "Cloud Gemini (5-Drill Structured)" else "Local AI Analyzer"}",
+                                text = "Extraction: On-Device Local Intelligence",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            FilterChip(
-                                selected = cloudAiEnabled,
-                                onClick = { coachVm.setCloudAiEnabled(!cloudAiEnabled) },
-                                leadingIcon = {
-                                    Icon(
-                                        if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
-                                modifier = Modifier
-                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                    .testTag("youtube_cloud_toggle_chip")
-                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text(
+                                    text = "On-Device",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
                         }
                         OutlinedTextField(
                             value = urlInput,
@@ -177,11 +173,7 @@ fun YouTubeIntelligenceScreen(
                         if (auditState.error != null) {
                             ErrorRecoveryCard(
                                 message = auditState.error.orEmpty(),
-                                onRetry = { coachVm.auditYouTubeUrl(urlInput, youtubeApiKey) },
-                                secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                onSecondaryAction = if (cloudAiEnabled) {
-                                    { coachVm.setCloudAiEnabled(false) }
-                                } else null
+                                onRetry = { coachVm.auditYouTubeUrl(urlInput, youtubeApiKey) }
                             )
                         }
                     }

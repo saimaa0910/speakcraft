@@ -6,11 +6,22 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.HybridAiCoachCoordinator
+import com.example.data.ai.IntelligenceCapabilityManager
+import com.example.data.ai.IntelligenceCapabilityMatrix
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
+import com.example.data.ai.local.audio.LiveTranscriptionManager
+import com.example.data.ai.local.audio.LiveTranscriptionState
+import com.example.data.evaluation.CoachEvaluationReport
+import com.example.data.evaluation.CoachEvaluationState
+import com.example.data.evaluation.EvaluationEvidenceValidator
+import com.example.data.evaluation.EvidenceBasedScoringEngine
+import com.example.data.evaluation.EvidenceValidationInput
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UiState
+import com.example.data.preferences.AISettings
+import com.example.data.preferences.AISettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -18,11 +29,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 private const val MAX_MEDIA_BYTES = 19 * 1024 * 1024L
 
@@ -30,7 +43,10 @@ class SpeakingAndLabsViewModel(
     private val repository: SpeakCraftRepository,
     private val localOrchestrator: LocalIntelligenceOrchestrator,
     val audioManager: AudioRecorderManager,
-    private val hybridCoordinator: HybridAiCoachCoordinator? = null
+    private val hybridCoordinator: HybridAiCoachCoordinator? = null,
+    private val aiSettingsRepo: AISettingsRepository? = null,
+    private val liveTranscriptionManager: LiveTranscriptionManager? = null,
+    private val capabilityManager: IntelligenceCapabilityManager? = null
 ) : ViewModel() {
 
     @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
@@ -47,12 +63,41 @@ class SpeakingAndLabsViewModel(
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
         hybridCoordinator ?: HybridAiCoachCoordinator(
             localOrchestrator = localOrchestrator,
-            appContext = audioManager.context
+            appContext = audioManager.context,
+            aiSettingsRepo = aiSettingsRepo
         )
     }
 
+    val aiSettings: StateFlow<AISettings> =
+        (aiSettingsRepo?.aiSettingsFlow ?: effectiveCoordinator.aiSettingsFlow)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, AISettings())
+
+    val capabilityMatrix: StateFlow<IntelligenceCapabilityMatrix> =
+        (if (capabilityManager != null && aiSettingsRepo != null) {
+            capabilityManager.observeMatrix(aiSettingsRepo)
+        } else {
+            val mgr = capabilityManager ?: IntelligenceCapabilityManager(audioManager.context)
+            flowOf(mgr.computeMatrix(AISettings()))
+        }).stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            (capabilityManager ?: IntelligenceCapabilityManager(audioManager.context)).computeMatrix(AISettings())
+        )
+
+    val liveTranscriptionState: StateFlow<LiveTranscriptionState> =
+        liveTranscriptionManager?.state ?: MutableStateFlow(LiveTranscriptionState()).asStateFlow()
+
     val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    private val _currentSessionId = MutableStateFlow(UUID.randomUUID().toString())
+    val currentSessionId: StateFlow<String> = _currentSessionId.asStateFlow()
+
+    private val _evaluationState = MutableStateFlow(CoachEvaluationState.NOT_STARTED)
+    val evaluationState: StateFlow<CoachEvaluationState> = _evaluationState.asStateFlow()
+
+    private val _evaluationReport = MutableStateFlow<CoachEvaluationReport?>(null)
+    val evaluationReport: StateFlow<CoachEvaluationReport?> = _evaluationReport.asStateFlow()
 
     private val _analysisState = MutableStateFlow<UiState<SpeakingSession>?>(null)
     val analysisState: StateFlow<UiState<SpeakingSession>?> = _analysisState.asStateFlow()
@@ -92,9 +137,18 @@ class SpeakingAndLabsViewModel(
 
     var onSessionCompleted: ((SpeakingSession) -> Unit)? = null
 
+    init {
+        viewModelScope.launch {
+            aiSettings.collect { settings ->
+                liveTranscriptionManager?.refreshFromSettings(settings)
+            }
+        }
+    }
+
     fun setLiveTranscript(text: String, confidence: Float = 0.85f) {
         _liveTranscript.value = text
         _liveTranscriptConfidence.value = confidence.coerceIn(0f, 1f)
+        liveTranscriptionManager?.updateEditedTranscript(text)
     }
 
     fun setCloudAiEnabled(enabled: Boolean) {
@@ -107,6 +161,10 @@ class SpeakingAndLabsViewModel(
         _transcriptionError.value = null
     }
 
+    fun retryLiveTranscription() {
+        liveTranscriptionManager?.retryTranscription()
+    }
+
     fun transcribeRecordedMedia(hintPrompt: String = "") {
         viewModelScope.launch {
             if (audioManager.isRecording.value) {
@@ -115,7 +173,7 @@ class SpeakingAndLabsViewModel(
             val bytes = uploadedMediaBytes ?: audioManager.readRecordedBytes()
             val path = if (uploadedMediaPath.isNotBlank()) uploadedMediaPath else audioManager.recordedFilePath.value.orEmpty()
             val mime = if (uploadedMediaBytes != null) uploadedMimeType else "audio/mp4"
-            val file = path.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.exists() }
+            val file = path.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.exists() && it.length() > 0L }
             if ((bytes == null || bytes.isEmpty()) && file == null) {
                 _transcriptionError.value = "Record or attach audio first before transcribing."
                 return@launch
@@ -133,6 +191,7 @@ class SpeakingAndLabsViewModel(
             result.onSuccess { text ->
                 _liveTranscript.value = text
                 _liveTranscriptConfidence.value = 0.94f
+                liveTranscriptionManager?.updateEditedTranscript(text)
             }.onFailure { err ->
                 _transcriptionError.value = err.localizedMessage ?: "Audio transcription failed."
             }
@@ -147,6 +206,10 @@ class SpeakingAndLabsViewModel(
     private var countdownJob: Job? = null
 
     fun startRecording(challengeSeconds: Int? = null) {
+        val newSessionId = UUID.randomUUID().toString()
+        _currentSessionId.value = newSessionId
+        _liveTranscript.value = ""
+        _transcriptionError.value = null
         uploadedMediaBytes = null
         uploadedMediaPath = ""
         uploadedDurationSeconds = 0
@@ -156,12 +219,44 @@ class SpeakingAndLabsViewModel(
         _cloudSyncError.value = null
         pendingUnsavedSession = null
         _analysisState.value = null
+        _evaluationReport.value = null
         _playbackStatusNote.value = null
+
+        val settings = aiSettings.value
+        liveTranscriptionManager?.prepareNewSession(newSessionId, settings)
+
         val started = audioManager.startRecording(viewModelScope)
         if (!started) {
-            _analysisState.value = UiState.Error("Could not start microphone recorder. Check audio permission.")
+            val failValidation = EvaluationEvidenceValidator.validate(
+                EvidenceValidationInput(
+                    sessionId = newSessionId,
+                    audioRequired = true,
+                    audioBytes = ByteArray(0),
+                    videoAssessmentSelected = false
+                )
+            )
+            val failReport = CoachEvaluationReport(
+                sessionId = newSessionId,
+                evaluationState = CoachEvaluationState.RECORDING_FAILED,
+                overallScore = null,
+                statusHeadline = "Recording could not start.",
+                statusMessage = "Could not start microphone recorder. Check microphone permission and try again.",
+                isPartialEvaluation = false,
+                partialReason = null,
+                dimensions = emptyMap(),
+                validation = failValidation.validation
+            )
+            _evaluationState.value = CoachEvaluationState.RECORDING_FAILED
+            _evaluationReport.value = failReport
+            _analysisState.value = UiState.Error(failReport.statusMessage)
             return
         }
+
+        _evaluationState.value = CoachEvaluationState.RECORDING
+        if (settings.liveTranscriptionEnabled) {
+            liveTranscriptionManager?.startTranscription(newSessionId, settings)
+        }
+
         countdownJob?.cancel()
         if (challengeSeconds != null && challengeSeconds > 0) {
             countdownJob = viewModelScope.launch {
@@ -196,16 +291,33 @@ class SpeakingAndLabsViewModel(
         countdownJob?.cancel()
         countdownJob = null
         _challengeRemainingSeconds.value = null
+        liveTranscriptionManager?.stopTranscription()
+        val liveText = liveTranscriptionManager?.state?.value?.let { st ->
+            if (st.sessionId == _currentSessionId.value) st.displayText else ""
+        }.orEmpty()
+        if (liveText.isNotBlank()) {
+            _liveTranscript.value = liveText
+        }
         val recordedFile = audioManager.stopRecording()
         if (recordedFile != null) {
             _activeMediaPath.value = recordedFile.absolutePath
             _activeMediaIsVideo.value = false
         }
+        if (_evaluationState.value == CoachEvaluationState.RECORDING) {
+            _evaluationState.value = CoachEvaluationState.NOT_STARTED
+        }
     }
 
     fun attachUploadedMedia(context: Context, uri: Uri) {
         viewModelScope.launch {
+            val newSessionId = UUID.randomUUID().toString()
+            _currentSessionId.value = newSessionId
+            _liveTranscript.value = ""
+            liveTranscriptionManager?.prepareNewSession(newSessionId, aiSettings.value)
+
             _analysisState.value = null
+            _evaluationReport.value = null
+            _evaluationState.value = CoachEvaluationState.NOT_STARTED
             _playbackStatusNote.value = null
             _cloudSyncError.value = null
             pendingUnsavedSession = null
@@ -284,7 +396,14 @@ class SpeakingAndLabsViewModel(
 
     fun attachRecordedVideoFile(file: File, durationSeconds: Int) {
         viewModelScope.launch {
+            val newSessionId = UUID.randomUUID().toString()
+            _currentSessionId.value = newSessionId
+            _liveTranscript.value = ""
+            liveTranscriptionManager?.prepareNewSession(newSessionId, aiSettings.value)
+
             _analysisState.value = null
+            _evaluationReport.value = null
+            _evaluationState.value = CoachEvaluationState.NOT_STARTED
             _playbackStatusNote.value = null
             _cloudSyncError.value = null
             pendingUnsavedSession = null
@@ -300,7 +419,7 @@ class SpeakingAndLabsViewModel(
             uploadedMediaBytes = bytes
             uploadedMimeType = "video/mp4"
             uploadedMediaPath = file.absolutePath
-            uploadedDurationSeconds = durationSeconds.coerceAtLeast(1)
+            uploadedDurationSeconds = durationSeconds.coerceAtLeast(0)
             _activeMediaPath.value = file.absolutePath
             _activeMediaIsVideo.value = true
             _uploadedMediaLabel.value = "CameraX Video (${bytes.size / 1024} KB • ${uploadedDurationSeconds}s)"
@@ -329,72 +448,129 @@ class SpeakingAndLabsViewModel(
         previousSession: SpeakingSession?,
         extraInstructions: String = "",
         liveTranscriptOverride: String = "",
-        asrConfidenceOverride: Float = _liveTranscriptConfidence.value
+        asrConfidenceOverride: Float = _liveTranscriptConfidence.value,
+        videoAssessmentSelected: Boolean = _activeMediaIsVideo.value
     ) {
         viewModelScope.launch {
             if (audioManager.isRecording.value) {
                 stopRecording()
             }
-            val effectiveTranscript = liveTranscriptOverride.trim().ifBlank { _liveTranscript.value.trim() }
+            val sessionId = _currentSessionId.value
+            val liveState = liveTranscriptionManager?.state?.value
+            val sessionScopedLive = liveState?.takeIf { it.sessionId == sessionId }?.displayText.orEmpty()
+            val effectiveTranscript = liveTranscriptOverride.trim()
+                .ifBlank { sessionScopedLive }
+                .ifBlank { _liveTranscript.value.trim() }
+
             val hasUpload = uploadedMediaBytes != null
             val bytes = uploadedMediaBytes ?: audioManager.readRecordedBytes()
             val mime = if (hasUpload) uploadedMimeType else "audio/mp4"
             val localPath = if (hasUpload) uploadedMediaPath else audioManager.recordedFilePath.value.orEmpty()
-            val duration = if (hasUpload) {
-                uploadedDurationSeconds.coerceAtLeast(1)
-            } else {
-                audioManager.elapsedSeconds.value.coerceAtLeast(
-                    if (effectiveTranscript.isNotBlank()) (effectiveTranscript.split(Regex("\\s+")).size / 2).coerceAtLeast(3) else 1
-                )
-            }
+            val localFile = localPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.exists() && it.length() > 0L }
 
-            if ((bytes == null || bytes.isEmpty()) && effectiveTranscript.isBlank()) {
+            // Strict evidence gate: NEVER bypass missing audio via typed/live transcript or coerced durations
+            if ((bytes == null || bytes.isEmpty()) && localFile == null) {
+                val missingBundle = EvaluationEvidenceValidator.validate(
+                    EvidenceValidationInput(
+                        sessionId = sessionId,
+                        audioRequired = true,
+                        audioBytes = ByteArray(0),
+                        audioFile = null,
+                        videoAssessmentSelected = videoAssessmentSelected
+                    )
+                )
+                val report = EvidenceBasedScoringEngine.score(
+                    EvidenceBasedScoringEngine.ScoringInput(
+                        sessionId = sessionId,
+                        moduleType = moduleType,
+                        promptTitle = promptTitle,
+                        mimeType = mime,
+                        localMediaPath = "",
+                        validated = missingBundle,
+                        previousSession = previousSession
+                    )
+                )
                 _activeAnalysisModule.value = moduleType
-                _analysisState.value = UiState.Error("Please record your voice, dictate with Live Speech Capture, or attach a video/audio clip first.")
+                _evaluationState.value = CoachEvaluationState.INSUFFICIENT_EVIDENCE
+                _evaluationReport.value = report
+                _analysisState.value = UiState.Error("${report.statusHeadline} ${report.statusMessage}".trim())
                 return@launch
             }
 
+            val measuredReportedDuration = if (hasUpload) {
+                uploadedDurationSeconds
+            } else {
+                audioManager.elapsedSeconds.value
+            }
+
             _activeAnalysisModule.value = moduleType
+            _evaluationState.value = CoachEvaluationState.VALIDATING_EVIDENCE
+            _evaluationReport.value = null
             _analysisState.value = UiState.Loading
             _cloudSyncError.value = null
             pendingUnsavedSession = null
 
-            val analysisResult = effectiveCoordinator.analyzeSpeechRecording(
+            _evaluationState.value = CoachEvaluationState.EVALUATING
+            val report = effectiveCoordinator.evaluateSpeechWithReport(
+                sessionId = sessionId,
                 mediaBytes = bytes ?: ByteArray(0),
                 mimeType = mime,
                 moduleType = moduleType,
                 promptTitle = promptTitle,
-                durationSeconds = duration,
+                durationSeconds = measuredReportedDuration,
                 previousSession = previousSession,
                 extraInstructions = extraInstructions,
                 localMediaPath = localPath,
                 liveTranscript = effectiveTranscript,
-                asrConfidence = asrConfidenceOverride
+                transcriptSessionId = sessionId,
+                asrConfidence = asrConfidenceOverride,
+                videoAssessmentSelected = videoAssessmentSelected
             )
 
-            analysisResult.onSuccess { session ->
-                val saveRes = repository.saveSpeakingSession(session)
+            _evaluationReport.value = report
+            _evaluationState.value = report.evaluationState
+
+            val evaluatedSession = report.session
+            if (report.evaluationState == CoachEvaluationState.COMPLETED && evaluatedSession != null) {
+                val saveRes = repository.saveSpeakingSession(evaluatedSession)
                 if (saveRes.isSuccess) {
                     _cloudSyncError.value = null
                     pendingUnsavedSession = null
-                    val savedSession = session.copy(id = saveRes.getOrDefault(""))
+                    val savedSession = evaluatedSession.copy(id = saveRes.getOrDefault(""))
                     _analysisState.value = UiState.Success(savedSession)
                     onSessionCompleted?.invoke(savedSession)
                 } else {
-                    pendingUnsavedSession = session
+                    pendingUnsavedSession = evaluatedSession
                     val errDetail = saveRes.exceptionOrNull()?.localizedMessage ?: "Firestore unreachable"
                     _cloudSyncError.value = "Coaching feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
-                    _analysisState.value = UiState.Success(session)
-                    onSessionCompleted?.invoke(session)
+                    _analysisState.value = UiState.Success(evaluatedSession)
+                    onSessionCompleted?.invoke(evaluatedSession)
                 }
-            }.onFailure { err ->
-                _analysisState.value = UiState.Error(err.localizedMessage ?: "Speech analysis failed.")
+            } else {
+                // Incomplete / Insufficient / Failed analysis: NEVER save fake session or notify completion
+                _analysisState.value = UiState.Error(
+                    "${report.statusHeadline} ${report.statusMessage}".trim()
+                )
             }
         }
     }
 
+    fun recordAgain() {
+        clearAnalysis()
+        _evaluationState.value = CoachEvaluationState.WAITING_FOR_AUDIO
+    }
+
+    fun cancelEvaluation() {
+        if (audioManager.isRecording.value) {
+            stopRecording()
+        }
+        clearAnalysis()
+        _evaluationState.value = CoachEvaluationState.CANCELLED
+    }
+
     fun retryCloudSync() {
         val pending = pendingUnsavedSession ?: return
+        if (pending.evaluationStatus != "COMPLETED") return
         viewModelScope.launch {
             val res = repository.saveSpeakingSession(pending)
             res.onSuccess { savedId ->
@@ -417,6 +593,8 @@ class SpeakingAndLabsViewModel(
 
     fun clearAnalysis() {
         _analysisState.value = null
+        _evaluationReport.value = null
+        _evaluationState.value = CoachEvaluationState.NOT_STARTED
         _activeAnalysisModule.value = null
         _playbackStatusNote.value = null
         _cloudSyncError.value = null
@@ -425,14 +603,19 @@ class SpeakingAndLabsViewModel(
         uploadedMediaPath = ""
         uploadedDurationSeconds = 0
         _uploadedMediaLabel.value = null
-        _activeMediaPath.value = audioManager.recordedFilePath.value
+        _activeMediaPath.value = null
         _activeMediaIsVideo.value = false
         _liveTranscript.value = ""
+        _transcriptionError.value = null
+        val freshId = UUID.randomUUID().toString()
+        _currentSessionId.value = freshId
+        liveTranscriptionManager?.prepareNewSession(freshId, aiSettings.value)
     }
 
     override fun onCleared() {
         super.onCleared()
         countdownJob?.cancel()
+        liveTranscriptionManager?.release()
         audioManager.release()
     }
 }

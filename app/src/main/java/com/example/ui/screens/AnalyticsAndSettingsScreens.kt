@@ -39,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -58,13 +59,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.BuildConfig
+import com.example.data.ai.CapabilityStatus
+import com.example.data.ai.IntelligenceCapabilityManager
+import com.example.data.ai.IntelligenceCapabilityMatrix
 import com.example.data.model.DailyActivity
 import com.example.data.model.SpeakingSession
 import com.example.data.model.StreakAndAnalyticsHelper
 import com.example.data.model.UserProfile
+import com.example.data.preferences.AISettings
 import com.example.data.preferences.AppPreferences
+import com.example.data.preferences.RecognitionEnginePreference
 import com.example.data.preferences.ThemePreference
 import com.example.ui.components.ConfirmDestructiveDialog
 import com.example.ui.components.EmptyStateCard
@@ -381,6 +388,7 @@ private fun SettingsCardHeader(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
@@ -401,7 +409,29 @@ fun SettingsScreen(
     onToggleFirstUseTutorials: (Boolean) -> Unit = {},
     onReplayTutorials: () -> Unit = {},
     onSetCloudAiEnabled: (Boolean) -> Unit = {},
-    onSetCloudAiModelTier: (String) -> Unit = {}
+    onSetCloudAiModelTier: (String) -> Unit = {},
+    aiSettings: AISettings = AISettings(
+        localAiEnabled = prefs.localAiEnabled,
+        cloudAiEnabled = false,
+        cloudAiModelTier = prefs.cloudAiModelTier,
+        liveTranscriptionEnabled = prefs.liveTranscriptionEnabled,
+        localSpeechRecognitionEnabled = prefs.localSpeechRecognitionEnabled,
+        localAudioAnalysisEnabled = prefs.localAudioAnalysisEnabled,
+        localVideoAnalysisEnabled = prefs.localVideoAnalysisEnabled,
+        selectedRecognitionLanguage = prefs.selectedRecognitionLanguage,
+        selectedRecognitionEngine = RecognitionEnginePreference.entries.firstOrNull {
+            it.name == prefs.selectedRecognitionEngine
+        } ?: RecognitionEnginePreference.AUTO
+    ),
+    capabilityMatrix: IntelligenceCapabilityMatrix = IntelligenceCapabilityManager().computeMatrix(aiSettings),
+    onSetLocalAiEnabled: (Boolean) -> Unit = {},
+    onSetLiveTranscriptionEnabled: (Boolean) -> Unit = {},
+    onSetLocalSpeechRecEnabled: (Boolean) -> Unit = {},
+    onSetLocalAudioAnalysisEnabled: (Boolean) -> Unit = {},
+    onSetLocalVideoAnalysisEnabled: (Boolean) -> Unit = {},
+    onSetRecognitionLanguage: (String) -> Unit = {},
+    onSetRecognitionEngine: (RecognitionEnginePreference) -> Unit = {},
+    cloudPolicyMessage: String? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
     var apiKeyDraft by remember(prefs.youtubeApiKey) { mutableStateOf(prefs.youtubeApiKey) }
@@ -557,77 +587,122 @@ fun SettingsScreen(
             }
         }
 
-        val aiIntelligenceCard: @Composable () -> Unit = {
-            val tierLabel = when (prefs.cloudAiModelTier) {
-                "deep" -> "Deep Coaching (Gemini 4 Argon)"
-                "fast" -> "Fast (Gemini 3.5 Flash-Lite)"
-                else -> "Balanced (Gemini 3.8 Flash)"
-            }
+        val aiCoreCard: @Composable () -> Unit = {
             Card(
+                modifier = Modifier.testTag("settings_ai_intelligence_section"),
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(
-                    1.dp,
-                    if (prefs.cloudAiEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                )
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
-                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SettingsCardHeader(
-                        icon = if (prefs.cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                        icon = Icons.Default.Psychology,
                         tint = MaterialTheme.colorScheme.primary,
                         bg = MaterialTheme.colorScheme.primaryContainer,
-                        title = "AI Coaching Engine"
+                        title = "AI & Intelligence"
                     )
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (prefs.cloudAiEnabled) MaterialTheme.colorScheme.primaryContainer else ext.infoContainer
+                        color = if (aiSettings.effectiveCloudAiEnabled) MaterialTheme.colorScheme.primaryContainer else ext.infoContainer
                     ) {
                         Text(
-                            text = if (prefs.cloudAiEnabled) {
-                                "Active Engine: Cloud AI Coach • $tierLabel"
+                            text = if (aiSettings.effectiveCloudAiEnabled) {
+                                "Active Engine: Cloud AI Coach"
                             } else {
-                                "Active Engine: On-Device Local Intelligence (Private & Offline)"
+                                "Active Engine: On-Device Local Intelligence (Zero-Cloud-AI Policy)"
                             },
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (prefs.cloudAiEnabled) MaterialTheme.colorScheme.onPrimaryContainer else ext.info,
+                            color = if (aiSettings.effectiveCloudAiEnabled) MaterialTheme.colorScheme.onPrimaryContainer else ext.info,
                             modifier = Modifier
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                                 .testTag("settings_ai_engine_status")
                         )
                     }
+
+                    // A. Local Intelligence
+                    Text("A. Local Intelligence", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("Enable Cloud AI Coach (Gemini)", style = MaterialTheme.typography.titleSmall)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Local Intelligence Engine", style = MaterialTheme.typography.titleSmall)
+                                CapabilityStatusPill(capabilityMatrix.localAi.status)
+                            }
                             Text(
-                                "Uses Firebase AI Logic for multimodal audio/video coaching, Gemini Live voice calls, deep YouTube extraction, and AI Mentor streaming. When off, SpeakCraft runs upgraded On-Device Local Intelligence.",
+                                capabilityMatrix.localAi.detail,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Switch(
-                            checked = prefs.cloudAiEnabled,
+                            checked = aiSettings.localAiEnabled,
+                            onCheckedChange = onSetLocalAiEnabled,
+                            modifier = Modifier.testTag("settings_local_ai_switch")
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+
+                    // B. Cloud AI
+                    Text("B. Cloud AI", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Cloud AI Coach", style = MaterialTheme.typography.titleSmall)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = if (aiSettings.cloudAiSupportedInBuild) {
+                                            capabilityMatrix.cloudAi.status.label
+                                        } else {
+                                            "Unavailable • Zero-Cloud-AI Policy"
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                            .testTag("settings_cloud_ai_status")
+                                    )
+                                }
+                            }
+                            Text(
+                                capabilityMatrix.cloudAi.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = aiSettings.effectiveCloudAiEnabled,
+                            enabled = aiSettings.cloudAiSupportedInBuild,
                             onCheckedChange = onSetCloudAiEnabled,
                             modifier = Modifier.testTag("settings_cloud_ai_switch")
                         )
                     }
-
-                    Text("Cloud Model Tier", style = MaterialTheme.typography.titleSmall)
+                    if (!cloudPolicyMessage.isNullOrBlank()) {
+                        Text(
+                            text = cloudPolicyMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         listOf(
-                            "balanced" to "Balanced (3.8 Flash)",
-                            "deep" to "Deep (4 Argon)",
-                            "fast" to "Fast (3.5 Lite)"
+                            "balanced" to "Balanced",
+                            "deep" to "Deep",
+                            "fast" to "Fast"
                         ).forEach { (tierKey, label) ->
                             FilterChip(
-                                selected = prefs.cloudAiModelTier == tierKey,
-                                enabled = prefs.cloudAiEnabled,
+                                selected = aiSettings.cloudAiModelTier == tierKey,
+                                enabled = aiSettings.effectiveCloudAiEnabled,
                                 onClick = { onSetCloudAiModelTier(tierKey) },
                                 label = { Text(label) },
                                 modifier = Modifier
@@ -635,6 +710,215 @@ fun SettingsScreen(
                                     .testTag("settings_ai_tier_$tierKey")
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        val aiSpeechControlsCard: @Composable () -> Unit = {
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // C. Speech & Transcription
+                    Text("C. Speech & Transcription", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Live Transcription", style = MaterialTheme.typography.titleSmall)
+                                CapabilityStatusPill(capabilityMatrix.liveTranscription.status)
+                            }
+                            Text(
+                                "Display recognized words while you are speaking during practice.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                if (aiSettings.liveTranscriptionEnabled) "Enabled" else "Disabled",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (aiSettings.liveTranscriptionEnabled) ext.success else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = aiSettings.liveTranscriptionEnabled,
+                            onCheckedChange = onSetLiveTranscriptionEnabled,
+                            modifier = Modifier.testTag("settings_live_transcription_switch")
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("On-Device Speech Recognition", style = MaterialTheme.typography.titleSmall)
+                                CapabilityStatusPill(capabilityMatrix.localSpeechRecognition.status)
+                            }
+                            Text(
+                                capabilityMatrix.localSpeechRecognition.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = aiSettings.localSpeechRecognitionEnabled,
+                            onCheckedChange = onSetLocalSpeechRecEnabled,
+                            modifier = Modifier.testTag("settings_local_speech_rec_switch")
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Acoustic Audio DSP Analysis", style = MaterialTheme.typography.titleSmall)
+                                CapabilityStatusPill(capabilityMatrix.localAudioAnalysis.status)
+                            }
+                            Text(
+                                capabilityMatrix.localAudioAnalysis.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = aiSettings.localAudioAnalysisEnabled,
+                            onCheckedChange = onSetLocalAudioAnalysisEnabled,
+                            modifier = Modifier.testTag("settings_local_audio_switch")
+                        )
+                    }
+                }
+            }
+        }
+
+        val aiSpeechDiagnosticsCard: @Composable () -> Unit = {
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Recognition Engine", style = MaterialTheme.typography.labelLarge)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        RecognitionEnginePreference.entries.forEach { pref ->
+                            FilterChip(
+                                selected = aiSettings.selectedRecognitionEngine == pref,
+                                onClick = { onSetRecognitionEngine(pref) },
+                                label = { Text(pref.label) },
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("settings_rec_engine_${pref.name}")
+                            )
+                        }
+                    }
+
+                    Text("Recognition Language", style = MaterialTheme.typography.labelLarge)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
+                        listOf("en-US", "en-GB", "en-AU", "en-IN").forEach { lang ->
+                            FilterChip(
+                                selected = aiSettings.selectedRecognitionLanguage == lang,
+                                onClick = { onSetRecognitionLanguage(lang) },
+                                label = { Text(lang) },
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("settings_rec_lang_$lang")
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_speech_diagnostics")
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Speech & Transcription Diagnostics", style = MaterialTheme.typography.labelLarge)
+                            Text("Recognition Engine: ${capabilityMatrix.activeRecognitionEngineLabel}", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "Offline Availability: ${if (capabilityMatrix.offlineSpeechAvailable) "Verified Offline" else "Unavailable / Unverified"}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                "Microphone Permission: ${if (capabilityMatrix.hasRecordAudioPermission) "Granted" else "Required (Grant in Recording)"}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                "Recognition Status: ${capabilityMatrix.liveTranscription.status.label} — ${capabilityMatrix.liveTranscription.detail}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text("Model Availability: ${capabilityMatrix.whisperModelStatus}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+
+        val aiVideoPrivacyCard: @Composable () -> Unit = {
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+            ) {
+                Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // D. Video Intelligence
+                    Text("D. Video Intelligence", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Camera & Body Language Analysis", style = MaterialTheme.typography.titleSmall)
+                                CapabilityStatusPill(capabilityMatrix.localVideoAnalysis.status)
+                            }
+                            Text(
+                                capabilityMatrix.localVideoAnalysis.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "Camera Permission: ${if (capabilityMatrix.hasCameraPermission) "Granted" else "Required only for Video Mode"} • ${capabilityMatrix.mediaPipeStatus}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = aiSettings.localVideoAnalysisEnabled,
+                            onCheckedChange = onSetLocalVideoAnalysisEnabled,
+                            modifier = Modifier.testTag("settings_local_video_switch")
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+
+                    // E. Privacy
+                    Text("E. Privacy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = ext.successContainer.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_ai_privacy_statement")
+                    ) {
+                        Text(
+                            text = "All speaking audio, video, and live transcripts stay on this device and are never uploaded to external Cloud AI services. Firebase Authentication and Firestore store only account identity and explicit practice progress.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(12.dp)
+                        )
                     }
                 }
             }
@@ -654,7 +938,7 @@ fun SettingsScreen(
                         title = "Integrations & Keystore Protection"
                     )
                     Text(
-                        "• AI Engine: Dual-mode Hybrid Intelligence (Cloud AI Coach via Firebase AI Logic with App Check when enabled; On-Device Local Intelligence by default—no API key needed).\n" +
+                        "• AI Engine: Stage 1 On-Device Local Intelligence (audio DSP, MediaPipe landmarks, and speech recognition—zero cloud AI uploads).\n" +
                             "• YouTube Channel Audit: Uses live public RSS feeds & timedtext captions automatically. Optional YouTube Data API v3 key is encrypted at rest with Android Keystore.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -735,21 +1019,45 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            aiIntelligenceCard()
                             updatesCard()
-                            integrationsCard()
                         }
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             appearanceAndTutorialsCard()
+                        }
+                    }
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            aiCoreCard()
+                            aiVideoPrivacyCard()
+                            integrationsCard()
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            aiSpeechControlsCard()
+                            aiSpeechDiagnosticsCard()
                             privacyCard()
                         }
                     }
                 }
             } else {
-                item { aiIntelligenceCard() }
+                item { aiCoreCard() }
+                item { aiSpeechControlsCard() }
+                item { aiSpeechDiagnosticsCard() }
+                item { aiVideoPrivacyCard() }
                 item { updatesCard() }
                 item { appearanceAndTutorialsCard() }
                 item { integrationsCard() }
@@ -758,3 +1066,24 @@ fun SettingsScreen(
         }
     }
 }
+
+@Composable
+private fun CapabilityStatusPill(status: CapabilityStatus) {
+    val ext = MaterialTheme.speakCraftColors
+    val (bg, fg) = when (status) {
+        CapabilityStatus.ENABLED, CapabilityStatus.AVAILABLE -> ext.successContainer to ext.success
+        CapabilityStatus.DISABLED -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        CapabilityStatus.PERMISSION_REQUIRED, CapabilityStatus.MODEL_REQUIRED -> ext.warningContainer to ext.onWarning
+        CapabilityStatus.UNAVAILABLE, CapabilityStatus.INITIALIZATION_FAILED ->
+            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.error
+    }
+    Surface(shape = RoundedCornerShape(8.dp), color = bg) {
+        Text(
+            text = status.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = fg,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+    }
+}
+

@@ -780,8 +780,13 @@ class SpeakCraftRepository(
         }
     }
 
-    suspend fun saveSpeakingSession(session: SpeakingSession): Result<String> =
-        runMutationWithReturn(OperationType.CREATE, "speakingSessions") { uid ->
+    suspend fun saveSpeakingSession(session: SpeakingSession): Result<String> {
+        if (session.evaluationStatus != "COMPLETED") {
+            return Result.failure(
+                IllegalStateException("Cannot save an unscored or failed evaluation session (${session.evaluationStatus}).")
+            )
+        }
+        return runMutationWithReturn(OperationType.CREATE, "speakingSessions") { uid ->
             val sessionRef = db.collection("users").document(uid).collection("speakingSessions").document()
             val feedbackRef = db.collection("users").document(uid).collection("speechFeedback").document()
             val safeModule = if (session.moduleType in listOf(
@@ -812,7 +817,7 @@ class SpeakCraftRepository(
                 "articulationClarity" to session.articulationClarity.take(800).ifBlank { null },
                 "thoughtOrganization" to session.thoughtOrganization.take(800).ifBlank { null },
                 "nextRecommendedActivity" to session.nextRecommendedActivity.take(400).ifBlank { null },
-                "confidenceLevel" to if (session.confidenceLevel in listOf("High", "Medium", "Low")) session.confidenceLevel else "Medium",
+                "confidenceLevel" to if (session.confidenceLevel in listOf("High", "Medium", "Low", "Low (Partial)")) session.confidenceLevel else "Medium",
                 "audioQualityNote" to session.audioQualityNote.take(500).ifBlank { null },
                 "fluencyScore" to session.fluencyScore.coerceIn(0L, 100L),
                 "pronunciationScore" to session.pronunciationScore.coerceIn(0L, 100L),
@@ -821,6 +826,11 @@ class SpeakCraftRepository(
                 "articulationScore" to session.articulationScore.coerceIn(0L, 100L),
                 "wordsPerMinute" to session.wordsPerMinute.coerceIn(0L, 400L),
                 "sourceVideoUrl" to session.sourceVideoUrl.take(500).ifBlank { null },
+                "evaluationStatus" to session.evaluationStatus,
+                "isPartialEvaluation" to session.isPartialEvaluation,
+                "evaluatedDimensionKeys" to session.evaluatedDimensionKeys,
+                "unavailableDimensionKeys" to session.unavailableDimensionKeys,
+                "evidenceSummary" to session.evidenceSummary.take(400).ifBlank { null },
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             ).filterValues { it != null } as Map<String, Any>
@@ -848,36 +858,43 @@ class SpeakCraftRepository(
             batch.set(feedbackRef, fbPayload)
             batch.commit().await()
 
-            // Rolling weighted skill update so single outliers don't overwrite steady progress
+            // Rolling weighted skill update ONLY for dimensions actually evaluated with valid evidence
             val userRef = db.collection("users").document(uid)
             val snap = userRef.get().await()
             if (snap.exists()) {
                 val mins = (session.durationSeconds / 60L).coerceAtLeast(1L)
-                fun blend(oldVal: Long?, newVal: Long): Long {
+                val evaluatedKeys = session.evaluatedDimensionKeys.toSet()
+                val legacyAll = evaluatedKeys.isEmpty()
+
+                fun blendIfEvaluated(key: String, field: String, newVal: Long): Long? {
+                    if (!legacyAll && key !in evaluatedKeys) return null
+                    if (newVal <= 0L) return null
+                    val oldVal = snap.getLong(field)
                     val base = oldVal ?: newVal
                     return ((base * 3L + newVal * 2L) / 5L).coerceIn(0L, 100L)
                 }
-                val newPron = if (session.pronunciationAssessable) {
-                    blend(snap.getLong("pronunciationScore"), session.pronunciationScore)
-                } else {
-                    (snap.getLong("pronunciationScore") ?: 60L).coerceIn(0L, 100L)
+
+                val updates = mutableMapOf<String, Any>(
+                    "recordingsCount" to FieldValue.increment(1L),
+                    "completedExercisesCount" to FieldValue.increment(1L),
+                    "totalPracticeMinutes" to FieldValue.increment(mins),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                blendIfEvaluated("fluency", "fluencyScore", session.fluencyScore)?.let { updates["fluencyScore"] = it }
+                if (session.pronunciationAssessable) {
+                    blendIfEvaluated("pronunciation", "pronunciationScore", session.pronunciationScore)?.let {
+                        updates["pronunciationScore"] = it
+                    }
                 }
-                userRef.update(
-                    mapOf(
-                        "recordingsCount" to FieldValue.increment(1L),
-                        "completedExercisesCount" to FieldValue.increment(1L),
-                        "totalPracticeMinutes" to FieldValue.increment(mins),
-                        "fluencyScore" to blend(snap.getLong("fluencyScore"), session.fluencyScore),
-                        "pronunciationScore" to newPron,
-                        "vocabularyScore" to blend(snap.getLong("vocabularyScore"), session.vocabularyScore),
-                        "grammarScore" to blend(snap.getLong("grammarScore"), session.grammarScore),
-                        "articulationScore" to blend(snap.getLong("articulationScore"), session.articulationScore),
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).await()
+                blendIfEvaluated("vocabulary", "vocabularyScore", session.vocabularyScore)?.let { updates["vocabularyScore"] = it }
+                blendIfEvaluated("grammar", "grammarScore", session.grammarScore)?.let { updates["grammarScore"] = it }
+                blendIfEvaluated("delivery", "articulationScore", session.articulationScore)?.let { updates["articulationScore"] = it }
+
+                userRef.update(updates).await()
             }
             sessionRef.id
         }
+    }
 
     suspend fun deleteSpeakingSession(sessionId: String, feedbackId: String = "", localMediaPath: String = ""): Result<Unit> =
         runMutation(OperationType.DELETE, "speakingSessions/$sessionId") { uid ->

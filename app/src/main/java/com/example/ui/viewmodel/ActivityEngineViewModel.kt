@@ -320,7 +320,7 @@ class ActivityEngineViewModel(
             val result = effectiveCoordinator?.generateConversationTurn(scenario, userLevel, pairs, clean)
             if (result != null && result.isFailure) {
                 val msg = result.exceptionOrNull()?.localizedMessage
-                    ?: "Cloud AI dialogue failed. Retry or switch to Local Intelligence."
+                    ?: "Local intelligence dialogue turn failed. Retry your message."
                 _activeState.update { state ->
                     state.copy(
                         dialogueReplyLoading = false,
@@ -358,7 +358,7 @@ class ActivityEngineViewModel(
             recordedVideoPath = freshState.recordedVideoPath,
             mediaBytes = audioBytes,
             mediaMimeType = if (audioBytes != null) "audio/mp4" else "",
-            durationSeconds = freshState.elapsedSeconds.coerceAtLeast(10),
+            durationSeconds = freshState.elapsedSeconds.coerceAtLeast(0),
             completedChecklistItems = freshState.completedChecklistItems.toList(),
             dialogueTurns = freshState.dialogueTurns,
             confidenceSelfRating = if (freshState.confidenceRatingTouched) freshState.confidenceSelfRating else null
@@ -391,7 +391,7 @@ class ActivityEngineViewModel(
                 _activeState.update {
                     it.copy(
                         stage = ActivitySessionStage.Active,
-                        validationError = e.localizedMessage ?: "Cloud AI evaluation failed. Retry or switch to Local Intelligence in Settings."
+                        validationError = e.localizedMessage ?: "Evaluation could not be completed. Provide valid speech or written evidence and retry."
                     )
                 }
                 return@launch

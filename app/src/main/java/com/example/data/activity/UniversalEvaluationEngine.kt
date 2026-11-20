@@ -177,15 +177,62 @@ class UniversalEvaluationEngine(
         val localMetrics = LocalResponseAnalyzer.analyze(response)
         val effectiveNextIds = recommendedNextIds.ifEmpty { activity.nextActivityIds }
 
+        val hasAudioSubmission = response.recordedAudioPath.isNotBlank() || response.mediaBytes != null
+        val hasVideoSubmission = response.recordedVideoPath.isNotBlank()
+        val isChecklistWarmup = activity.exerciseType.interactionFamily == InteractionFamily.GUIDED_WARMUP &&
+            activity.interactionConfiguration.checklistItems.isNotEmpty()
+
+        val audioFile = response.recordedAudioPath.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
+        val videoFile = response.recordedVideoPath.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
+
+        var verifiedMediaValid = false
+        if (hasAudioSubmission || hasVideoSubmission) {
+            val validationBundle = com.example.data.evaluation.EvaluationEvidenceValidator.validate(
+                com.example.data.evaluation.EvidenceValidationInput(
+                    sessionId = "act_${activity.activityId}",
+                    audioRequired = hasAudioSubmission,
+                    audioBytes = response.mediaBytes ?: ByteArray(0),
+                    audioFile = audioFile,
+                    mimeType = response.mediaMimeType.ifBlank { if (hasVideoSubmission) "video/mp4" else "audio/mp4" },
+                    reportedDurationSeconds = response.durationSeconds,
+                    videoAssessmentSelected = hasVideoSubmission,
+                    videoFile = videoFile,
+                    videoFramesAnalyzed = if (hasVideoSubmission && videoFile != null && videoFile.exists() && videoFile.length() > 0L) 1 else 0,
+                    videoAnalysisCompleted = hasVideoSubmission && videoFile != null && videoFile.exists() && videoFile.length() > 0L,
+                    transcriptRequired = false,
+                    transcript = response.combinedTextForAnalysis
+                )
+            )
+            if (!validationBundle.validation.isValidForEvaluation || (hasVideoSubmission && !validationBundle.validation.videoValid)) {
+                val report = com.example.data.evaluation.EvidenceBasedScoringEngine.score(
+                    com.example.data.evaluation.EvidenceBasedScoringEngine.ScoringInput(
+                        sessionId = "act_${activity.activityId}",
+                        moduleType = activity.moduleId,
+                        promptTitle = activity.title,
+                        mimeType = response.mediaMimeType.ifBlank { "audio/mp4" },
+                        localMediaPath = response.recordedAudioPath.ifBlank { response.recordedVideoPath },
+                        validated = validationBundle,
+                        previousSession = null
+                    )
+                )
+                throw com.example.data.evaluation.InsufficientSpeechEvidenceException(report)
+            }
+            verifiedMediaValid = true
+        } else if (!isChecklistWarmup && localMetrics.wordCount < 2) {
+            throw IllegalArgumentException(
+                "Please record a speaking response or enter at least 2 words before requesting evaluation."
+            )
+        }
+
         if (aiClientOverride != null) {
             val custom = aiClientOverride.invoke(activity, response, strategy, localMetrics)
             return custom?.copy(
                 confidenceSelfRating = response.confidenceSelfRating,
                 recommendedNextActivityIds = effectiveNextIds
-            ) ?: buildLocalFallbackResult(activity, response, strategy, localMetrics, caveat, effectiveNextIds)
+            ) ?: buildLocalFallbackResult(activity, response, strategy, localMetrics, caveat, effectiveNextIds, verifiedMediaValid)
         }
 
-        return buildLocalFallbackResult(activity, response, strategy, localMetrics, caveat, effectiveNextIds)
+        return buildLocalFallbackResult(activity, response, strategy, localMetrics, caveat, effectiveNextIds, verifiedMediaValid)
     }
 
     internal fun buildDeterministicRubricFallback(
@@ -194,7 +241,8 @@ class UniversalEvaluationEngine(
         strategy: ActivityEvaluatorStrategy,
         metrics: LocalSpeechMetrics,
         caveat: String,
-        recommendedNextIds: List<String>
+        recommendedNextIds: List<String>,
+        verifiedMediaValid: Boolean = false
     ): ActivityEvaluationResult {
         val textForAnalysis = response.combinedTextForAnalysis.trim()
         val lang = if (textForAnalysis.isNotBlank()) {
@@ -211,7 +259,8 @@ class UniversalEvaluationEngine(
         val checklistRatio = if (checklistTotal > 0) {
             response.completedChecklistItems.size.toFloat() / checklistTotal.toFloat()
         } else 0f
-        val hasAudioOrVideo = response.recordedAudioPath.isNotBlank() || response.recordedVideoPath.isNotBlank()
+        val isChecklistWarmup = activity.exerciseType.interactionFamily == InteractionFamily.GUIDED_WARMUP &&
+            checklistTotal > 0
         val lengthRatio = (metrics.wordCount.toFloat() / activity.interactionConfiguration.targetWordCountMin.coerceAtLeast(8)).coerceIn(0f, 1.35f)
         val fillerPenalty = (metrics.fillerCount * 4).coerceAtMost(18)
         val grammarPenalty = ((lang?.grammarIssues?.size ?: 0) * 5).coerceAtMost(16)
@@ -223,9 +272,10 @@ class UniversalEvaluationEngine(
         ).sum()
 
         val baseScore = when {
-            metrics.wordCount == 0 && !hasAudioOrVideo && checklistTotal == 0 -> 35
-            checklistTotal > 0 && metrics.wordCount < 6 -> (50 + (checklistRatio * 36)).toInt()
-            else -> (56 + (lengthRatio * 22).toInt() + (if (hasAudioOrVideo) 8 else 0) + (checklistRatio * 8).toInt() + discourseBonus - fillerPenalty - grammarPenalty)
+            isChecklistWarmup && metrics.wordCount < 6 -> (48 + (checklistRatio * 38)).toInt()
+            metrics.wordCount < 2 && !verifiedMediaValid ->
+                throw IllegalArgumentException("Insufficient response evidence to compute an activity score.")
+            else -> (56 + (lengthRatio * 22).toInt() + (if (verifiedMediaValid) 8 else 0) + (checklistRatio * 8).toInt() + discourseBonus - fillerPenalty - grammarPenalty)
         }.coerceIn(30, 96)
 
         val dimensions = activity.scoringRubric.mapIndexed { idx, dim ->
@@ -253,8 +303,8 @@ class UniversalEvaluationEngine(
                 add("Met target response depth (${metrics.wordCount} words) aligned with the exercise objective.")
             }
             draftInsights?.strengths?.take(2)?.forEach { add(it) }
-            if (hasAudioOrVideo) {
-                add("Captured a real media recording (${response.durationSeconds}s) for self-review.")
+            if (verifiedMediaValid) {
+                add("Captured a verified speech/media recording (${response.durationSeconds}s) for self-review.")
             }
             if (response.completedChecklistItems.isNotEmpty()) {
                 add("Completed ${response.completedChecklistItems.size}/$checklistTotal guided practice cues.")
@@ -334,6 +384,15 @@ class UniversalEvaluationEngine(
         strategy: ActivityEvaluatorStrategy,
         metrics: LocalSpeechMetrics,
         caveat: String,
-        recommendedNextIds: List<String>
-    ): ActivityEvaluationResult = buildDeterministicRubricFallback(activity, response, strategy, metrics, caveat, recommendedNextIds)
+        recommendedNextIds: List<String>,
+        verifiedMediaValid: Boolean = false
+    ): ActivityEvaluationResult = buildDeterministicRubricFallback(
+        activity = activity,
+        response = response,
+        strategy = strategy,
+        metrics = metrics,
+        caveat = caveat,
+        recommendedNextIds = recommendedNextIds,
+        verifiedMediaValid = verifiedMediaValid
+    )
 }

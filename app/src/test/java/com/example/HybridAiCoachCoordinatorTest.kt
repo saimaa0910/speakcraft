@@ -6,6 +6,7 @@ import com.example.data.ai.HybridAiCoachCoordinator
 import com.example.data.ai.cloud.FirebaseAiLogicService
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.model.UserProfile
+import com.example.data.preferences.AISettingsRepository
 import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -23,25 +24,31 @@ import org.robolectric.annotation.Config
 class HybridAiCoachCoordinatorTest {
 
     @Test
-    fun `preferences persist cloud ai coach toggle and model tier`() = runBlocking {
+    fun `centralized ai settings enforce stage 1 zero cloud policy and persist transcription settings`() = runBlocking {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val prefsRepo = AppPreferencesRepository(ctx)
+        val aiSettingsRepo = AISettingsRepository(prefsRepo)
 
-        prefsRepo.setCloudAiEnabled(false)
-        prefsRepo.setCloudAiModelTier("balanced")
-        val initial = prefsRepo.preferencesFlow.first()
-        assertFalse(initial.cloudAiEnabled)
+        aiSettingsRepo.setLiveTranscriptionEnabled(false)
+        aiSettingsRepo.setCloudAiModelTier("balanced")
+        val initial = aiSettingsRepo.aiSettingsFlow.first()
+        assertFalse(initial.effectiveCloudAiEnabled)
+        assertFalse(initial.liveTranscriptionEnabled)
         assertEquals("balanced", initial.cloudAiModelTier)
 
-        prefsRepo.setCloudAiEnabled(true)
-        prefsRepo.setCloudAiModelTier("deep")
-        val updated = prefsRepo.preferencesFlow.first()
-        assertTrue(updated.cloudAiEnabled)
+        val enableCloudResult = aiSettingsRepo.setCloudAiEnabled(true)
+        assertTrue("Stage 1 Zero-Cloud-AI policy must reject enabling Cloud AI", enableCloudResult.isFailure)
+
+        aiSettingsRepo.setLiveTranscriptionEnabled(true)
+        aiSettingsRepo.setCloudAiModelTier("deep")
+        val updated = aiSettingsRepo.aiSettingsFlow.first()
+        assertFalse("effectiveCloudAiEnabled must stay false under Stage 1 policy", updated.effectiveCloudAiEnabled)
+        assertTrue("liveTranscriptionEnabled must persist via centralized AISettingsRepository", updated.liveTranscriptionEnabled)
         assertEquals("deep", updated.cloudAiModelTier)
 
         // Reset cleanly
-        prefsRepo.setCloudAiEnabled(false)
-        prefsRepo.setCloudAiModelTier("balanced")
+        aiSettingsRepo.setLiveTranscriptionEnabled(false)
+        aiSettingsRepo.setCloudAiModelTier("balanced")
     }
 
     @Test
@@ -57,13 +64,15 @@ class HybridAiCoachCoordinatorTest {
     fun `coordinator routes to local intelligence when cloud ai is disabled`() = runBlocking {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val prefsRepo = AppPreferencesRepository(ctx)
-        prefsRepo.setCloudAiEnabled(false)
+        val aiSettingsRepo = AISettingsRepository(prefsRepo)
+        aiSettingsRepo.setCloudAiEnabled(false)
 
         val coordinator = HybridAiCoachCoordinator(
             localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             cloudService = FirebaseAiLogicService(),
             prefsRepo = prefsRepo,
-            appContext = ctx
+            appContext = ctx,
+            aiSettingsRepo = aiSettingsRepo
         )
 
         val turnRes = coordinator.generateConversationTurn(
@@ -95,26 +104,31 @@ class HybridAiCoachCoordinatorTest {
     }
 
     @Test
-    fun `coordinator propagates authentic failure when cloud ai is enabled without live backend`() = runBlocking {
+    fun `coordinator blocks cloud ai activation and rejects live cloud calls under stage 1 policy`() = runBlocking {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val prefsRepo = AppPreferencesRepository(ctx)
-        prefsRepo.setCloudAiEnabled(true)
+        val aiSettingsRepo = AISettingsRepository(prefsRepo)
 
         val coordinator = HybridAiCoachCoordinator(
             localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             cloudService = FirebaseAiLogicService(),
             prefsRepo = prefsRepo,
-            appContext = ctx
+            appContext = ctx,
+            aiSettingsRepo = aiSettingsRepo
         )
 
-        val res = coordinator.evaluateVocabularyUsage(
-            word = "articulate",
-            meaning = "Express ideas clearly",
-            userSentence = "He can articulate complex ideas simply."
-        )
-        // Must NOT silently mask failure with a fake local success when Cloud AI is explicitly enabled
-        assertTrue("Cloud AI call in uninitialized JVM test must return failure transparently", res.isFailure)
+        val attempt = coordinator.setCloudAiEnabled(true)
+        assertTrue("Enabling Cloud AI must fail transparently in Stage 1", attempt.isFailure)
+        assertFalse("Cloud AI must remain disabled", coordinator.isCloudAiEnabled())
 
-        prefsRepo.setCloudAiEnabled(false)
+        val liveResult = coordinator.startLiveVoiceSession(
+            scenario = "Job interviews",
+            userLevel = "Intermediate",
+            onInputTranscript = {},
+            onOutputTranscript = {},
+            onGoAway = {},
+            onError = {}
+        )
+        assertTrue("Cloud Live Voice must never run silently under Stage 1 policy", liveResult.isFailure)
     }
 }

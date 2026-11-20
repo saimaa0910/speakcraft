@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.evaluation.CoachEvaluationState
 import com.example.data.media.InAppCameraVideoDialog
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.LearningChallenge
@@ -76,11 +77,13 @@ import com.example.data.model.SpeakingChallengeItem
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UiState
 import com.example.ui.components.CloudSyncWarningBanner
+import com.example.ui.components.CoachEvaluationStatusCard
 import com.example.ui.components.ConfirmDestructiveDialog
 import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
+import com.example.ui.components.LiveTranscriptPanel
 import com.example.ui.components.LiveWaveformVisualizer
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.ShimmerSkeletonCard
@@ -100,7 +103,8 @@ private fun formatStudioDuration(seconds: Int): String {
 fun SpeakingLabScreen(
     speakingVm: SpeakingAndLabsViewModel,
     pastSessions: List<SpeakingSession>,
-    onDeleteSession: (SpeakingSession) -> Unit
+    onDeleteSession: (SpeakingSession) -> Unit,
+    onOpenAiSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -117,10 +121,13 @@ fun SpeakingLabScreen(
     val activeMediaIsVideo by speakingVm.activeMediaIsVideo.collectAsStateWithLifecycle()
     val playbackNote by speakingVm.playbackStatusNote.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationState by speakingVm.evaluationState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
     val remainingCountdown by speakingVm.challengeRemainingSeconds.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
-    val cloudAiEnabled by speakingVm.cloudAiEnabled.collectAsStateWithLifecycle()
+    val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
+    val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
     val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
     val isTranscribing by speakingVm.isTranscribing.collectAsStateWithLifecycle()
     val transcriptionError by speakingVm.transcriptionError.collectAsStateWithLifecycle()
@@ -218,25 +225,18 @@ fun SpeakingLabScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Engine: ${if (cloudAiEnabled) "Cloud Gemini Multimodal" else "On-Device Local Intelligence"}",
+                            text = "Engine: On-Device Local Intelligence",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        FilterChip(
-                            selected = cloudAiEnabled,
-                            onClick = { speakingVm.setCloudAiEnabled(!cloudAiEnabled) },
-                            leadingIcon = {
-                                Icon(
-                                    if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            },
-                            label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
+                        androidx.compose.material3.TextButton(
+                            onClick = onOpenAiSettings,
                             modifier = Modifier
                                 .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("speaking_cloud_toggle_chip")
-                        )
+                                .testTag("speaking_open_ai_settings_button")
+                        ) {
+                            Text("AI Settings")
+                        }
                     }
 
                     FlowRow(
@@ -265,6 +265,15 @@ fun SpeakingLabScreen(
                     )
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording, isPaused = isPaused)
+
+                    LiveTranscriptPanel(
+                        state = liveTranscriptionState,
+                        liveTranscriptionEnabled = aiSettings.liveTranscriptionEnabled,
+                        editedTranscript = liveTranscript,
+                        editable = false,
+                        onRetry = { speakingVm.retryLiveTranscription() },
+                        onOpenAiSettings = onOpenAiSettings
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -471,7 +480,7 @@ fun SpeakingLabScreen(
                             value = liveTranscript,
                             onValueChange = { speakingVm.setLiveTranscript(it) },
                             label = { Text("Transcript Preview / Spoken Notes (Editable)") },
-                            placeholder = { Text("Tap 'Transcribe Audio' or paste notes for deeper coaching...") },
+                            placeholder = { Text("Tap 'Transcribe Audio' or edit recognized words from your recording...") },
                             minLines = 2,
                             maxLines = 4,
                             shape = MaterialTheme.shapes.medium,
@@ -483,14 +492,7 @@ fun SpeakingLabScreen(
                         if (!transcriptionError.isNullOrBlank()) {
                             ErrorRecoveryCard(
                                 message = transcriptionError.orEmpty(),
-                                onRetry = { speakingVm.transcribeRecordedMedia(customTopic) },
-                                secondaryActionLabel = if (cloudAiEnabled) "Use Local AI" else null,
-                                onSecondaryAction = if (cloudAiEnabled) {
-                                    {
-                                        speakingVm.clearTranscriptionError()
-                                        speakingVm.setCloudAiEnabled(false)
-                                    }
-                                } else null
+                                onRetry = { speakingVm.transcribeRecordedMedia(customTopic) }
                             )
                         }
                     }
@@ -503,15 +505,15 @@ fun SpeakingLabScreen(
                                 previousSession = previousSession
                             )
                         },
-                        enabled = !isRecording && (recordedPath != null || uploadedLabel != null),
+                        enabled = !isRecording,
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 52.dp)
                             .testTag("analyze_speech_button")
                     ) {
-                        Icon(if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology, contentDescription = null)
+                        Icon(Icons.Default.Psychology, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text(if (cloudAiEnabled) "Analyze With Cloud AI Coach" else "Analyze With Local AI Coach")
+                        Text("Analyze With Local AI Coach")
                     }
                 }
             }
@@ -661,21 +663,35 @@ fun SpeakingLabScreen(
                             if (activeModule == "SPEAKING_LAB") {
                                 when (val state = analysisState) {
                                     is UiState.Loading -> ShimmerSkeletonCard(180)
-                                    is UiState.Error -> ErrorRecoveryCard(
-                                        message = state.message,
-                                        onRetry = {
-                                            speakingVm.submitForAiAnalysis(
-                                                moduleType = "SPEAKING_LAB",
-                                                promptTitle = customTopic,
-                                                previousSession = previousSession
+                                    is UiState.Error -> {
+                                        val rep = evaluationReport
+                                        if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                                            CoachEvaluationStatusCard(
+                                                report = rep,
+                                                onRecordAgain = {
+                                                    speakingVm.recordAgain()
+                                                    speakingVm.startRecording(null)
+                                                },
+                                                onCancel = { speakingVm.cancelEvaluation() }
                                             )
-                                        },
-                                        secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                        onSecondaryAction = if (cloudAiEnabled) {
-                                            { speakingVm.setCloudAiEnabled(false) }
-                                        } else null
+                                        } else {
+                                            ErrorRecoveryCard(
+                                                message = state.message,
+                                                onRetry = {
+                                                    speakingVm.submitForAiAnalysis(
+                                                        moduleType = "SPEAKING_LAB",
+                                                        promptTitle = customTopic,
+                                                        previousSession = previousSession
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    }
+                                    is UiState.Success -> FeedbackReportCard(
+                                        session = state.data,
+                                        previousSession = previousSession,
+                                        evaluationReport = evaluationReport
                                     )
-                                    is UiState.Success -> FeedbackReportCard(session = state.data, previousSession = previousSession)
                                     null -> Unit
                                 }
                             }
@@ -717,21 +733,35 @@ fun SpeakingLabScreen(
                     item {
                         when (val state = analysisState) {
                             is UiState.Loading -> ShimmerSkeletonCard(180)
-                            is UiState.Error -> ErrorRecoveryCard(
-                                message = state.message,
-                                onRetry = {
-                                    speakingVm.submitForAiAnalysis(
-                                        moduleType = "SPEAKING_LAB",
-                                        promptTitle = customTopic,
-                                        previousSession = previousSession
+                            is UiState.Error -> {
+                                val rep = evaluationReport
+                                if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                                    CoachEvaluationStatusCard(
+                                        report = rep,
+                                        onRecordAgain = {
+                                            speakingVm.recordAgain()
+                                            speakingVm.startRecording(null)
+                                        },
+                                        onCancel = { speakingVm.cancelEvaluation() }
                                     )
-                                },
-                                secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                onSecondaryAction = if (cloudAiEnabled) {
-                                    { speakingVm.setCloudAiEnabled(false) }
-                                } else null
+                                } else {
+                                    ErrorRecoveryCard(
+                                        message = state.message,
+                                        onRetry = {
+                                            speakingVm.submitForAiAnalysis(
+                                                moduleType = "SPEAKING_LAB",
+                                                promptTitle = customTopic,
+                                                previousSession = previousSession
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                            is UiState.Success -> FeedbackReportCard(
+                                session = state.data,
+                                previousSession = previousSession,
+                                evaluationReport = evaluationReport
                             )
-                            is UiState.Success -> FeedbackReportCard(session = state.data, previousSession = previousSession)
                             null -> Unit
                         }
                     }
@@ -764,7 +794,8 @@ fun SpeakingLabScreen(
 fun ChallengesScreen(
     speakingVm: SpeakingAndLabsViewModel,
     sharedChallenges: List<LearningChallenge>,
-    pastSessions: List<SpeakingSession>
+    pastSessions: List<SpeakingSession>,
+    onOpenAiSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -794,8 +825,12 @@ fun ChallengesScreen(
     val countdown by speakingVm.challengeRemainingSeconds.collectAsStateWithLifecycle()
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
+    val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
+    val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
+    val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(selectedChallenge.durationSeconds)
@@ -866,6 +901,14 @@ fun ChallengesScreen(
                     }
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording, isPaused = isPaused)
+                    LiveTranscriptPanel(
+                        state = liveTranscriptionState,
+                        liveTranscriptionEnabled = aiSettings.liveTranscriptionEnabled,
+                        editedTranscript = liveTranscript,
+                        editable = false,
+                        onRetry = { speakingVm.retryLiveTranscription() },
+                        onOpenAiSettings = onOpenAiSettings
+                    )
                     if (countdown != null) {
                         val total = selectedChallenge.durationSeconds.coerceAtLeast(1)
                         val fraction = (countdown!!.toFloat() / total).coerceIn(0f, 1f)
@@ -914,7 +957,7 @@ fun ChallengesScreen(
                                         extraInstructions = "Evaluate adherence to: ${selectedChallenge.frameworkHint}"
                                     )
                                 },
-                                enabled = recordedPath != null,
+                                enabled = !isRecording,
                                 modifier = Modifier
                                     .weight(1f)
                                     .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
@@ -995,8 +1038,22 @@ fun ChallengesScreen(
                             if (activeModule == "DAILY_CHALLENGE") {
                                 when (val state = analysisState) {
                                     is UiState.Loading -> ShimmerSkeletonCard(150)
-                                    is UiState.Error -> ErrorRecoveryCard(state.message)
-                                    is UiState.Success -> FeedbackReportCard(state.data, pastSessions.firstOrNull())
+                                    is UiState.Error -> {
+                                        val rep = evaluationReport
+                                        if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                                            CoachEvaluationStatusCard(
+                                                report = rep,
+                                                onRecordAgain = {
+                                                    speakingVm.recordAgain()
+                                                    speakingVm.startRecording(selectedChallenge.durationSeconds)
+                                                },
+                                                onCancel = { speakingVm.cancelEvaluation() }
+                                            )
+                                        } else {
+                                            ErrorRecoveryCard(state.message)
+                                        }
+                                    }
+                                    is UiState.Success -> FeedbackReportCard(state.data, pastSessions.firstOrNull(), evaluationReport)
                                     null -> Unit
                                 }
                             }
@@ -1027,8 +1084,22 @@ fun ChallengesScreen(
                     item {
                         when (val state = analysisState) {
                             is UiState.Loading -> ShimmerSkeletonCard(150)
-                            is UiState.Error -> ErrorRecoveryCard(state.message)
-                            is UiState.Success -> FeedbackReportCard(state.data, pastSessions.firstOrNull())
+                            is UiState.Error -> {
+                                val rep = evaluationReport
+                                if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                                    CoachEvaluationStatusCard(
+                                        report = rep,
+                                        onRecordAgain = {
+                                            speakingVm.recordAgain()
+                                            speakingVm.startRecording(selectedChallenge.durationSeconds)
+                                        },
+                                        onCancel = { speakingVm.cancelEvaluation() }
+                                    )
+                                } else {
+                                    ErrorRecoveryCard(state.message)
+                                }
+                            }
+                            is UiState.Success -> FeedbackReportCard(state.data, pastSessions.firstOrNull(), evaluationReport)
                             null -> Unit
                         }
                     }

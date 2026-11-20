@@ -2,6 +2,8 @@ package com.example
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -52,14 +54,13 @@ class HybridAiComposeUiTest {
     }
 
     @Test
-    fun `settings screen renders cloud ai coach toggle and tier chips`() {
-        var cloudToggledTo: Boolean? = null
-        var selectedTier: String? = null
+    fun `settings screen centralizes live transcription toggle and marks cloud ai unavailable`() {
+        var liveTranscriptionToggledTo: Boolean? = null
 
         composeRule.setContent {
             SpeakCraftTheme {
                 SettingsScreen(
-                    prefs = AppPreferences(cloudAiEnabled = true, cloudAiModelTier = "balanced"),
+                    prefs = AppPreferences(cloudAiEnabled = false, liveTranscriptionEnabled = false),
                     userEmail = "test@speakcraft.app",
                     isAdmin = false,
                     updateStatusSummary = "Up to date",
@@ -72,23 +73,25 @@ class HybridAiComposeUiTest {
                     onOpenAdminConsole = {},
                     onClearHistory = {},
                     onSignOut = {},
-                    onSetCloudAiEnabled = { cloudToggledTo = it },
-                    onSetCloudAiModelTier = { selectedTier = it }
+                    onSetLiveTranscriptionEnabled = { liveTranscriptionToggledTo = it }
                 )
             }
         }
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_cloud_ai_switch"))
-        composeRule.onNodeWithTag("settings_cloud_ai_switch").assertIsDisplayed().performClick()
-        assertEquals(false, cloudToggledTo)
+        composeRule.onNodeWithTag("settings_cloud_ai_switch")
+            .assertIsDisplayed()
+            .assertIsOff()
+            .assertIsNotEnabled()
+        composeRule.onNodeWithTag("settings_cloud_ai_status").assertIsDisplayed()
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_ai_tier_deep"))
-        composeRule.onNodeWithTag("settings_ai_tier_deep").assertIsDisplayed().performClick()
-        assertEquals("deep", selectedTier)
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_live_transcription_switch"))
+        composeRule.onNodeWithTag("settings_live_transcription_switch").assertIsDisplayed().performClick()
+        assertEquals(true, liveTranscriptionToggledTo)
     }
 
     @Test
-    fun `ai mentor screen shows cloud toggle and role chips`() {
+    fun `ai mentor screen removes scattered cloud toggle and keeps role chips`() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val vm = InteractiveCoachViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
@@ -109,14 +112,14 @@ class HybridAiComposeUiTest {
             }
         }
 
-        composeRule.onNodeWithTag("mentor_cloud_toggle_chip").assertIsDisplayed()
+        composeRule.onNodeWithTag("mentor_cloud_toggle_chip").assertDoesNotExist()
         composeRule.onNodeWithTag("mentor_role_chip_mentor").assertIsDisplayed()
         composeRule.onNodeWithTag("mentor_role_chip_interviewer").performClick()
         assertEquals("interviewer", vm.selectedMentorRole.value)
     }
 
     @Test
-    fun `conversation simulator toggles live voice call panel`() {
+    fun `conversation simulator removes scattered cloud toggle and toggles voice mode`() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val vm = InteractiveCoachViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
@@ -138,13 +141,13 @@ class HybridAiComposeUiTest {
             }
         }
 
-        composeRule.onNodeWithTag("conversation_cloud_toggle_chip").assertIsDisplayed()
+        composeRule.onNodeWithTag("conversation_cloud_toggle_chip").assertDoesNotExist()
         composeRule.onNodeWithTag("conversation_voice_live_toggle").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("conversation_live_call_button").assertIsDisplayed()
     }
 
     @Test
-    fun `speaking lab displays cloud toggle chip`() {
+    fun `speaking lab removes scattered cloud toggle and links to centralized ai settings`() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val vm = SpeakingAndLabsViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
@@ -162,12 +165,13 @@ class HybridAiComposeUiTest {
             }
         }
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("speaking_cloud_toggle_chip"))
-        composeRule.onNodeWithTag("speaking_cloud_toggle_chip").assertIsDisplayed()
+        composeRule.onNodeWithTag("speaking_cloud_toggle_chip").assertDoesNotExist()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("live_transcript_panel"))
+        composeRule.onNodeWithTag("live_transcript_panel").assertIsDisplayed()
     }
 
     @Test
-    fun `dashboard inline ai mentor card dispatches typed prompt and quick chips`() {
+    fun `dashboard inline ai mentor card displays local ai badge and dispatches prompt`() {
         var dispatchedPrompt = ""
         composeRule.setContent {
             SpeakCraftTheme {
@@ -179,7 +183,7 @@ class HybridAiComposeUiTest {
             }
         }
 
-        composeRule.onNodeWithText("Cloud Gemini").assertIsDisplayed()
+        composeRule.onNodeWithText("Local AI").assertIsDisplayed()
         composeRule.onNodeWithTag("dashboard_ai_mentor_input").performTextInput("Rewrite my intro pitch")
         composeRule.onNodeWithTag("dashboard_ai_mentor_send").performClick()
         assertEquals("Rewrite my intro pitch", dispatchedPrompt)

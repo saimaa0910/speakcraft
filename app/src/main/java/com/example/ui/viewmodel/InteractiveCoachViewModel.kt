@@ -224,7 +224,7 @@ class InteractiveCoachViewModel(
                 _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = reply)
                 onPartnerReply(reply)
             }.onFailure { err ->
-                _conversationError.value = err.localizedMessage ?: "AI conversation turn failed. Check your connection or switch to Local Intelligence."
+                _conversationError.value = err.localizedMessage ?: "Conversation turn could not be generated. Please retry."
             }
         }
     }

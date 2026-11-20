@@ -9,12 +9,18 @@ import com.example.data.activity.ActivityUserResponse
 import com.example.data.activity.LocalSpeechMetrics
 import com.example.data.ai.cloud.FirebaseAiLogicService
 import com.example.data.ai.cloud.LiveVoiceHandle
+import com.example.data.ai.local.LocalExecutionPolicy
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.local.OnDeviceModelManager
 import com.example.data.ai.local.audio.SpeechRecognitionManager
+import com.example.data.evaluation.CoachEvaluationReport
+import com.example.data.evaluation.CoachEvaluationState
+import com.example.data.evaluation.InsufficientSpeechEvidenceException
 import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
 import com.example.data.model.UserProfile
+import com.example.data.preferences.AISettings
+import com.example.data.preferences.AISettingsRepository
 import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -27,11 +33,11 @@ import java.io.File
 private const val TAG = "HybridAiCoordinator"
 
 /**
- * Dual-engine SpeakCraft AI Coordinator:
- * - Default (Cloud AI Coach OFF): 100% private on-device [LocalIntelligenceOrchestrator].
- * - Opt-in (Cloud AI Coach ON): Firebase AI Logic via [FirebaseAiLogicService] (no API keys, App Check protected).
- *
- * Strictly preserves error transparency: Cloud AI errors propagate authentically to UI rather than silently falling back.
+ * Dual-engine SpeakCraft AI Coordinator governed centrally by [AISettingsRepository]:
+ * - Stage 1 Zero-Cloud-AI Policy ([LocalExecutionPolicy.isLocalOnly] == true):
+ *   Cloud AI is strictly UNAVAILABLE and cannot be activated or called silently anywhere.
+ * - All speech evaluation runs through [LocalIntelligenceOrchestrator.evaluateSpeechWithReport]
+ *   with strict evidence validation and no fabricated scores.
  */
 class HybridAiCoachCoordinator(
     private val localOrchestrator: LocalIntelligenceOrchestrator,
@@ -39,22 +45,36 @@ class HybridAiCoachCoordinator(
     private val prefsRepo: AppPreferencesRepository? = null,
     private val appContext: Context? = null,
     private val modelManager: OnDeviceModelManager? = null,
+    private val aiSettingsRepo: AISettingsRepository? = prefsRepo?.let { AISettingsRepository(it) },
     private val cloudEnabledOverride: (() -> Boolean)? = null,
     private val modelTierOverride: (() -> String)? = null
 ) {
 
+    val aiSettingsFlow: Flow<AISettings> =
+        aiSettingsRepo?.aiSettingsFlow ?: flowOf(AISettings())
+
     val cloudAiEnabledFlow: Flow<Boolean> =
-        prefsRepo?.preferencesFlow?.map { it.cloudAiEnabled }
-            ?: flowOf(cloudEnabledOverride?.invoke() ?: false)
+        if (LocalExecutionPolicy.isLocalOnly()) {
+            flowOf(false)
+        } else {
+            aiSettingsRepo?.aiSettingsFlow?.map { it.effectiveCloudAiEnabled }
+                ?: prefsRepo?.preferencesFlow?.map { it.cloudAiEnabled }
+                ?: flowOf(cloudEnabledOverride?.invoke() ?: false)
+        }
 
     val cloudAiModelTierFlow: Flow<String> =
-        prefsRepo?.preferencesFlow?.map { it.cloudAiModelTier }
+        aiSettingsRepo?.aiSettingsFlow?.map { it.cloudAiModelTier }
+            ?: prefsRepo?.preferencesFlow?.map { it.cloudAiModelTier }
             ?: flowOf(modelTierOverride?.invoke() ?: "balanced")
 
+    suspend fun currentAiSettings(): AISettings {
+        return runCatching { aiSettingsRepo?.aiSettingsFlow?.first() }.getOrNull() ?: AISettings()
+    }
+
     suspend fun isCloudAiEnabled(): Boolean {
+        if (LocalExecutionPolicy.isLocalOnly()) return false
         cloudEnabledOverride?.let { return it() }
-        val prefs = runCatching { prefsRepo?.preferencesFlow?.first() }.getOrNull()
-        return prefs?.cloudAiEnabled ?: false
+        return currentAiSettings().effectiveCloudAiEnabled
     }
 
     suspend fun activeModelTier(): String {
@@ -63,12 +83,25 @@ class HybridAiCoachCoordinator(
         return prefs?.cloudAiModelTier ?: "balanced"
     }
 
-    suspend fun setCloudAiEnabled(enabled: Boolean) {
+    suspend fun setCloudAiEnabled(enabled: Boolean): Result<Boolean> {
+        val repo = aiSettingsRepo
+        if (repo != null) return repo.setCloudAiEnabled(enabled)
+        if (LocalExecutionPolicy.isLocalOnly()) {
+            prefsRepo?.setCloudAiEnabled(false)
+            return if (enabled) {
+                Result.failure(
+                    IllegalStateException("Cloud AI Coach is unavailable in Stage 1 Zero-Cloud-AI Policy.")
+                )
+            } else {
+                Result.success(false)
+            }
+        }
         prefsRepo?.setCloudAiEnabled(enabled)
+        return Result.success(enabled)
     }
 
     suspend fun setCloudAiModelTier(tier: String) {
-        prefsRepo?.setCloudAiModelTier(tier)
+        aiSettingsRepo?.setCloudAiModelTier(tier) ?: prefsRepo?.setCloudAiModelTier(tier)
     }
 
     suspend fun transcribeAudio(
@@ -79,6 +112,12 @@ class HybridAiCoachCoordinator(
     ): Result<String> {
         if (isCloudAiEnabled()) {
             return cloudService.transcribeAudio(audioBytes, mimeType, hintPrompt)
+        }
+        val settings = currentAiSettings()
+        if (!settings.localSpeechRecognitionEnabled) {
+            return Result.failure(
+                IllegalStateException("On-device speech recognition is disabled in App Settings → AI & Intelligence.")
+            )
         }
         val targetFile = mediaFile ?: if (audioBytes.isNotEmpty() && appContext != null) {
             File.createTempFile("sc_transcribe_", ".m4a", appContext.cacheDir).apply {
@@ -102,10 +141,46 @@ class HybridAiCoachCoordinator(
             Result.failure(
                 IllegalStateException(
                     res.limitationNotice?.takeIf { it.isNotBlank() }
-                        ?: "Local file transcription needs the optional speech model or Live Speech Capture while recording. You can also enable Cloud AI Coach."
+                        ?: "No recognizable speech detected in this audio clip."
                 )
             )
         }
+    }
+
+    suspend fun evaluateSpeechWithReport(
+        sessionId: String,
+        mediaBytes: ByteArray,
+        mimeType: String,
+        moduleType: String,
+        promptTitle: String,
+        durationSeconds: Int,
+        previousSession: SpeakingSession?,
+        extraInstructions: String = "",
+        localMediaPath: String = "",
+        liveTranscript: String = "",
+        transcriptSessionId: String? = sessionId,
+        asrConfidence: Float = 0.85f,
+        videoAssessmentSelected: Boolean = mimeType.startsWith("video/", ignoreCase = true)
+    ): CoachEvaluationReport {
+        val settings = currentAiSettings()
+        return localOrchestrator.evaluateSpeechWithReport(
+            sessionId = sessionId,
+            mediaBytes = mediaBytes,
+            mimeType = mimeType,
+            moduleType = moduleType,
+            promptTitle = promptTitle,
+            durationSeconds = durationSeconds,
+            previousSession = previousSession,
+            extraInstructions = extraInstructions,
+            localMediaPath = localMediaPath,
+            liveTranscript = liveTranscript,
+            transcriptSessionId = transcriptSessionId,
+            asrConfidence = asrConfidence,
+            videoAssessmentSelected = videoAssessmentSelected && settings.localVideoAnalysisEnabled,
+            enableSpeechRecognition = settings.localSpeechRecognitionEnabled,
+            enableAudioAnalysis = settings.localAudioAnalysisEnabled && settings.localAiEnabled,
+            enableVideoAnalysis = settings.localVideoAnalysisEnabled
+        )
     }
 
     suspend fun analyzeSpeechRecording(
@@ -120,9 +195,9 @@ class HybridAiCoachCoordinator(
         liveTranscript: String = "",
         asrConfidence: Float = 0.85f
     ): Result<SpeakingSession> {
-        return if (isCloudAiEnabled()) {
+        if (isCloudAiEnabled()) {
             val tier = activeModelTier()
-            cloudService.analyzeSpeechRecording(
+            return cloudService.analyzeSpeechRecording(
                 mediaBytes = mediaBytes,
                 mimeType = mimeType,
                 moduleType = moduleType,
@@ -134,19 +209,24 @@ class HybridAiCoachCoordinator(
                 liveTranscript = liveTranscript,
                 modelTier = tier
             )
+        }
+        val report = evaluateSpeechWithReport(
+            sessionId = java.util.UUID.randomUUID().toString(),
+            mediaBytes = mediaBytes,
+            mimeType = mimeType,
+            moduleType = moduleType,
+            promptTitle = promptTitle,
+            durationSeconds = durationSeconds,
+            previousSession = previousSession,
+            extraInstructions = extraInstructions,
+            localMediaPath = localMediaPath,
+            liveTranscript = liveTranscript,
+            asrConfidence = asrConfidence
+        )
+        return if (report.evaluationState == CoachEvaluationState.COMPLETED && report.session != null) {
+            Result.success(report.session)
         } else {
-            localOrchestrator.analyzeSpeechRecording(
-                mediaBytes = mediaBytes,
-                mimeType = mimeType,
-                moduleType = moduleType,
-                promptTitle = promptTitle,
-                durationSeconds = durationSeconds,
-                previousSession = previousSession,
-                extraInstructions = extraInstructions,
-                localMediaPath = localMediaPath,
-                liveTranscript = liveTranscript,
-                asrConfidence = asrConfidence
-            )
+            Result.failure(InsufficientSpeechEvidenceException(report))
         }
     }
 
@@ -217,7 +297,7 @@ class HybridAiCoachCoordinator(
     ): Result<LiveVoiceHandle> {
         if (!isCloudAiEnabled()) {
             return Result.failure(
-                IllegalStateException("Cloud AI Coach is disabled. Using on-device Voice Coach mode instead.")
+                IllegalStateException("Cloud AI Coach is unavailable. Live voice runs offline via on-device speech mode.")
             )
         }
         return cloudService.startLiveVoiceSession(
@@ -258,11 +338,6 @@ class HybridAiCoachCoordinator(
         }
     }
 
-    /**
-     * Used as `aiClientOverride` for [com.example.data.activity.UniversalEvaluationEngine].
-     * Returns null when running in Local Intelligence mode so the upgraded local rubric executes;
-     * when Cloud AI Coach is enabled, throws on Cloud failure so the UI surfaces the real error instead of masking it.
-     */
     suspend fun evaluateUniversalActivityIfCloud(
         activity: ActivityDefinition,
         response: ActivityUserResponse,

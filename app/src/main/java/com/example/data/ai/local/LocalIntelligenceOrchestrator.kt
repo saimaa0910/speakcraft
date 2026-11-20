@@ -9,6 +9,12 @@ import com.example.data.ai.local.audio.AudioFeatureExtractionEngine
 import com.example.data.ai.local.audio.FillerWordDetectionEngine
 import com.example.data.ai.local.audio.PronunciationAnalysisEngine
 import com.example.data.ai.local.audio.SpeechRecognitionManager
+import com.example.data.evaluation.CoachEvaluationReport
+import com.example.data.evaluation.CoachEvaluationState
+import com.example.data.evaluation.EvaluationEvidenceValidator
+import com.example.data.evaluation.EvidenceBasedScoringEngine
+import com.example.data.evaluation.EvidenceValidationInput
+import com.example.data.evaluation.InsufficientSpeechEvidenceException
 import com.example.data.ai.local.fusion.MultimodalFeatureFusionEngine
 import com.example.data.ai.local.language.DynamicLocalCoachEngine
 import com.example.data.ai.local.language.LocalFeedbackEngine
@@ -57,7 +63,8 @@ class LocalIntelligenceOrchestrator(
     // 1. Multimodal Speech / Video Recording Analysis
     // ─────────────────────────────────────────────────────────────────────────
 
-    suspend fun analyzeSpeechRecording(
+    suspend fun evaluateSpeechWithReport(
+        sessionId: String = java.util.UUID.randomUUID().toString(),
         mediaBytes: ByteArray,
         mimeType: String,
         moduleType: String,
@@ -67,63 +74,70 @@ class LocalIntelligenceOrchestrator(
         extraInstructions: String = "",
         localMediaPath: String = "",
         liveTranscript: String = "",
-        asrConfidence: Float = 0.85f
-    ): Result<SpeakingSession> = withContext(Dispatchers.IO) {
-        runCatching {
-            LocalExecutionPolicy.verifyLocalOnly()
+        transcriptSessionId: String? = sessionId,
+        asrConfidence: Float = 0.85f,
+        videoAssessmentSelected: Boolean = mimeType.startsWith("video/", ignoreCase = true),
+        enableSpeechRecognition: Boolean = true,
+        enableAudioAnalysis: Boolean = true,
+        enableVideoAnalysis: Boolean = true
+    ): CoachEvaluationReport = withContext(Dispatchers.IO) {
+        LocalExecutionPolicy.verifyLocalOnly()
 
-            val effectiveDuration = durationSeconds.coerceAtLeast(1)
-            val isVideo = mimeType.startsWith("video/", ignoreCase = true)
-
-            var tempFile: File? = null
-            val mediaFile: File? = when {
-                localMediaPath.isNotBlank() && File(localMediaPath).exists() -> File(localMediaPath)
-                mediaBytes.isNotEmpty() && context != null -> {
-                    val ext = if (isVideo) ".mp4" else ".m4a"
-                    File.createTempFile("speakcraft_local_", ext, context.cacheDir).also {
-                        it.writeBytes(mediaBytes)
-                        tempFile = it
-                    }
+        val isVideo = videoAssessmentSelected || mimeType.startsWith("video/", ignoreCase = true)
+        var tempFile: File? = null
+        val mediaFile: File? = when {
+            localMediaPath.isNotBlank() && File(localMediaPath).exists() -> File(localMediaPath)
+            mediaBytes.isNotEmpty() -> {
+                val ext = when {
+                    isVideo -> ".mp4"
+                    mimeType.contains("wav", ignoreCase = true) -> ".wav"
+                    else -> ".m4a"
                 }
-                else -> null
+                val dir = context?.cacheDir
+                File.createTempFile("speakcraft_local_", ext, dir).also {
+                    it.writeBytes(mediaBytes)
+                    tempFile = it
+                }
+            }
+            else -> null
+        }
+
+        try {
+            // Step 1: Acoustic evidence check & extraction first (decode audio cleanly before ASR or scoring)
+            var audioAnalysisFailed = false
+            val decodedAudio = if (enableAudioAnalysis && mediaFile != null && mediaFile.length() > 0L) {
+                try {
+                    val pcmRes = com.example.data.ai.local.audio.AudioResampler.decodeToPcm16Mono16k(mediaFile)
+                    if (pcmRes.isSuccess) {
+                        val pcm = pcmRes.getOrThrow()
+                        if (pcm.samples.isNotEmpty()) {
+                            audioFeatureEngine.extract(pcm.samples, pcm.sampleRate, "")
+                        } else null
+                    } else {
+                        audioAnalysisFailed = true
+                        null
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Audio decoding failed: ${e.message}")
+                    audioAnalysisFailed = true
+                    null
+                }
+            } else {
+                null
             }
 
-            try {
-                // Step 1: Prefer live on-device transcript when captured; otherwise try file ASR
-                val speechManager = SpeechRecognitionManager(
-                    context = context,
-                    modelManager = modelManager
-                )
-                val asrResult = if (liveTranscript.isBlank() && mediaFile != null) {
-                    runCatching { speechManager.transcribe(mediaFile) }.getOrNull()
-                } else null
+            // Step 2: Optional video landmark extraction ONLY when video assessment is selected
+            var faceResult: FaceAnalysisResult? = null
+            var postureResult: PostureAnalysisResult? = null
+            var gestureResult: GestureAnalysisResult? = null
+            var videoFramesAnalyzed = 0
+            var videoAnalysisCompleted = false
+            var videoAnalysisFailed = false
 
-                val transcript = liveTranscript.trim().ifBlank {
-                    asrResult?.transcript?.trim().orEmpty()
-                }
-                val effectiveConfidence = if (liveTranscript.isNotBlank()) {
-                    asrConfidence.coerceIn(0f, 1f)
-                } else {
-                    asrResult?.confidence ?: 0f
-                }
-
-                // Step 2: Acoustic DSP feature extraction
-                val acousticFeatures: AcousticFeatures? = if (mediaFile != null) {
-                    runCatching {
-                        audioFeatureEngine.extractFromFile(mediaFile, transcript)
-                    }.getOrNull()
-                } else null
-
-                // Step 3: Optional on-device video analysis (face, pose, gestures)
-                var faceResult: FaceAnalysisResult? = null
-                var postureResult: PostureAnalysisResult? = null
-                var gestureResult: GestureAnalysisResult? = null
-
-                if (isVideo && mediaFile != null && context != null) {
-                    val frames = runCatching {
-                        VideoFrameProcessingEngine().extractFrames(mediaFile)
-                    }.getOrDefault(emptyList())
-
+            if (isVideo && enableVideoAnalysis && mediaFile != null && context != null) {
+                try {
+                    val frames = VideoFrameProcessingEngine().extractFrames(mediaFile)
+                    videoFramesAnalyzed = frames.size
                     if (frames.isNotEmpty()) {
                         try {
                             val faceEngine = FaceLandmarkAnalysisEngine(context)
@@ -141,170 +155,189 @@ class LocalIntelligenceOrchestrator(
                                 gestureResult = runCatching { gestureEngine.analyzeFrames(frames) }.getOrNull()
                                 gestureEngine.release()
                             }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Video landmark pass skipped safely: ${e.message}")
+                            videoAnalysisCompleted = (faceResult != null || postureResult != null)
                         } finally {
                             frames.forEach { runCatching { it.recycle() } }
                         }
+                    } else {
+                        videoAnalysisCompleted = true
                     }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Video analysis failed: ${e.message}")
+                    videoAnalysisFailed = true
                 }
+            }
 
-                // Step 4: Linguistic & pronunciation alignment analysis
-                val languageResult = if (transcript.isNotBlank()) {
+            // Step 3: On-device ASR fallback only if live transcript missing AND audio actually decoded
+            val speechManager = SpeechRecognitionManager(context = context, modelManager = modelManager)
+            val preValidationOk = decodedAudio != null &&
+                decodedAudio.durationSeconds >= EvaluationEvidenceValidator.MIN_SPEECH_DURATION_SECONDS &&
+                decodedAudio.rmsEnergy >= EvaluationEvidenceValidator.MIN_SPEECH_RMS_ENERGY
+            val asrResult = if (enableSpeechRecognition && liveTranscript.isBlank() && mediaFile != null && preValidationOk) {
+                runCatching { speechManager.transcribe(mediaFile) }.getOrNull()
+            } else null
+
+            val candidateTranscript = liveTranscript.trim().ifBlank {
+                asrResult?.transcript?.trim().orEmpty()
+            }
+            val effectiveTranscriptSessionId = if (liveTranscript.isNotBlank()) transcriptSessionId else sessionId
+            val effectiveConfidence = if (liveTranscript.isNotBlank()) {
+                asrConfidence.coerceIn(0f, 1f)
+            } else {
+                asrResult?.confidence ?: 0f
+            }
+
+            // Step 4: Strict Evidence Validation Gate
+            val validated = EvaluationEvidenceValidator.validate(
+                EvidenceValidationInput(
+                    sessionId = sessionId,
+                    audioRequired = true,
+                    audioBytes = mediaBytes,
+                    audioFile = mediaFile,
+                    mimeType = mimeType,
+                    reportedDurationSeconds = durationSeconds,
+                    preExtractedAudio = decodedAudio,
+                    audioAnalysisFailed = audioAnalysisFailed,
+                    videoAssessmentSelected = isVideo && enableVideoAnalysis,
+                    videoFile = if (isVideo) mediaFile else null,
+                    videoFramesAnalyzed = videoFramesAnalyzed,
+                    videoAnalysisCompleted = videoAnalysisCompleted,
+                    videoAnalysisFailed = videoAnalysisFailed,
+                    transcriptRequired = false,
+                    transcript = candidateTranscript,
+                    transcriptSessionId = effectiveTranscriptSessionId
+                )
+            )
+
+            // Early return BEFORE any scoring if primary audio evidence is missing, silent, or failed
+            if (!validated.validation.isValidForEvaluation) {
+                return@withContext EvidenceBasedScoringEngine.score(
+                    EvidenceBasedScoringEngine.ScoringInput(
+                        sessionId = sessionId,
+                        moduleType = moduleType,
+                        promptTitle = promptTitle,
+                        mimeType = mimeType,
+                        localMediaPath = localMediaPath,
+                        validated = validated,
+                        previousSession = previousSession
+                    )
+                )
+            }
+
+            // Step 5: Re-extract full acoustic features with verified transcript word timing
+            val finalAcoustic = validated.acousticFeatures?.let { feats ->
+                if (validated.validatedTranscript.isNotBlank()) {
+                    val wpm = if (feats.durationSeconds > 0.0) {
+                        ((validated.meaningfulWordCount * 60.0) / feats.durationSeconds).roundToInt().coerceIn(20, 320)
+                    } else 0
+                    feats.copy(
+                        wordCount = validated.meaningfulWordCount,
+                        wordsPerMinute = wpm
+                    )
+                } else feats
+            }
+
+            val finalValidated = validated.copy(acousticFeatures = finalAcoustic)
+
+            // Step 6: Linguistic & pronunciation alignment analysis
+            var languageInferenceFailed = false
+            val languageResult = if (validated.validatedTranscript.isNotBlank()) {
+                try {
                     LocalLanguageAnalysisEngine.analyze(
-                        text = transcript,
+                        text = validated.validatedTranscript,
                         transcriptConfidence = if (effectiveConfidence > 0f) effectiveConfidence else 0.85f
                     )
-                } else null
-
-                val expectedText = extractExpectedPrompt(extraInstructions)
-                val pronAlignment = if (transcript.isNotBlank() && !expectedText.isNullOrBlank()) {
-                    pronunciationEngine.analyze(transcript, expectedText)
-                } else null
-
-                // Step 5: Multimodal fusion & 6-section deterministic feedback
-                val evaluatorName = mapModuleToEvaluator(moduleType)
-                val fused = MultimodalFeatureFusionEngine.fuse(
-                    audio = acousticFeatures,
-                    face = faceResult,
-                    posture = postureResult,
-                    gesture = gestureResult,
-                    language = languageResult,
-                    transcript = transcript,
-                    expectedText = expectedText,
-                    evaluatorName = evaluatorName,
-                    exerciseTitle = promptTitle.ifBlank { moduleType }
-                )
-
-                val computedWpm = when {
-                    fused.wordsPerMinute > 0 -> fused.wordsPerMinute
-                    transcript.isNotBlank() -> {
-                        val wc = LocalLanguageAnalysisEngine.tokenizeWords(transcript).size
-                        ((wc.toDouble() / effectiveDuration.toDouble()) * 60.0).roundToInt().coerceIn(30, 320)
-                    }
-                    else -> 0
+                } catch (e: Exception) {
+                    Log.w(TAG, "Language analysis failed: ${e.message}")
+                    languageInferenceFailed = true
+                    null
                 }
+            } else null
 
-                val extraNotices = buildList {
-                    addAll(fused.limitationNotices)
-                    if (liveTranscript.isBlank()) {
-                        asrResult?.limitationNotice?.takeIf { it.isNotBlank() }?.let { add(it) }
-                    }
-                }.distinct()
+            val expectedText = extractExpectedPrompt(extraInstructions)
+            val pronAlignment = if (validated.validatedTranscript.isNotBlank() && !expectedText.isNullOrBlank()) {
+                pronunciationEngine.analyze(validated.validatedTranscript, expectedText)
+            } else null
 
-                val evidence = fused.copy(
-                    wordsPerMinute = computedWpm,
-                    speechDurationSeconds = if (fused.speechDurationSeconds > 0.0) fused.speechDurationSeconds else effectiveDuration.toDouble(),
-                    limitationNotices = extraNotices
-                )
+            val evaluatorName = mapModuleToEvaluator(moduleType)
+            val fused = MultimodalFeatureFusionEngine.fuse(
+                audio = finalAcoustic,
+                face = faceResult,
+                posture = postureResult,
+                gesture = gestureResult,
+                language = languageResult,
+                transcript = validated.validatedTranscript,
+                expectedText = expectedText,
+                evaluatorName = evaluatorName,
+                exerciseTitle = promptTitle.ifBlank { moduleType }
+            )
 
-                // Step 6: Deterministic scores grounded strictly in observed metrics
-                val fluencyScore = computeFluencyScore(evidence, previousSession)
-                val grammarScore = computeGrammarScore(evidence)
-                val vocabularyScore = computeVocabularyScore(evidence)
-                val pronunciationScore = computePronunciationScore(evidence, pronAlignment?.matchScore)
-                val articulationScore = computeArticulationScore(evidence, pronunciationScore)
-
-                val currentComposite = (fluencyScore + grammarScore + vocabularyScore + articulationScore) / 4
-                val prevComposite = previousSession?.let {
-                    ((it.fluencyScore + it.grammarScore + it.vocabularyScore + it.articulationScore) / 4L).toInt()
+            val extraNotices = buildList {
+                addAll(fused.limitationNotices)
+                if (liveTranscript.isBlank()) {
+                    asrResult?.limitationNotice?.takeIf { it.isNotBlank() }?.let { add(it) }
                 }
-                val sessionDelta = prevComposite?.let { currentComposite - it }
+            }.distinct()
 
-                val feedback = LocalFeedbackEngine.buildFeedback(
-                    evidence = evidence,
-                    previousSessionDelta = sessionDelta
-                )
+            val evidence = fused.copy(
+                wordsPerMinute = finalAcoustic?.wordsPerMinute ?: fused.wordsPerMinute,
+                speechDurationSeconds = finalValidated.effectiveDurationSeconds,
+                limitationNotices = extraNotices
+            )
 
-                val audioQualityNote = buildString {
-                    if (acousticFeatures == null) {
-                        append("${effectiveDuration}s recording")
-                        if (transcript.isNotBlank()) append(" • Live speech captured")
-                        else append(" • Vocal acoustics analyzed")
-                    } else {
-                        val db = acousticFeatures.relativeLoudness.roundToInt()
-                        append("${effectiveDuration}s • Loudness ${db} dBFS")
-                        if (acousticFeatures.clippingDetected) append(" • Slight clipping")
-                        if (acousticFeatures.backgroundNoiseLevel > 0.06f) append(" • Elevated room noise")
-                    }
-                }
-
-                val confidenceLabel = when {
-                    acousticFeatures != null && acousticFeatures.relativeLoudness >= -26.0 && !acousticFeatures.clippingDetected -> "High"
-                    transcript.isNotBlank() && evidence.fillerCount <= 1 && computedWpm in 110..175 -> "High"
-                    acousticFeatures != null && acousticFeatures.relativeLoudness < -36.0 -> "Low"
-                    else -> "Medium"
-                }
-
-                val articulationNote = when {
-                    pronAlignment != null ->
-                        "Word alignment ${(pronAlignment.wordAccuracy * 100).roundToInt()}% (${pronAlignment.intelligibilityEstimate} intelligibility — transcript alignment, non-phonemic)."
-                    acousticFeatures?.clippingDetected == true ->
-                        "Clipping detected — keep 15–20 cm mic distance for clearer consonants."
-                    evidence.wordsPerMinute > 180 ->
-                        "Fast pace (${evidence.wordsPerMinute} WPM) may compress word endings."
-                    evidence.wordsPerMinute in 115..170 ->
-                        "Clear cadence (${evidence.wordsPerMinute} WPM) supports crisp articulation."
-                    else ->
-                        "Steady acoustic delivery captured for local self-review."
-                }
-
-                val organizationNote = when {
-                    transcript.isBlank() ->
-                        "Audio-only evaluation active. Use Live Speech Capture or install the optional offline speech pack for transcript structure analysis."
-                    languageResult != null && languageResult.averageSentenceLength > 28.0 ->
-                        "Long sentences detected (avg ${languageResult.averageSentenceLength.roundToInt()} words) — break ideas into PREP points (Point, Reason, Example, Point)."
-                    else ->
-                        "Clear sentence segmentation (${languageResult?.sentenceCount ?: 1} sentence(s), avg ${languageResult?.averageSentenceLength?.roundToInt() ?: 10} words)."
-                }
-
-                val pronNotes = buildList {
-                    add(articulationNote)
-                    if (pronAlignment != null && pronAlignment.likelyMispronounced.isNotEmpty()) {
-                        add("Words to enunciate more clearly: ${pronAlignment.likelyMispronounced.take(5).joinToString(", ")}.")
-                    }
-                    if (transcript.isBlank()) {
-                        add("Word-level pronunciation alignment requires a transcript; acoustic clarity metrics were evaluated locally.")
-                    }
-                }
-
-                SpeakingSession(
+            EvidenceBasedScoringEngine.score(
+                EvidenceBasedScoringEngine.ScoringInput(
+                    sessionId = sessionId,
                     moduleType = moduleType,
-                    promptTitle = promptTitle.ifBlank { "Communication Practice" },
-                    durationSeconds = effectiveDuration.toLong(),
+                    promptTitle = promptTitle,
+                    mimeType = mimeType,
                     localMediaPath = localMediaPath,
-                    mediaType = mimeType,
-                    transcript = transcript.ifBlank {
-                        "[Audio-only recording (${effectiveDuration}s) — evaluated locally via acoustic DSP without cloud transcription]"
-                    },
-                    overallAssessment = feedback.explanation,
-                    strengths = feedback.whatWentWell,
-                    mistakes = feedback.specificMistakes,
-                    pronunciationNotes = pronNotes,
-                    betterAlternatives = feedback.correctedExamples,
-                    fillerWordsDetected = evidence.detectedFillers,
-                    repeatedExpressions = evidence.vocabularyAnalysis?.repeatedWords?.entries
-                        ?.sortedByDescending { it.value }
-                        ?.take(4)
-                        ?.map { "${it.key} (${it.value}x)" }
-                        .orEmpty(),
-                    improvementSuggestions = feedback.improvementSuggestions,
-                    recommendedExercises = listOf(feedback.nextPracticeTask),
-                    pronunciationAssessable = transcript.isNotBlank() || acousticFeatures != null,
-                    articulationClarity = articulationNote,
-                    thoughtOrganization = organizationNote,
-                    nextRecommendedActivity = feedback.nextPracticeTask,
-                    confidenceLevel = confidenceLabel,
-                    audioQualityNote = audioQualityNote,
-                    fluencyScore = fluencyScore.toLong(),
-                    pronunciationScore = pronunciationScore.toLong(),
-                    vocabularyScore = vocabularyScore.toLong(),
-                    grammarScore = grammarScore.toLong(),
-                    articulationScore = articulationScore.toLong(),
-                    wordsPerMinute = evidence.wordsPerMinute.toLong()
+                    validated = finalValidated,
+                    expectedText = expectedText,
+                    languageAnalysis = languageResult,
+                    languageInferenceFailed = languageInferenceFailed,
+                    pronunciationAlignment = pronAlignment,
+                    faceAnalysis = faceResult,
+                    postureAnalysis = postureResult,
+                    gestureAnalysis = gestureResult,
+                    fusionEvidence = evidence,
+                    previousSession = previousSession
                 )
-            } finally {
-                tempFile?.delete()
+            )
+        } finally {
+            tempFile?.delete()
+        }
+    }
+
+    suspend fun analyzeSpeechRecording(
+        mediaBytes: ByteArray,
+        mimeType: String,
+        moduleType: String,
+        promptTitle: String,
+        durationSeconds: Int,
+        previousSession: SpeakingSession?,
+        extraInstructions: String = "",
+        localMediaPath: String = "",
+        liveTranscript: String = "",
+        asrConfidence: Float = 0.85f
+    ): Result<SpeakingSession> = withContext(Dispatchers.IO) {
+        runCatching {
+            val report = evaluateSpeechWithReport(
+                mediaBytes = mediaBytes,
+                mimeType = mimeType,
+                moduleType = moduleType,
+                promptTitle = promptTitle,
+                durationSeconds = durationSeconds,
+                previousSession = previousSession,
+                extraInstructions = extraInstructions,
+                localMediaPath = localMediaPath,
+                liveTranscript = liveTranscript,
+                asrConfidence = asrConfidence
+            )
+            if (report.evaluationState == CoachEvaluationState.COMPLETED && report.session != null) {
+                report.session
+            } else {
+                throw InsufficientSpeechEvidenceException(report)
             }
         }
     }
@@ -907,60 +940,6 @@ class LocalIntelligenceOrchestrator(
         val idx = extraInstructions.indexOf(marker, ignoreCase = true)
         if (idx < 0) return null
         return extraInstructions.substring(idx + marker.length).trim().takeIf { it.isNotBlank() }
-    }
-
-    private fun computeFluencyScore(
-        evidence: LocalFeedbackEvidence,
-        previousSession: SpeakingSession?
-    ): Int {
-        var score = 76
-        if (evidence.wordsPerMinute in 120..170) score += 10
-        else if (evidence.wordsPerMinute > 185 || (evidence.wordsPerMinute in 1..90)) score -= 12
-        score -= (evidence.fillerCount * 4).coerceAtMost(24)
-        if (evidence.pauseCount in 2..8 && evidence.meanPauseDurationMs < 1500.0) score += 6
-        if (evidence.audioFeatures?.speakingRateConsistencyScore != null && evidence.audioFeatures.speakingRateConsistencyScore >= 0.8) {
-            score += 4
-        }
-        if (previousSession != null && evidence.fillerCount == 0 && evidence.wordCount >= 15) {
-            score += 2
-        }
-        return score.coerceIn(45, 98)
-    }
-
-    private fun computeGrammarScore(evidence: LocalFeedbackEvidence): Int {
-        if (evidence.transcript.isBlank()) return 72
-        return (92 - evidence.grammarIssues.size * 10).coerceIn(45, 98)
-    }
-
-    private fun computeVocabularyScore(evidence: LocalFeedbackEvidence): Int {
-        val vocab = evidence.vocabularyAnalysis ?: return if (evidence.transcript.isBlank()) 70 else 74
-        val base = (55 + (vocab.vocabularyDiversityScore * 0.45)).roundToInt()
-        val repeatPenalty = (vocab.repeatedWords.size * 4).coerceAtMost(15)
-        return (base - repeatPenalty).coerceIn(45, 98)
-    }
-
-    private fun computePronunciationScore(
-        evidence: LocalFeedbackEvidence,
-        alignmentMatchScore: Float?
-    ): Int {
-        if (alignmentMatchScore != null) {
-            return (alignmentMatchScore * 100f).roundToInt().coerceIn(45, 98)
-        }
-        var score = 78
-        if (evidence.audioFeatures?.clippingDetected == true) score -= 12
-        if ((evidence.audioFeatures?.backgroundNoiseLevel ?: 0f) > 0.06f) score -= 6
-        if (evidence.audioFeatures != null && !evidence.audioFeatures.clippingDetected) score += 6
-        return score.coerceIn(45, 96)
-    }
-
-    private fun computeArticulationScore(
-        evidence: LocalFeedbackEvidence,
-        pronunciationScore: Int
-    ): Int {
-        var score = pronunciationScore
-        if (evidence.wordsPerMinute > 185) score -= 8
-        else if (evidence.wordsPerMinute in 115..165) score += 4
-        return score.coerceIn(45, 97)
     }
 
     private fun extractTopKeywords(message: String): List<String> {

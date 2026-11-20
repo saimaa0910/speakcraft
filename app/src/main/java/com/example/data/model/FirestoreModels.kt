@@ -139,6 +139,11 @@ data class SpeakingSession(
     val articulationScore: Long = 0L,
     val wordsPerMinute: Long = 0L,
     val sourceVideoUrl: String = "https://www.youtube.com/@askvinh",
+    val evaluationStatus: String = "COMPLETED",
+    val isPartialEvaluation: Boolean = false,
+    val evaluatedDimensionKeys: List<String> = emptyList(),
+    val unavailableDimensionKeys: List<String> = emptyList(),
+    val evidenceSummary: String = "",
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )

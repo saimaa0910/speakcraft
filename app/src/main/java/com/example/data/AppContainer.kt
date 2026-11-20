@@ -2,11 +2,16 @@ package com.example.data
 
 import android.content.Context
 import com.example.R
+import com.example.data.ai.HybridAiCoachCoordinator
+import com.example.data.ai.IntelligenceCapabilityManager
 import com.example.data.ai.local.DeviceCapabilityManager
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
+import com.example.data.ai.local.OfflineAIAvailabilityManager
 import com.example.data.ai.local.OnDeviceModelManager
+import com.example.data.ai.local.audio.LiveTranscriptionManager
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
+import com.example.data.preferences.AISettingsRepository
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.preferences.TutorialStateManager
 import com.example.data.update.ReleaseUpdateRepository
@@ -27,6 +32,10 @@ class AppContainer(context: Context) {
 
     val onDeviceModelManager: OnDeviceModelManager by lazy { OnDeviceModelManager(appContext) }
     val deviceCapabilityManager: DeviceCapabilityManager by lazy { DeviceCapabilityManager(appContext) }
+    val offlineAIAvailabilityManager: OfflineAIAvailabilityManager by lazy {
+        OfflineAIAvailabilityManager(appContext, onDeviceModelManager, deviceCapabilityManager)
+    }
+
     val localIntelligenceOrchestrator: LocalIntelligenceOrchestrator by lazy {
         LocalIntelligenceOrchestrator(appContext, onDeviceModelManager, deviceCapabilityManager)
     }
@@ -39,13 +48,33 @@ class AppContainer(context: Context) {
         AppPreferencesRepository(appContext)
     }
 
-    val hybridAiCoordinator: com.example.data.ai.HybridAiCoachCoordinator by lazy {
-        com.example.data.ai.HybridAiCoachCoordinator(
+    val aiSettingsRepository: AISettingsRepository by lazy {
+        AISettingsRepository(preferencesRepository)
+    }
+
+    val intelligenceCapabilityManager: IntelligenceCapabilityManager by lazy {
+        IntelligenceCapabilityManager(
+            context = appContext,
+            modelManager = onDeviceModelManager,
+            offlineAvailabilityManager = offlineAIAvailabilityManager
+        )
+    }
+
+    val liveTranscriptionManager: LiveTranscriptionManager by lazy {
+        LiveTranscriptionManager(
+            context = appContext,
+            capabilityManager = intelligenceCapabilityManager
+        )
+    }
+
+    val hybridAiCoordinator: HybridAiCoachCoordinator by lazy {
+        HybridAiCoachCoordinator(
             localOrchestrator = localIntelligenceOrchestrator,
             cloudService = firebaseAiLogicService,
             prefsRepo = preferencesRepository,
             appContext = appContext,
-            modelManager = onDeviceModelManager
+            modelManager = onDeviceModelManager,
+            aiSettingsRepo = aiSettingsRepository
         )
     }
 

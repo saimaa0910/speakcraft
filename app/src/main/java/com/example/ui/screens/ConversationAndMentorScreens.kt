@@ -123,22 +123,18 @@ fun ConversationSimulatorScreen(
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) {
-            if (voiceModeEnabled && cloudAiEnabled) {
-                coachVm.startCloudLiveVoiceCall(userLevel) { }
-            } else {
-                ttsHelper.startDictation(
-                    onResult = { spoken ->
-                        if (voiceModeEnabled) {
-                            coachVm.sendConversationMessage(spoken, userLevel) { reply ->
-                                if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
-                            }
-                        } else {
-                            messageInput = spoken
+            ttsHelper.startDictation(
+                onResult = { spoken ->
+                    if (voiceModeEnabled) {
+                        coachVm.sendConversationMessage(spoken, userLevel) { reply ->
+                            if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
                         }
-                    },
-                    onError = { err -> voiceStatus = err }
-                )
-            }
+                    } else {
+                        messageInput = spoken
+                    }
+                },
+                onError = { err -> voiceStatus = err }
+            )
         }
     }
 
@@ -255,11 +251,7 @@ fun ConversationSimulatorScreen(
                                     coachVm.retryLastConversationMessage { reply ->
                                         if (voiceAutoSpeak) ttsHelper.speak(reply, ttsRate)
                                     }
-                                },
-                                secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                onSecondaryAction = if (cloudAiEnabled) {
-                                    { coachVm.setCloudAiEnabled(false) }
-                                } else null
+                                }
                             )
                         }
                     }
@@ -270,11 +262,7 @@ fun ConversationSimulatorScreen(
                                 is UiState.Loading -> CircularProgressIndicator()
                                 is UiState.Error -> ErrorRecoveryCard(
                                     message = debrief.message,
-                                    onRetry = { coachVm.requestCoachCheckInAndSave(userLevel) },
-                                    secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                    onSecondaryAction = if (cloudAiEnabled) {
-                                        { coachVm.setCloudAiEnabled(false) }
-                                    } else null
+                                    onRetry = { coachVm.requestCoachCheckInAndSave(userLevel) }
                                 )
                                 is UiState.Success -> {
                                     Card(
@@ -331,7 +319,7 @@ fun ConversationSimulatorScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = if (cloudAiEnabled) "Gemini Live Voice Call" else "Local Hands-Free Voice Loop",
+                                            text = "Local Hands-Free Voice Loop",
                                             style = MaterialTheme.typography.titleSmall
                                         )
                                         Text(
@@ -352,8 +340,6 @@ fun ConversationSimulatorScreen(
                                         val ok = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
                                         if (!ok) {
                                             micLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                        } else if (cloudAiEnabled) {
-                                            coachVm.startCloudLiveVoiceCall(userLevel) { }
                                         } else {
                                             coachVm.setLocalVoiceCallState(true, "Listening for your spoken turn...")
                                             ttsHelper.startDictation(
@@ -384,11 +370,7 @@ fun ConversationSimulatorScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    when {
-                                        voiceLiveActive -> "End Voice Call"
-                                        cloudAiEnabled -> "Start Gemini Live Voice Call"
-                                        else -> "Speak Voice Turn"
-                                    }
+                                    if (voiceLiveActive) "End Voice Call" else "Speak Voice Turn"
                                 )
                             }
                         }
@@ -479,27 +461,12 @@ fun ConversationSimulatorScreen(
         ) {
             SectionHeader(
                 title = "Conversation Simulator",
-                subtitle = "Adaptive $userLevel dialogue • ${if (cloudAiEnabled) "Cloud Gemini + Live Voice" else "On-Device Local AI"}"
+                subtitle = "Adaptive $userLevel dialogue • On-Device Local AI"
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
                 verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
             ) {
-                FilterChip(
-                    selected = cloudAiEnabled,
-                    onClick = { coachVm.setCloudAiEnabled(!cloudAiEnabled) },
-                    leadingIcon = {
-                        Icon(
-                            if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    },
-                    label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
-                    modifier = Modifier
-                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                        .testTag("conversation_cloud_toggle_chip")
-                )
                 FilterChip(
                     selected = voiceModeEnabled,
                     onClick = {
@@ -571,11 +538,7 @@ fun ConversationSimulatorScreen(
                                     is UiState.Loading -> CircularProgressIndicator()
                                     is UiState.Error -> ErrorRecoveryCard(
                                         message = debrief.message,
-                                        onRetry = { coachVm.requestCoachCheckInAndSave(userLevel) },
-                                        secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                        onSecondaryAction = if (cloudAiEnabled) {
-                                            { coachVm.setCloudAiEnabled(false) }
-                                        } else null
+                                        onRetry = { coachVm.requestCoachCheckInAndSave(userLevel) }
                                     )
                                     is UiState.Success -> {
                                         Card(
@@ -718,28 +681,13 @@ fun AiMentorScreen(
                         Column {
                             Text("Personalized AI Mentor", style = MaterialTheme.typography.headlineMedium)
                             Text(
-                                "${if (cloudAiEnabled) "Cloud Gemini" else "Local AI"} • ${sessions.size} sessions synced",
+                                "On-Device Local AI • ${sessions.size} sessions synced",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        FilterChip(
-                            selected = cloudAiEnabled,
-                            onClick = { coachVm.setCloudAiEnabled(!cloudAiEnabled) },
-                            leadingIcon = {
-                                Icon(
-                                    if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            },
-                            label = { Text(if (cloudAiEnabled) "Cloud" else "Local AI") },
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("mentor_cloud_toggle_chip")
-                        )
                         if (mentorMessages.size > 1) {
                             TextButton(
                                 onClick = { showClearConfirm = true },
@@ -847,7 +795,7 @@ fun AiMentorScreen(
                 if (isResponding) {
                     item {
                         AnimatedThinkingDots(
-                            label = if (cloudAiEnabled) "Streaming Cloud Gemini coaching..." else "Analyzing scores with Local AI..."
+                            label = "Analyzing scores with On-Device Local AI..."
                         )
                     }
                 }
@@ -856,11 +804,7 @@ fun AiMentorScreen(
                     item {
                         ErrorRecoveryCard(
                             message = mentorError.orEmpty(),
-                            onRetry = { coachVm.retryLastMentorQuestion() },
-                            secondaryActionLabel = if (cloudAiEnabled) "Use Local AI" else null,
-                            onSecondaryAction = if (cloudAiEnabled) {
-                                { coachVm.setCloudAiEnabled(false) }
-                            } else null
+                            onRetry = { coachVm.retryLastMentorQuestion() }
                         )
                     }
                 }

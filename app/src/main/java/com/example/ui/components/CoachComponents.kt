@@ -23,10 +23,14 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -38,10 +42,14 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -58,6 +66,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -90,6 +99,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.data.ai.local.audio.LiveTranscriptionState
+import com.example.data.ai.local.audio.LiveTranscriptionStatus
+import com.example.data.evaluation.CoachEvaluationReport
+import com.example.data.evaluation.DimensionAvailability
 import com.example.data.model.SpeakingSession
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
@@ -997,29 +1010,350 @@ fun ErrorRecoveryCard(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+fun LiveTranscriptPanel(
+    state: LiveTranscriptionState,
+    liveTranscriptionEnabled: Boolean,
+    editedTranscript: String = "",
+    editable: Boolean = false,
+    onEditedTranscriptChange: (String) -> Unit = {},
+    onRetry: () -> Unit = {},
+    onOpenAiSettings: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val ext = MaterialTheme.speakCraftColors
+    val scrollState = rememberScrollState()
+    val display = state.displayText.ifBlank { editedTranscript.trim() }
+
+    LaunchedEffect(display) {
+        if (display.isNotBlank()) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
+    val statusLabel = when {
+        !liveTranscriptionEnabled || state.status == LiveTranscriptionStatus.DISABLED -> "Disabled"
+        state.status == LiveTranscriptionStatus.INITIALIZING -> "Initializing"
+        state.status == LiveTranscriptionStatus.LISTENING -> "Listening"
+        state.status == LiveTranscriptionStatus.PARTIAL_RESULT -> "Streaming"
+        state.status == LiveTranscriptionStatus.FINAL_RESULT -> "Captured"
+        state.status == LiveTranscriptionStatus.ERROR -> "Error"
+        state.status == LiveTranscriptionStatus.UNAVAILABLE -> "Unavailable"
+        else -> "Ready"
+    }
+
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("live_transcript_panel")
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Subtitles,
+                        contentDescription = "Live Transcript",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Live Transcript",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (liveTranscriptionEnabled && state.status != LiveTranscriptionStatus.UNAVAILABLE) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = if (state.offlineVerified) ext.successContainer else ext.warningContainer
+                        ) {
+                            Text(
+                                text = if (state.offlineVerified) "Offline Ready" else "Device ASR",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (state.offlineVerified) ext.success else ext.warning,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = when (state.status) {
+                            LiveTranscriptionStatus.LISTENING,
+                            LiveTranscriptionStatus.PARTIAL_RESULT -> MaterialTheme.colorScheme.primaryContainer
+                            LiveTranscriptionStatus.ERROR,
+                            LiveTranscriptionStatus.UNAVAILABLE -> MaterialTheme.colorScheme.errorContainer
+                            else -> MaterialTheme.colorScheme.surface
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (state.status == LiveTranscriptionStatus.LISTENING ||
+                                state.status == LiveTranscriptionStatus.PARTIAL_RESULT
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (state.status) {
+                                    LiveTranscriptionStatus.ERROR,
+                                    LiveTranscriptionStatus.UNAVAILABLE -> MaterialTheme.colorScheme.onErrorContainer
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (!liveTranscriptionEnabled || state.status == LiveTranscriptionStatus.DISABLED) {
+                Text(
+                    text = "Live transcription is turned off. Enable it centrally in Settings → AI & Intelligence → Speech & Transcription.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = onOpenAiSettings,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("live_transcript_open_settings_button")
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open AI & Transcription Settings")
+                }
+            } else {
+                Text(
+                    text = "Engine: ${state.activeEngineLabel} (${state.languageTag})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 54.dp, max = 140.dp)
+                        .verticalScroll(scrollState)
+                ) {
+                    Text(
+                        text = when {
+                            display.isNotBlank() -> display
+                            state.status == LiveTranscriptionStatus.LISTENING ||
+                                state.status == LiveTranscriptionStatus.INITIALIZING ->
+                                "Listening for your voice — words appear live as you speak..."
+                            state.status == LiveTranscriptionStatus.ERROR ||
+                                state.status == LiveTranscriptionStatus.UNAVAILABLE ->
+                                state.errorMessage ?: "Speech recognition could not capture words."
+                            else -> "Start recording to capture a live on-device transcript."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (display.isNotBlank()) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .testTag("live_transcript_text")
+                    )
+                }
+
+                if ((state.status == LiveTranscriptionStatus.ERROR ||
+                        state.status == LiveTranscriptionStatus.UNAVAILABLE) &&
+                    !state.errorMessage.isNullOrBlank()
+                ) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onRetry,
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("live_transcript_retry_button")
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Retry Recognition")
+                        }
+                        if (!state.hasMicPermission) {
+                            TextButton(
+                                onClick = onOpenAiSettings,
+                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            ) {
+                                Text("Check Permissions")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (editable) {
+                OutlinedTextField(
+                    value = editedTranscript,
+                    onValueChange = onEditedTranscriptChange,
+                    label = { Text("Transcript Preview / Spoken Notes (Editable)") },
+                    placeholder = { Text("Recognized speech appears here after or during recording...") },
+                    minLines = 2,
+                    maxLines = 4,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("speaking_transcript_preview")
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun CoachEvaluationStatusCard(
+    report: CoachEvaluationReport,
+    onRecordAgain: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val ext = MaterialTheme.speakCraftColors
+    val isFailure = report.evaluationState.name in setOf("INSUFFICIENT_EVIDENCE", "RECORDING_FAILED", "ANALYSIS_FAILED")
+    val container = if (isFailure) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+    val tint = if (isFailure) MaterialTheme.colorScheme.error else ext.warning
+
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.45f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("coach_evaluation_status_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = report.statusHeadline,
+                    tint = tint
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = report.statusHeadline,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isFailure) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Status: ${report.evaluationState.name} • No score awarded",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tint
+                    )
+                }
+            }
+
+            Text(
+                text = report.statusMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isFailure) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
+            )
+
+            val missingDims = report.dimensions.values.filter {
+                it.availabilityStatus != DimensionAvailability.EVALUATED &&
+                    it.availabilityStatus != DimensionAvailability.NOT_REQUIRED
+            }
+            if (missingDims.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    missingDims.forEach { dim ->
+                        Text(
+                            text = "• ${dim.label}: ${dim.availabilityStatus.label}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+            }
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Button(
+                    onClick = onRecordAgain,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("coach_record_again_button")
+                ) {
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Record Again")
+                }
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("coach_cancel_button")
+                ) {
+                    Text("Cancel")
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 fun FeedbackReportCard(
     session: SpeakingSession,
-    previousSession: SpeakingSession? = null
+    previousSession: SpeakingSession? = null,
+    evaluationReport: CoachEvaluationReport? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
     var selectedTab by remember(session.id) { mutableStateOf("Insights") }
 
-    val metricsList = remember(session) {
-        buildList {
-            add("Fluency" to session.fluencyScore.toInt())
-            if (session.pronunciationAssessable) {
-                add("Pronunciation" to session.pronunciationScore.toInt())
+    val metricsList = remember(session, evaluationReport) {
+        if (evaluationReport != null && evaluationReport.dimensions.isNotEmpty()) {
+            evaluationReport.dimensions.values
+                .filter { it.score != null && it.availabilityStatus == DimensionAvailability.EVALUATED }
+                .map { it.label to it.score!! }
+        } else {
+            buildList {
+                add("Fluency" to session.fluencyScore.toInt())
+                if (session.pronunciationAssessable) {
+                    add("Pronunciation" to session.pronunciationScore.toInt())
+                }
+                add("Vocabulary" to session.vocabularyScore.toInt())
+                add("Grammar" to session.grammarScore.toInt())
+                add("Articulation" to session.articulationScore.toInt())
             }
-            add("Vocabulary" to session.vocabularyScore.toInt())
-            add("Grammar" to session.grammarScore.toInt())
-            add("Articulation" to session.articulationScore.toInt())
         }
     }
-    val compositeScore = remember(metricsList) {
-        (metricsList.sumOf { it.second } / metricsList.size.coerceAtLeast(1)).coerceIn(0, 100)
+    val compositeScore = remember(metricsList, evaluationReport) {
+        evaluationReport?.overallScore
+            ?: (metricsList.sumOf { it.second } / metricsList.size.coerceAtLeast(1)).coerceIn(0, 100)
     }
     val prevComposite = remember(previousSession) {
-        previousSession?.let {
+        previousSession?.takeIf { it.evaluationStatus == "COMPLETED" }?.let {
             ((it.fluencyScore + it.vocabularyScore + it.grammarScore + it.articulationScore) / 4L).toInt()
         }
     }
@@ -1131,6 +1465,25 @@ fun FeedbackReportCard(
                             else -> MaterialTheme.colorScheme.error
                         },
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+
+            if (evaluationReport?.isPartialEvaluation == true) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = ext.warningContainer,
+                    border = BorderStroke(1.dp, ext.warning.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("coach_partial_evaluation_banner")
+                ) {
+                    Text(
+                        text = evaluationReport.partialReason
+                            ?: "Partial evaluation: only dimensions backed by valid evidence were scored. Partial results are not directly comparable to full multimodal sessions.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(10.dp)
                     )
                 }
             }
@@ -1336,19 +1689,57 @@ fun FeedbackReportCard(
                 }
 
                 "Skills" -> {
-                    if (!session.pronunciationAssessable) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                text = "Phonetic accuracy was skipped because the spoken clip was too short or noisy.",
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(10.dp)
-                            )
+                    if (evaluationReport != null && evaluationReport.dimensions.isNotEmpty()) {
+                        SkillBreakdownBars(metrics = metricsList)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            evaluationReport.dimensions.values.forEach { detail ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("coach_dimension_row_${detail.key}")
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(detail.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                text = if (detail.score != null) "${detail.score}/100" else detail.availabilityStatus.label,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (detail.score != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                        Text(
+                                            text = "${detail.evidenceSource} • ${(detail.confidence * 100).toInt()}% confidence",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (detail.note.isNotBlank()) {
+                                            Text(detail.note, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            }
                         }
+                    } else {
+                        if (!session.pronunciationAssessable) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "Phonetic accuracy was skipped because the spoken clip was too short or noisy.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(10.dp)
+                                )
+                            }
+                        }
+                        SkillBreakdownBars(metrics = metricsList)
                     }
-                    SkillBreakdownBars(metrics = metricsList)
                     if (session.articulationClarity.isNotBlank() || session.thoughtOrganization.isNotBlank()) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (session.articulationClarity.isNotBlank()) {

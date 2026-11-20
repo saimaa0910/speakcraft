@@ -39,7 +39,14 @@ data class AppPreferences(
     val reducedMotion: Boolean = false,
     val cloudAiEnabled: Boolean = false,
     val cloudAiModelTier: String = "balanced",
-    val voiceAutoSpeakEnabled: Boolean = true
+    val voiceAutoSpeakEnabled: Boolean = true,
+    val localAiEnabled: Boolean = true,
+    val liveTranscriptionEnabled: Boolean = false,
+    val localSpeechRecognitionEnabled: Boolean = true,
+    val localAudioAnalysisEnabled: Boolean = true,
+    val localVideoAnalysisEnabled: Boolean = true,
+    val selectedRecognitionLanguage: String = "en-US",
+    val selectedRecognitionEngine: String = "AUTO"
 )
 
 private object KeystoreCipherHelper {
@@ -113,6 +120,13 @@ class AppPreferencesRepository(private val context: Context) {
     private val cloudAiEnabledKey = booleanPreferencesKey("cloud_ai_enabled")
     private val cloudAiModelTierKey = stringPreferencesKey("cloud_ai_model_tier")
     private val voiceAutoSpeakKey = booleanPreferencesKey("voice_auto_speak_enabled")
+    private val localAiEnabledKey = booleanPreferencesKey("ai_local_enabled")
+    private val liveTranscriptionEnabledKey = booleanPreferencesKey("ai_live_transcription_enabled")
+    private val localSpeechRecEnabledKey = booleanPreferencesKey("ai_local_speech_recognition_enabled")
+    private val localAudioAnalysisEnabledKey = booleanPreferencesKey("ai_local_audio_analysis_enabled")
+    private val localVideoAnalysisEnabledKey = booleanPreferencesKey("ai_local_video_analysis_enabled")
+    private val recognitionLanguageKey = stringPreferencesKey("ai_recognition_language")
+    private val recognitionEngineKey = stringPreferencesKey("ai_recognition_engine")
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
         val theme = enumValues<ThemePreference>().firstOrNull { it.name == prefs[themeKey] }
@@ -124,6 +138,10 @@ class AppPreferencesRepository(private val context: Context) {
         val defaultRepo = com.example.BuildConfig.GITHUB_RELEASE_REPO
         val storedRepo = prefs[githubReleaseRepoKey].orEmpty().ifBlank { defaultRepo }
         val modelTier = prefs[cloudAiModelTierKey]?.takeIf { it in listOf("balanced", "deep", "fast") } ?: "balanced"
+        val recLang = prefs[recognitionLanguageKey]?.takeIf { it.isNotBlank() } ?: "en-US"
+        val recEngine = prefs[recognitionEngineKey]?.takeIf {
+            it in listOf("AUTO", "ANDROID_OFFLINE", "LOCAL_WHISPER")
+        } ?: "AUTO"
         AppPreferences(
             themeMode = theme,
             ttsRate = rate,
@@ -140,7 +158,14 @@ class AppPreferencesRepository(private val context: Context) {
             reducedMotion = prefs[reducedMotionKey] ?: false,
             cloudAiEnabled = prefs[cloudAiEnabledKey] ?: false,
             cloudAiModelTier = modelTier,
-            voiceAutoSpeakEnabled = prefs[voiceAutoSpeakKey] ?: true
+            voiceAutoSpeakEnabled = prefs[voiceAutoSpeakKey] ?: true,
+            localAiEnabled = prefs[localAiEnabledKey] ?: true,
+            liveTranscriptionEnabled = prefs[liveTranscriptionEnabledKey] ?: false,
+            localSpeechRecognitionEnabled = prefs[localSpeechRecEnabledKey] ?: true,
+            localAudioAnalysisEnabled = prefs[localAudioAnalysisEnabledKey] ?: true,
+            localVideoAnalysisEnabled = prefs[localVideoAnalysisEnabledKey] ?: true,
+            selectedRecognitionLanguage = recLang,
+            selectedRecognitionEngine = recEngine
         )
     }
 
@@ -241,6 +266,50 @@ class AppPreferencesRepository(private val context: Context) {
     suspend fun setVoiceAutoSpeakEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[voiceAutoSpeakKey] = enabled
+        }
+    }
+
+    suspend fun setLocalAiEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[localAiEnabledKey] = enabled
+        }
+    }
+
+    suspend fun setLiveTranscriptionEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[liveTranscriptionEnabledKey] = enabled
+        }
+    }
+
+    suspend fun setLocalSpeechRecognitionEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[localSpeechRecEnabledKey] = enabled
+        }
+    }
+
+    suspend fun setLocalAudioAnalysisEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[localAudioAnalysisEnabledKey] = enabled
+        }
+    }
+
+    suspend fun setLocalVideoAnalysisEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[localVideoAnalysisEnabledKey] = enabled
+        }
+    }
+
+    suspend fun setSelectedRecognitionLanguage(languageTag: String) {
+        val safe = languageTag.trim().ifBlank { "en-US" }
+        context.dataStore.edit { prefs ->
+            prefs[recognitionLanguageKey] = safe
+        }
+    }
+
+    suspend fun setSelectedRecognitionEngine(engine: String) {
+        val safe = engine.takeIf { it in listOf("AUTO", "ANDROID_OFFLINE", "LOCAL_WHISPER") } ?: "AUTO"
+        context.dataStore.edit { prefs ->
+            prefs[recognitionEngineKey] = safe
         }
     }
 }

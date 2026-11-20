@@ -66,6 +66,7 @@ import com.example.ui.components.SectionHeader
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VocabularyScreen(
@@ -308,35 +309,10 @@ fun VocabularyScreen(
                                 verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
                             ) {
                                 item {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            SectionHeader(
-                                                "Contextual Usage Assessment",
-                                                "Use the word naturally in a real conversation"
-                                            )
-                                        }
-                                        if (onToggleCloudAi != null) {
-                                            FilterChip(
-                                                selected = cloudAiEnabled,
-                                                onClick = { onToggleCloudAi(!cloudAiEnabled) },
-                                                leadingIcon = {
-                                                    Icon(
-                                                        if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                },
-                                                label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
-                                                modifier = Modifier
-                                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                                    .testTag("vocabulary_cloud_toggle_chip")
-                                            )
-                                        }
-                                    }
+                                    SectionHeader(
+                                        "Contextual Usage Assessment",
+                                        "Use the word naturally in a real conversation"
+                                    )
                                 }
                                 item {
                                     Card(
@@ -384,14 +360,7 @@ fun VocabularyScreen(
                                         is UiState.Loading -> CircularProgressIndicator()
                                         is UiState.Error -> ErrorRecoveryCard(
                                             message = vocabEvalState.message,
-                                            onRetry = { onEvaluateUsage(target, existing, sentenceInput) },
-                                            secondaryActionLabel = if (cloudAiEnabled && onToggleCloudAi != null) "Switch to Local AI" else null,
-                                            onSecondaryAction = if (cloudAiEnabled && onToggleCloudAi != null) {
-                                                {
-                                                    onClearEval()
-                                                    onToggleCloudAi(false)
-                                                }
-                                            } else null
+                                            onRetry = { onEvaluateUsage(target, existing, sentenceInput) }
                                         )
                                         is UiState.Success -> {
                                             val r = vocabEvalState.data

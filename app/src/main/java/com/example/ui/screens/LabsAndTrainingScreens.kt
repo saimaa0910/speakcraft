@@ -51,15 +51,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.evaluation.CoachEvaluationState
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.RealWorldTaskRecord
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UiState
 import com.example.ui.components.CloudSyncWarningBanner
+import com.example.ui.components.CoachEvaluationStatusCard
 import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
+import com.example.ui.components.LiveTranscriptPanel
 import com.example.ui.components.LiveWaveformVisualizer
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.ShimmerSkeletonCard
@@ -73,7 +76,8 @@ fun PronunciationLabScreen(
     speakingVm: SpeakingAndLabsViewModel,
     ttsHelper: TtsAndSpeechHelper,
     pastSessions: List<SpeakingSession>,
-    initialFocus: String = "pronunciation"
+    initialFocus: String = "pronunciation",
+    onOpenAiSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -88,10 +92,13 @@ fun PronunciationLabScreen(
     }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
-    val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
+    val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
+    val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
+    val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
@@ -151,6 +158,14 @@ fun PronunciationLabScreen(
                     }
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+                    LiveTranscriptPanel(
+                        state = liveTranscriptionState,
+                        liveTranscriptionEnabled = aiSettings.liveTranscriptionEnabled,
+                        editedTranscript = liveTranscript,
+                        editable = false,
+                        onRetry = { speakingVm.retryLiveTranscription() },
+                        onOpenAiSettings = onOpenAiSettings
+                    )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         Button(
@@ -179,7 +194,7 @@ fun PronunciationLabScreen(
                                     extraInstructions = "Compare pronunciation strictly against target phrase: '${activeDrill.practicePhrase}' focusing on ${activeDrill.targetIpa}."
                                 )
                             },
-                            enabled = !isRecording && recordedPath != null,
+                            enabled = !isRecording,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) { Text("Compare AI") }
                     }
@@ -194,8 +209,22 @@ fun PronunciationLabScreen(
             if (activeModule == "PRONUNCIATION") {
                 when (val s = analysisState) {
                     is UiState.Loading -> ShimmerSkeletonCard(150)
-                    is UiState.Error -> ErrorRecoveryCard(s.message)
-                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    is UiState.Error -> {
+                        val rep = evaluationReport
+                        if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                            CoachEvaluationStatusCard(
+                                report = rep,
+                                onRecordAgain = {
+                                    speakingVm.recordAgain()
+                                    speakingVm.startRecording(null)
+                                },
+                                onCancel = { speakingVm.cancelEvaluation() }
+                            )
+                        } else {
+                            ErrorRecoveryCard(s.message)
+                        }
+                    }
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull(), evaluationReport)
                     null -> Unit
                 }
             }
@@ -303,7 +332,8 @@ fun PronunciationLabScreen(
 fun ListeningShadowingScreen(
     speakingVm: SpeakingAndLabsViewModel,
     ttsHelper: TtsAndSpeechHelper,
-    pastSessions: List<SpeakingSession>
+    pastSessions: List<SpeakingSession>,
+    onOpenAiSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -312,10 +342,13 @@ fun ListeningShadowingScreen(
     var activeSegment by remember { mutableStateOf(segments.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
-    val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
+    val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
+    val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
+    val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
@@ -354,6 +387,14 @@ fun ListeningShadowingScreen(
                     }
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+                    LiveTranscriptPanel(
+                        state = liveTranscriptionState,
+                        liveTranscriptionEnabled = aiSettings.liveTranscriptionEnabled,
+                        editedTranscript = liveTranscript,
+                        editable = false,
+                        onRetry = { speakingVm.retryLiveTranscription() },
+                        onOpenAiSettings = onOpenAiSettings
+                    )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         Button(
@@ -375,7 +416,7 @@ fun ListeningShadowingScreen(
                                     extraInstructions = "Compare timing, WPM (target ${activeSegment.pacingTargetWpm}), pause placement, and pronunciation against reference transcript: '${activeSegment.plainScript}'."
                                 )
                             },
-                            enabled = !isRecording && recordedPath != null,
+                            enabled = !isRecording,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) { Text("Score Shadow") }
                     }
@@ -390,8 +431,22 @@ fun ListeningShadowingScreen(
             if (activeModule == "SHADOWING") {
                 when (val s = analysisState) {
                     is UiState.Loading -> ShimmerSkeletonCard(150)
-                    is UiState.Error -> ErrorRecoveryCard(s.message)
-                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    is UiState.Error -> {
+                        val rep = evaluationReport
+                        if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                            CoachEvaluationStatusCard(
+                                report = rep,
+                                onRecordAgain = {
+                                    speakingVm.recordAgain()
+                                    speakingVm.startRecording(null)
+                                },
+                                onCancel = { speakingVm.cancelEvaluation() }
+                            )
+                        } else {
+                            ErrorRecoveryCard(s.message)
+                        }
+                    }
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull(), evaluationReport)
                     null -> Unit
                 }
             }
@@ -481,7 +536,8 @@ fun ListeningShadowingScreen(
 @Composable
 fun GrammarSpeakingScreen(
     speakingVm: SpeakingAndLabsViewModel,
-    pastSessions: List<SpeakingSession>
+    pastSessions: List<SpeakingSession>,
+    onOpenAiSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -489,10 +545,13 @@ fun GrammarSpeakingScreen(
     var activeLesson by remember { mutableStateOf(lessons.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
-    val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
+    val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
+    val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
+    val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
@@ -517,6 +576,14 @@ fun GrammarSpeakingScreen(
                     Text("Speaking Drill: ${activeLesson.speakingPrompt}", style = MaterialTheme.typography.bodyMedium)
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+                    LiveTranscriptPanel(
+                        state = liveTranscriptionState,
+                        liveTranscriptionEnabled = aiSettings.liveTranscriptionEnabled,
+                        editedTranscript = liveTranscript,
+                        editable = false,
+                        onRetry = { speakingVm.retryLiveTranscription() },
+                        onOpenAiSettings = onOpenAiSettings
+                    )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         Button(
@@ -538,7 +605,7 @@ fun GrammarSpeakingScreen(
                                     extraInstructions = "Evaluate grammatical accuracy and thought organization for: ${activeLesson.topic}. Rule: ${activeLesson.ruleSummary}"
                                 )
                             },
-                            enabled = !isRecording && recordedPath != null,
+                            enabled = !isRecording,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) { Text("Check Grammar") }
                     }
@@ -553,8 +620,22 @@ fun GrammarSpeakingScreen(
             if (activeModule == "GRAMMAR_SPEAKING") {
                 when (val s = analysisState) {
                     is UiState.Loading -> ShimmerSkeletonCard(150)
-                    is UiState.Error -> ErrorRecoveryCard(s.message)
-                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    is UiState.Error -> {
+                        val rep = evaluationReport
+                        if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                            CoachEvaluationStatusCard(
+                                report = rep,
+                                onRecordAgain = {
+                                    speakingVm.recordAgain()
+                                    speakingVm.startRecording(null)
+                                },
+                                onCancel = { speakingVm.cancelEvaluation() }
+                            )
+                        } else {
+                            ErrorRecoveryCard(s.message)
+                        }
+                    }
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull(), evaluationReport)
                     null -> Unit
                 }
             }
@@ -643,7 +724,8 @@ fun GrammarSpeakingScreen(
 @Composable
 fun PublicSpeakingScreen(
     speakingVm: SpeakingAndLabsViewModel,
-    pastSessions: List<SpeakingSession>
+    pastSessions: List<SpeakingSession>,
+    onOpenAiSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -651,10 +733,13 @@ fun PublicSpeakingScreen(
     var activeModule by remember { mutableStateOf(modules.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
-    val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeAnalysisModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
     val cloudSyncError by speakingVm.cloudSyncError.collectAsStateWithLifecycle()
+    val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
+    val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
+    val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) speakingVm.startRecording(null)
@@ -678,6 +763,14 @@ fun PublicSpeakingScreen(
                     Text("Simulated Assignment: ${activeModule.rehearsalPrompt}", style = MaterialTheme.typography.bodyMedium)
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording)
+                    LiveTranscriptPanel(
+                        state = liveTranscriptionState,
+                        liveTranscriptionEnabled = aiSettings.liveTranscriptionEnabled,
+                        editedTranscript = liveTranscript,
+                        editable = false,
+                        onRetry = { speakingVm.retryLiveTranscription() },
+                        onOpenAiSettings = onOpenAiSettings
+                    )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
                         Button(
@@ -699,7 +792,7 @@ fun PublicSpeakingScreen(
                                     extraInstructions = "Evaluate presentation delivery, opening hook, vocal modulation, and structure using ${activeModule.creatorFramework}."
                                 )
                             },
-                            enabled = !isRecording && recordedPath != null,
+                            enabled = !isRecording,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) { Text("Get Presentation AI") }
                     }
@@ -714,8 +807,22 @@ fun PublicSpeakingScreen(
             if (activeAnalysisModule == "PRESENTATION") {
                 when (val s = analysisState) {
                     is UiState.Loading -> ShimmerSkeletonCard(150)
-                    is UiState.Error -> ErrorRecoveryCard(s.message)
-                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    is UiState.Error -> {
+                        val rep = evaluationReport
+                        if (rep != null && rep.evaluationState != CoachEvaluationState.COMPLETED) {
+                            CoachEvaluationStatusCard(
+                                report = rep,
+                                onRecordAgain = {
+                                    speakingVm.recordAgain()
+                                    speakingVm.startRecording(null)
+                                },
+                                onCancel = { speakingVm.cancelEvaluation() }
+                            )
+                        } else {
+                            ErrorRecoveryCard(s.message)
+                        }
+                    }
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull(), evaluationReport)
                     null -> Unit
                 }
             }

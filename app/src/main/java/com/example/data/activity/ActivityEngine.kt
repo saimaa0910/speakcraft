@@ -88,7 +88,7 @@ class ActivityEngine(
         val prevAttempts = existingProgress?.attemptsCount ?: 0L
         val prevBest = existingProgress?.bestObjectiveScore ?: 0L
         val prevSeconds = existingProgress?.totalPracticeSeconds ?: 0L
-        val durationSec = response.durationSeconds.coerceAtLeast(15).toLong()
+        val durationSec = response.durationSeconds.coerceAtLeast(0).toLong()
         val nowCompleted = (existingProgress?.completed == true) || evaluation.passedCriteria
 
         val updatedProgress = UserActivityProgress(

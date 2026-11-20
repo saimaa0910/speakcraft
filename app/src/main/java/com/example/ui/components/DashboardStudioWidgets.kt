@@ -1059,6 +1059,7 @@ fun StudioMetricCard(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InlineAiMentorCard(
@@ -1100,7 +1101,7 @@ fun InlineAiMentorCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
+                                imageVector = Icons.Default.Psychology,
                                 contentDescription = null,
                                 tint = ext.pastelLavenderInk,
                                 modifier = Modifier.size(20.dp)
@@ -1122,12 +1123,12 @@ fun InlineAiMentorCard(
                 }
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = if (cloudAiEnabled) MaterialTheme.colorScheme.primaryContainer else ext.infoContainer
+                    color = ext.infoContainer
                 ) {
                     Text(
-                        text = if (cloudAiEnabled) "Cloud Gemini" else "Local AI",
+                        text = "Local AI",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (cloudAiEnabled) MaterialTheme.colorScheme.onPrimaryContainer else ext.info,
+                        color = ext.info,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }

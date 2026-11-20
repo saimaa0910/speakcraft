@@ -22,6 +22,26 @@ private const val MAX_IDLE_ITERATIONS = 400
  */
 object AudioResampler {
 
+    data class DecodedPcmAudio(
+        val samples: ShortArray,
+        val sampleRate: Int = TARGET_SAMPLE_RATE
+    )
+
+    fun decodeToPcm16Mono16k(
+        inputFile: File,
+        maxDurationSeconds: Int = 600
+    ): Result<DecodedPcmAudio> {
+        if (!inputFile.exists() || inputFile.length() == 0L) {
+            return Result.failure(IllegalArgumentException("Audio file is missing or empty."))
+        }
+        val pcm = resampleToWhisperFormat(inputFile, maxDurationSeconds)
+            ?: return Result.failure(IllegalArgumentException("Unsupported or unreadable audio format."))
+        if (pcm.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Decoded audio contains zero samples."))
+        }
+        return Result.success(DecodedPcmAudio(samples = pcm, sampleRate = TARGET_SAMPLE_RATE))
+    }
+
     fun resampleToWhisperFormat(
         inputFile: File,
         maxDurationSeconds: Int = 600

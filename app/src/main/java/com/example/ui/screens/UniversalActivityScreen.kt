@@ -220,24 +220,9 @@ fun ActivityScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Evaluator: ${if (cloudAiEnabled) "Cloud Gemini AI" else "Local Intelligence"}",
+                                        text = "Evaluator: On-Device Local Intelligence",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    FilterChip(
-                                        selected = cloudAiEnabled,
-                                        onClick = { vm.setCloudAiEnabled(!cloudAiEnabled) },
-                                        leadingIcon = {
-                                            Icon(
-                                                if (cloudAiEnabled) Icons.Default.AutoAwesome else Icons.Default.Psychology,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        },
-                                        label = { Text(if (cloudAiEnabled) "Cloud Gemini" else "Local AI") },
-                                        modifier = Modifier
-                                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                            .testTag("activity_cloud_toggle_chip")
                                     )
                                 }
 
@@ -375,11 +360,7 @@ fun ActivityScreen(
                                 item {
                                     ErrorRecoveryCard(
                                         message = uiState.validationError.orEmpty(),
-                                        onRetry = { vm.submitActiveResponse() },
-                                        secondaryActionLabel = if (cloudAiEnabled) "Switch to Local AI" else null,
-                                        onSecondaryAction = if (cloudAiEnabled) {
-                                            { vm.setCloudAiEnabled(false) }
-                                        } else null
+                                        onRetry = { vm.submitActiveResponse() }
                                     )
                                 }
                             }

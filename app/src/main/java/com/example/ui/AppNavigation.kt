@@ -114,6 +114,7 @@ import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.FeatureTutorialRegistry
 import com.example.data.model.UiState
+import com.example.data.preferences.AISettings
 import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.preferences.ThemePreference
@@ -337,7 +338,10 @@ private fun AuthenticatedAppShell(
                     repository = container.repository,
                     localOrchestrator = container.localIntelligenceOrchestrator,
                     audioManager = container.audioRecorderManager,
-                    hybridCoordinator = container.hybridAiCoordinator
+                    hybridCoordinator = container.hybridAiCoordinator,
+                    aiSettingsRepo = container.aiSettingsRepository,
+                    liveTranscriptionManager = container.liveTranscriptionManager,
+                    capabilityManager = container.intelligenceCapabilityManager
                 )
             }
         }
@@ -425,6 +429,13 @@ private fun AuthenticatedAppShell(
     val notificationManager = container.notificationManager
     val notificationStoreState by notificationManager.state.collectAsStateWithLifecycle()
     val unreadNotificationsCount = notificationStoreState.unreadCount
+    val aiSettingsRepo = container.aiSettingsRepository
+    val capabilityManager = container.intelligenceCapabilityManager
+    val aiSettings by aiSettingsRepo.aiSettingsFlow.collectAsStateWithLifecycle(initialValue = AISettings())
+    val capabilityMatrix by remember(capabilityManager, aiSettingsRepo) {
+        capabilityManager.observeMatrix(aiSettingsRepo)
+    }.collectAsStateWithLifecycle(initialValue = capabilityManager.computeMatrix(AISettings()))
+    var cloudPolicyMessage by remember { mutableStateOf<String?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(actionMessage) {
@@ -550,14 +561,23 @@ private fun AuthenticatedAppShell(
                     val priorCount = baselineSessionCount
                     if (priorCount != null && sessions.size > priorCount) {
                         val newest = sessions.firstOrNull()
-                        if (newest != null) {
-                            val avg = ((newest.fluencyScore + newest.articulationScore +
-                                newest.vocabularyScore + newest.grammarScore) / 4).toInt()
-                            notificationManager.recordSessionCompletedAlert(
-                                sessionId = newest.id.ifBlank { "${newest.promptTitle}_${sessions.size}" },
-                                promptTitle = newest.promptTitle,
-                                overallScore = avg
-                            )
+                        if (newest != null && newest.evaluationStatus == "COMPLETED") {
+                            val dimValues = buildList {
+                                val keys = newest.evaluatedDimensionKeys
+                                if (keys.isEmpty() || "fluency" in keys) add(newest.fluencyScore)
+                                if (keys.isEmpty() || "pronunciation" in keys) add(newest.pronunciationScore)
+                                if (keys.isEmpty() || "vocabulary" in keys) add(newest.vocabularyScore)
+                                if (keys.isEmpty() || "grammar" in keys) add(newest.grammarScore)
+                                if ("delivery" in keys || "articulation" in keys) add(newest.articulationScore)
+                            }
+                            if (dimValues.isNotEmpty()) {
+                                val avg = (dimValues.sum() / dimValues.size).toInt()
+                                notificationManager.recordSessionCompletedAlert(
+                                    sessionId = newest.id.ifBlank { "${newest.promptTitle}_${sessions.size}" },
+                                    promptTitle = newest.promptTitle,
+                                    overallScore = avg
+                                )
+                            }
                         }
                     }
                     baselineSessionCount = sessions.size
@@ -914,7 +934,7 @@ private fun AuthenticatedAppShell(
                                             learningProgressManager.completeDailyTask(taskId)
                                         },
                                         onOpenProfile = { navigateTo("profile") },
-                                        cloudAiEnabled = prefs.cloudAiEnabled,
+                                        cloudAiEnabled = aiSettings.effectiveCloudAiEnabled,
                                         onQuickAskMentor = { promptText ->
                                             coachVm.askMentor(
                                                 profile = profile,
@@ -954,24 +974,24 @@ private fun AuthenticatedAppShell(
                                         onEvaluateUsage = { seed, existing, sent -> mainVm.evaluateVocabUsage(seed, existing, sent) },
                                         onSaveCustomWord = { w, m, l, e, n -> mainVm.saveCustomVocabularyWord(w, m, l, e, n) },
                                         onClearEval = { mainVm.clearVocabEval() },
-                                        cloudAiEnabled = prefs.cloudAiEnabled,
-                                        onToggleCloudAi = { enabled ->
-                                            scope.launch { prefsRepo.setCloudAiEnabled(enabled) }
-                                        }
+                                        cloudAiEnabled = aiSettings.effectiveCloudAiEnabled,
+                                        onToggleCloudAi = null
                                     )
                                 }
                                 composable("speaking_lab") {
                                     SpeakingLabScreen(
                                         speakingVm = speakingVm,
                                         pastSessions = sessions,
-                                        onDeleteSession = { sess -> mainVm.deleteSpeakingSession(sess) }
+                                        onDeleteSession = { sess -> mainVm.deleteSpeakingSession(sess) },
+                                        onOpenAiSettings = { navigateTo("settings") }
                                     )
                                 }
                                 composable("challenges") {
                                     ChallengesScreen(
                                         speakingVm = speakingVm,
                                         sharedChallenges = sharedChallenges,
-                                        pastSessions = sessions
+                                        pastSessions = sessions,
+                                        onOpenAiSettings = { navigateTo("settings") }
                                     )
                                 }
                                 composable("articulation_lab") {
@@ -979,7 +999,8 @@ private fun AuthenticatedAppShell(
                                         speakingVm = speakingVm,
                                         ttsHelper = ttsHelper,
                                         pastSessions = sessions,
-                                        initialFocus = "articulation"
+                                        initialFocus = "articulation",
+                                        onOpenAiSettings = { navigateTo("settings") }
                                     )
                                 }
                                 composable("pronunciation") {
@@ -987,7 +1008,8 @@ private fun AuthenticatedAppShell(
                                         speakingVm = speakingVm,
                                         ttsHelper = ttsHelper,
                                         pastSessions = sessions,
-                                        initialFocus = "pronunciation"
+                                        initialFocus = "pronunciation",
+                                        onOpenAiSettings = { navigateTo("settings") }
                                     )
                                 }
                                 composable("voice_training") {
@@ -1002,13 +1024,26 @@ private fun AuthenticatedAppShell(
                                     )
                                 }
                                 composable("listening_lab") {
-                                    ListeningShadowingScreen(speakingVm = speakingVm, ttsHelper = ttsHelper, pastSessions = sessions)
+                                    ListeningShadowingScreen(
+                                        speakingVm = speakingVm,
+                                        ttsHelper = ttsHelper,
+                                        pastSessions = sessions,
+                                        onOpenAiSettings = { navigateTo("settings") }
+                                    )
                                 }
                                 composable("grammar_speaking") {
-                                    GrammarSpeakingScreen(speakingVm = speakingVm, pastSessions = sessions)
+                                    GrammarSpeakingScreen(
+                                        speakingVm = speakingVm,
+                                        pastSessions = sessions,
+                                        onOpenAiSettings = { navigateTo("settings") }
+                                    )
                                 }
                                 composable("public_speaking") {
-                                    PublicSpeakingScreen(speakingVm = speakingVm, pastSessions = sessions)
+                                    PublicSpeakingScreen(
+                                        speakingVm = speakingVm,
+                                        pastSessions = sessions,
+                                        onOpenAiSettings = { navigateTo("settings") }
+                                    )
                                 }
                                 composable("real_world_tasks") {
                                     RealWorldTasksScreen(
@@ -1117,11 +1152,38 @@ private fun AuthenticatedAppShell(
                                             }
                                         },
                                         onSetCloudAiEnabled = { enabled ->
-                                            scope.launch { prefsRepo.setCloudAiEnabled(enabled) }
+                                            scope.launch {
+                                                val result = aiSettingsRepo.setCloudAiEnabled(enabled)
+                                                cloudPolicyMessage = result.exceptionOrNull()?.message
+                                            }
                                         },
                                         onSetCloudAiModelTier = { tier ->
-                                            scope.launch { prefsRepo.setCloudAiModelTier(tier) }
-                                        }
+                                            scope.launch { aiSettingsRepo.setCloudAiModelTier(tier) }
+                                        },
+                                        aiSettings = aiSettings,
+                                        capabilityMatrix = capabilityMatrix,
+                                        onSetLocalAiEnabled = { enabled ->
+                                            scope.launch { aiSettingsRepo.setLocalAiEnabled(enabled) }
+                                        },
+                                        onSetLiveTranscriptionEnabled = { enabled ->
+                                            scope.launch { aiSettingsRepo.setLiveTranscriptionEnabled(enabled) }
+                                        },
+                                        onSetLocalSpeechRecEnabled = { enabled ->
+                                            scope.launch { aiSettingsRepo.setLocalSpeechRecognitionEnabled(enabled) }
+                                        },
+                                        onSetLocalAudioAnalysisEnabled = { enabled ->
+                                            scope.launch { aiSettingsRepo.setLocalAudioAnalysisEnabled(enabled) }
+                                        },
+                                        onSetLocalVideoAnalysisEnabled = { enabled ->
+                                            scope.launch { aiSettingsRepo.setLocalVideoAnalysisEnabled(enabled) }
+                                        },
+                                        onSetRecognitionLanguage = { lang ->
+                                            scope.launch { aiSettingsRepo.setSelectedRecognitionLanguage(lang) }
+                                        },
+                                        onSetRecognitionEngine = { engine ->
+                                            scope.launch { aiSettingsRepo.setSelectedRecognitionEngine(engine) }
+                                        },
+                                        cloudPolicyMessage = cloudPolicyMessage
                                     )
                                 }
                                 composable("profile") {

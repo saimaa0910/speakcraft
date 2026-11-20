@@ -144,7 +144,7 @@ class AudioRecorderManager(val context: Context) {
         meteringJob = null
         if (_isRecording.value && !_isPaused.value) {
             accumulatedActiveMs += (SystemClock.elapsedRealtime() - activeSegmentStartMs).coerceAtLeast(0L)
-            _elapsedSeconds.value = (accumulatedActiveMs / 1000L).toInt().coerceAtLeast(1)
+            _elapsedSeconds.value = (accumulatedActiveMs / 1000L).toInt().coerceAtLeast(0)
         }
         _isRecording.value = false
         _isPaused.value = false
@@ -243,7 +243,7 @@ class AudioRecorderManager(val context: Context) {
         return try {
             retriever.setDataSource(context, uri)
             val ms = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-            (ms / 1000L).toInt().coerceIn(1, 3600)
+            (ms / 1000L).toInt().coerceIn(0, 3600)
         } catch (e: Exception) {
             Log.w(TAG, "Unable to inspect media duration: ${e.message}")
             0
