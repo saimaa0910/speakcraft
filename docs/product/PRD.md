@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | PRD |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: Product Owner direction added as PRD-FR-047 feedback with mistakes and coach tips after every submission, PRD-FR-056 technique curriculum from the @askvinh channel, PRD-FR-057 D-08 decided "original wording, link out") |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval (gate G1) |
 | Owner (role) | Product Manager |
 | Approval | Pending — Product Owner |
@@ -193,6 +193,7 @@ Priority: **P0** must have for the release · **P1** should have · **P2** could
 | PRD-FR-044 | Each result offers **"Was this accurate?"** (yes/no + optional reason), stored locally | P1 | R1 | KPI-05 |
 | PRD-FR-045 | Each metric has a **"How we measured this"** explanation including its limitations | P1 | R1 | PP-1 |
 | PRD-FR-046 | Every evaluation records the **evaluation-rules version** used | P0 | R1 | PO-REQ-1119 Ph8C |
+| PRD-FR-047 | After **every submitted attempt** (speaking activities, technique exercises, word stages and review items), the result lists the **mistakes our checks detected**, each with its evidence and Measured/Estimated label, and gives **coach tips** linked to the relevant technique. If the checks find nothing, the result says so honestly, without claiming the attempt was perfect. An attempt that fails the evidence gate (Inconclusive) shows its specific reason and advice for a clearer recording instead, because there is no reliable evidence to report mistakes from (SRS-BR-008). Tips and mistakes come from deterministic function logic and on-device ("local intelligence") analysis; no cloud AI is required (D-04) | P0 | R1 | Product Owner 2026-11-21 |
 
 ### 15.6 CAP-06 Practice library
 
@@ -201,9 +202,11 @@ Priority: **P0** must have for the release · **P1** should have · **P2** could
 | PRD-FR-050 | The library is organised by **five tracks** (Everyday conversation, Workplace, Interviews, Presentations & storytelling, Clear speech); each activity shows template, duration and level | P0 | R1 | RD-16 CAP-06 |
 | PRD-FR-051 | R1 supports **five templates**: Read aloud, Listen & repeat, Answer a question, Structured answer, Tell a story | P0 | R1 | RD-16 |
 | PRD-FR-052 | Any library activity can be started outside Today and **counts toward progress and streak** | P0 | R1 | BR-011 |
-| PRD-FR-053 | Content is **bundled, versioned and original**; R1 ships ≥ 15 activities per track | P0 | R1 | BR-008; RSK-04 |
+| PRD-FR-053 | Content is **bundled, versioned and original** (written from scratch, or channel techniques re-expressed in our own words per PRD-FR-057); R1 ships ≥ 15 activities per track | P0 | R1 | BR-008; RSK-04 |
 | PRD-FR-054 | Users can **save** activities for later | P2 | R1 | — |
 | PRD-FR-055 | R2 adds **scripted role-play** (multi-turn prompts voiced by text-to-speech; user responses evaluated per turn) | P1 | R2 | RD-16 |
+| PRD-FR-056 | The curriculum is built from the **communication frameworks, techniques, exercises, activities and tips** taught on the @askvinh YouTube channel. Each **technique** is a first-class content item: its idea and steps in our own words, its exercises and activities practised through the five templates, and its tips. Techniques can be browsed in Practice and are used by Today's plan | P0 | R1 | Product Owner aim 2026-11-21; D-08 |
+| PRD-FR-057 | Creator-derived content follows **D-08 (decided 2026-11-21): original wording, link out**. Every technique, exercise and tip is written in our own words and examples, with no verbatim transcripts. Each item links to the **specific source video** (with timestamp) through a "Watch the original lesson" link, and the app and store listing never use the creator's name, likeness or branding | P0 | R1 | D-08; BR-008 |
 
 ### 15.7 CAP-07 Words — vocabulary lifecycle
 
@@ -305,7 +308,7 @@ ASM-01 … ASM-06 (RD-14 §9), validated during R1 beta.
 
 | Release | Content | Entry | Exit |
 |---|---|---|---|
-| R0 Foundation | CAP-11 skeleton, removals (PRD-FR-120), CI gates, release signing (PRD-FR-121), data-safety fixes | Stage A approved (G1–G3) | RD-06 §5 R0 exit criterion met; CI gates green |
+| R0 Foundation | CAP-11 skeleton, removals (PRD-FR-120), CI gates, release signing (PRD-FR-121), data-safety fixes | Stage A approved (G1–G4, explicit "start Stage B" — PLN-05 GR-01) | RD-06 §5 R0 exit criterion met; CI gates green |
 | R1 Core loop (MVP) | All P0/P1 R1 requirements | R0 exit; SPK-01 done | R1 acceptance (§21); beta KPIs measured |
 | R2 Depth | R2 requirements | R1 exit | R2 acceptance |
 | R3 Reach | Store launch, video self-review, recognition improvements | Decisions D-03, ADR-009/010 | Per decision |

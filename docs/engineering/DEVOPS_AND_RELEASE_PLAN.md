@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | ENG-01 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | DevOps / Release Engineer |
 | Approval | Pending — Product Owner |
@@ -187,6 +187,7 @@ Action references below are written `@<sha> # vN`. Every action is pinned to a f
 | `ci.yml` | `pull_request` → `main`; `push` → `main` | Quality gates; required checks | **None** |
 | `release.yml` | `push` tags `v*.*.*` (plus manual re-run of an existing tag) | Build, sign, verify and publish release artefacts | `release` environment only |
 | `deploy-rules.yml` *(only if ED-06 = CI deploy)* | `workflow_dispatch` | Deploy Firestore rules to prod | `firebase-prod` environment |
+| `nightly.yml` *(R1, optional (FS-00 §4))* | `schedule` once per night on `main`, plus `workflow_dispatch` | Instrumented tests on Gradle Managed Devices and emulator-backed integration suites (TST-01 §14.2); until it exists, instrumented tests run in the release-candidate pipeline (consistency review, CL-21) | **None** |
 | *(retired)* `release_on_push.yml` | — | Replaced after ADR-004 approval (ENG-T-12). Containment first (ENG-T-26) | — |
 
 ### 4.2 PR workflow `ci.yml`
@@ -425,11 +426,13 @@ A release issue is created from a template. Every item needs its evidence attach
 
 ### 8.5 Hotfix process
 
+Defect severity is defined by **TST-01 §11.1, which is authoritative** (S1 — Critical, S2 — High, S3 — Medium, S4 — Low; consistency review, CL-25). The examples below are a summary; this table only sets the release targets per severity.
+
 | Severity | Definition (examples) | Target |
 |---|---|---|
-| S1 | Privacy leak, data loss, crash on launch, security vulnerability, sign-in broken for all users | Fix released ≤ 48 h (**Proposed**); halt rollout immediately |
-| S2 | A core-loop feature broken for a segment (one speech tier, one OEM) | Next patch ≤ 7 days (**Proposed**) |
-| S3 | Other defects | Normal release train |
+| S1 — Critical | Privacy leak, data loss, crash on launch, security vulnerability, sign-in broken for all users | Fix released ≤ 48 h (**Proposed**); halt rollout immediately |
+| S2 — High | A core-loop feature broken for a segment (one speech tier, one OEM) | Next patch ≤ 7 days (**Proposed**) |
+| S3 — Medium, S4 — Low | Other defects | Normal release train |
 
 Steps:
 
@@ -594,3 +597,4 @@ Estimates are **relative and preliminary** (S ≈ ≤ 1 day, M ≈ 2–4 days, L
 | Version | Date | Change | Author (role) |
 |---|---|---|---|
 | 0.1 | 2026-11-20 | Initial draft: current-state walk-through, build variants, local setup, CI/CD design, signing, secrets inventory, versioning, channels, checklist, rollback and hotfix, operations, environments handoff, supply chain, ENG-T work items, open decisions | DevOps / Release Engineer |
+| 0.2 | 2026-11-21 | Consistency review: CL-25 (§8.5 defect severity names aligned to TST-01 §11, which is authoritative), CL-21 (§4.1 optional nightly instrumented-test workflow, R1) | Technical Writer (consistency review) |

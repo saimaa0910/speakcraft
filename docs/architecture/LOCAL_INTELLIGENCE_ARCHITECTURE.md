@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | ARC-05 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: §8.4 mistakes found and coach tips after every attempt, issue catalogue, deterministic tip selection, self-check, candidate acoustic metrics — Product Owner direction PRD-FR-047) |
+| Date | 2026-11-21 |
 | Status | Draft — **Proposed**, awaiting approval (gate G3); tier design requires device spike SPK-01 |
 | Owner (role) | AI/ML Engineer |
 | Approval | Pending — Product Owner; Android Tech Lead review |
@@ -142,6 +142,23 @@ Outcome: `Valid` · `Inconclusive(reason)` with reasons `TOO_SHORT`, `TOO_QUIET`
 
 Bands (plain language) are defined per metric, e.g. M-WPM: < 100 "slow", 100–160 "comfortable", > 160 "fast" (†, tuned after SPK-01).
 
+**Band and noise-band table (added 2026-11-21 for §8.4 issue raising; every value is † Proposed — requires approval, tuned on the SPK-01/SPK-02 corpora).** An issue is raised only when the value is beyond the "issue" threshold by more than the noise band.
+
+| Metric | Target band | Issue threshold | Noise band | Notes |
+|---|---|---|---|---|
+| M-WPM | 100–160 wpm | < 100 (slow) or > 160 (fast) | ±10 wpm | READ uses the reference text's natural rate ±20 % instead † |
+| M-PAUSE | ≤ 2 long pauses per minute of speaking | > 2 per minute | ±1 pause | Normalised per minute of M-SPK; leading/trailing silence excluded |
+| M-FILL | ≤ 3 per minute | > 3 per minute | ±1/min | Estimated; caveat that recognisers often drop "um/uh" |
+| M-LEX | MATTR ≥ 0.55 | < 0.55 | ±0.05 | Only with ≥ 25 words |
+| M-HEDGE | ≤ 3 per 100 words | > 3 per 100 words | ±1/100 words | Estimated |
+| M-LEN | Activity target range from the content pack (words or seconds) | Below the lower bound | ±5 words or ±3 s | Above the upper bound is not a mistake in R1 |
+| M-MATCH | ≥ 75 % (pass) | Any reference word not recognised as intended | — (word-level) | The percentage carries ±5 pts; individual words are discrete |
+| M-STRUCT | All elements of the activity's framework | Any element missing | — (discrete) | Estimated; cue phrases shown as evidence |
+| M-GRAM | 0 qualified rule hits | ≥ 1 hit | — (discrete) | Only qualified rules (§8.1); max 2 shown (SRS-FR-EVAL-006) |
+| M-LEVEL | CV within quality range | Quiet/uneven per quality rule | — | Quality note only, never a skill score |
+
+**Storage units (ENT-04 `value`; added 2026-11-21 for ARC-03, CL-70):** M-DUR and M-SPK in milliseconds · M-RATIO 0–1 · M-WPM words per minute (decimal) · M-PAUSE count (per-minute rate derived for bands) · M-WORDS count · M-LEN words or seconds, as the activity's target defines · M-TARGET boolean (0/1) · M-MATCH 0–100 (%) · M-FILL per minute (decimal) · M-LEX 0–1 · M-GRAM hits per 100 words · M-STRUCT detected-element set (stored as a list, count in `value`) · M-HEDGE per 100 words · M-LEVEL coefficient of variation 0–1. `null` = not computable (SRS-BR-002).
+
 ## 7. Headline metrics per template (shown on the result)
 
 | Template | Headline 1 | Headline 2 | Headline 3 | Pass/fail |
@@ -179,8 +196,51 @@ Deterministic, priority-ordered rule table; outputs exactly one **strength** and
 
 Strength = best metric relative to its band, or improvement vs previous attempt ("Fewer fillers than last time: 6 → 2"). Never praise a metric that is `null` or Estimated with low evidence.
 
+**Strength codes** (stored and synced as the first entry of `feedbackCodes`, ARC-03 §8; added 2026-11-21, CL-70): STR_ALL_RECOGNISED (READ/REPEAT, every word recognised as intended) · STR_TARGET_WORD_USED · STR_STRUCT_COMPLETE · STR_PACE_IN_BAND · STR_FEW_PAUSES · STR_FEW_FILLERS · STR_LENGTH_ON_TARGET · STR_GOOD_VARIETY · STR_IMPROVED (with metric key and before → after values, beyond the noise band) · STR_COMPLETED (fallback when no metric qualifies: "You finished a full attempt — that's the practice that counts"; never a skill claim).
+
 ### 8.3 Punctuation independence
 No rule or metric relies on sentence boundaries from punctuation; sentence-level heuristics (if any) use pause timing from `TranscriptAssembler`.
+
+### 8.4 Mistakes found and coach tips after every attempt (added 2026-11-21; PRD-FR-047, SRS-FR-EVAL-015/016, SRS-FR-WORD-014)
+
+Everything here is deterministic function logic over the on-device outputs above. No cloud or generative model is used (D-04). An optional on-device generative rewording of tips would need its own ADR and is out of R1.
+
+**Issue catalogue (versioned with `evaluationVersion`).** An issue is raised only when its source metric is non-null and lies outside the target band by more than the metric's noise band (§6). This stops borderline values from being reported as mistakes.
+
+| Issue code | Raised when | Evidence shown | Label | Applies to |
+|---|---|---|---|---|
+| ISSUE_WORD_NOT_RECOGNISED | M-MATCH alignment marks reference words as not recognised as intended | The words, in context | Measured | READ, REPEAT, stage 3, review sentences |
+| ISSUE_WRONG_FORM | Stage 2 / spoken recall: the output contains a word that is a near-match to the target (edit similarity ≥ 0.6 †) but is not the target or an accepted inflection (score < 75) | "We heard '{heard}'" | Measured | Stage 2, spoken recall |
+| ISSUE_TARGET_WORD_MISSING | M-TARGET false **and** ISSUE_WRONG_FORM not raised (no near-match token at all) — the two are mutually exclusive | Target word | Measured | Stages 2–4, review |
+| ISSUE_TOO_SHORT | M-LEN below the target range; for stage 4, fewer than 5 words **or** fewer than 3 content words (the composite component in §9) | Words/seconds vs target; for stage 4 "Add a few more meaningful words" | Measured | ANSWER, STRUCT, STORY, stage 4 |
+| ISSUE_STRUCT_ELEMENT_MISSING | M-STRUCT lacks an element of the activity's framework | Missing element; detected cue phrases | Estimated | STRUCT |
+| ISSUE_FILLERS_HIGH | M-FILL above band | Top fillers with counts | Estimated | ANSWER, STRUCT, STORY |
+| ISSUE_PAUSES_LONG | M-PAUSE above band | Count; longest pause and its position in the transcript | Measured | ANSWER, STRUCT, STORY, READ |
+| ISSUE_PACE_FAST / ISSUE_PACE_SLOW | M-WPM outside band | Value vs target range | Measured | ANSWER, STRUCT, STORY, READ |
+| ISSUE_HEDGING_HIGH | M-HEDGE above band | Hedge phrases quoted | Estimated | ANSWER, STRUCT |
+| ISSUE_LOW_VARIETY | M-LEX below band (≥ 25 words only) | Most repeated content words | Estimated | ANSWER, STRUCT, STORY |
+| ISSUE_GRAMMAR_POSSIBLE | A qualified rule (§8.1) fires | Quoted span → suggestion; rule ID | Estimated | ANSWER, STRUCT, STORY, stage 4 |
+| ISSUE_TOO_QUIET | M-LEVEL quality note | "Recording was quiet/uneven" | Measured (quality) | All with audio |
+
+Ordering follows the §8.2 priorities. Three issues are shown first and the rest sit behind "Show all". Inconclusive attempts show the evidence-gate reason instead of issues.
+
+**Issue display priority** (1 = shown first; ties broken by the larger distance beyond threshold, then issue code alphabetically): 1 ISSUE_TOO_QUIET (it may explain other issues) · 2 ISSUE_WORD_NOT_RECOGNISED, ISSUE_WRONG_FORM, ISSUE_TARGET_WORD_MISSING · 3 ISSUE_STRUCT_ELEMENT_MISSING · 4 ISSUE_FILLERS_HIGH · 5 ISSUE_PACE_FAST / ISSUE_PACE_SLOW · 6 ISSUE_PAUSES_LONG · 7 ISSUE_TOO_SHORT · 8 ISSUE_GRAMMAR_POSSIBLE · 9 ISSUE_HEDGING_HIGH · 10 ISSUE_LOW_VARIETY. Thresholds and noise bands: §6 band table.
+
+**Coach-tip selection (tips are content, versioned with `contentVersion`).**
+1. The candidates are content-pack tips whose triggers match the attempt: issue code, metric + band, template, or technique ID (ARC-03 §6).
+2. They are ranked by trigger specificity (issue code > metric band > technique > template), then by the tip's priority, then by a stable hash of `tipId + attemptId`. The hash varies wording across attempts while staying reproducible.
+3. The **focus tip** is the top tip for the highest-priority issue, and it doubles as the SRS-FR-EVAL-005 focus. Up to two more tips cover the next issues or, failing that, the activity's technique.
+4. If no issue is found, the result states "Our checks didn't find issues in this attempt" with a one-line note on what the checks cover, shows the strength, and gives one general tip for the activity's technique.
+5. Each tip links to its technique (SCR-PRAC-04) and, where provenance exists, to the specific source video (PRD-FR-057).
+
+**Self-check for what audio cannot show.** Some technique aspects cannot be measured from audio and transcript, such as eye contact, gestures and facial expression (NG-07). For those, the result offers a short self-check checklist that the user ticks. It is stored as *self-reported* and never shown as Measured or Estimated.
+
+**Candidate acoustic metrics for vocal-delivery techniques (not in the R1 catalogue until validated).** These are T1 only, because they need app-owned PCM. They must pass SPK-01 on the RD-LOW/MID/HIGH reference devices before approval.
+
+| Candidate | Method | Label if approved | Notes |
+|---|---|---|---|
+| Pitch range | Semitone spread (10th–90th percentile) of voiced-frame F0 (autocorrelation/YIN) | Measured | Plain bands "narrow / moderate / wide". Never named "melody", "expressiveness" or "pronunciation". This replaces the removed Hz-spread heuristic only if validation succeeds |
+| Volume variation | dB spread (10th–90th percentile) of active-frame RMS | Measured | Sensitive to microphone distance. Shown with that caveat |
 
 ## 9. Word-stage evaluation
 
@@ -191,6 +251,8 @@ No rule or metric relies on sentence boundaries from punctuation; sentence-level
 | 4 Make your own | Target present (required) · ≥ 5 words (required) · M-GRAM hits ≤ 1 (required) · composite = 50 (target + length) + 25 × (1 − grammarHits) + 25 × (content-word count ≥ 3) | 0–100 | ≥ 70 and all required |
 
 Inflection acceptance uses explicit inflection lists in the content pack (not stem-prefix heuristics that accept "convenient" for "convey", FND-AI-09).
+
+**Internal template IDs for word-task attempts** (not shown to users; adopted from ARC-03 §11, CL-70): `TPL-WORD-SAY` (stage 2), `TPL-WORD-USE` (stage 3), `TPL-WORD-OWN` (stage 4 and review sentence use), `TPL-WORD-RECALL` (review spoken recall). Word-task attempts are attempts for streak purposes (SRS-BR-010) and use the evidence gate (§5).
 
 **Caveat shown to users:** "Speech recognition may recognise a word even when it isn't pronounced clearly, so 'Say it' checks that you were understood, not your accent."
 

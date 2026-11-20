@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | PLN-05 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: first decision recorded in §7 — D-08) |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | Project Manager |
 | Approval | Pending — Product Owner |
@@ -43,7 +43,7 @@ SpeakCraft is an individual project. The **Product Owner is the single accountab
 | **G6** | QA & UAT approval | B (per release) | Product Owner | Release-candidate test report, honesty checklist, accessibility & privacy checks, UAT summary | TST-01 exit criteria met |
 | **G7** | Release approval | B (per release) | Product Owner | Release checklist (ENG-01 §8), notes, rollback plan | Checklist complete; explicit release instruction |
 
-Gates G1–G3 may be reviewed in one sitting; each must be recorded separately in §7.
+Gates G1–G3 may be reviewed in one sitting; each must be recorded separately in §7. The decision list per gate in the table above predates decisions D-21…D-36; **RD-99 §10 is the current mapping of decisions to gates**.
 
 ## 4. Governance rules
 
@@ -84,7 +84,8 @@ Gates G1–G3 may be reviewed in one sitting; each must be recorded separately i
 | G2 UX approval | — | Pending | |
 | G3 Architecture & security approval | — | Pending | |
 | G4 Implementation approval | — | Pending | |
-| D-01 … D-20 | — | Pending | See RD-99 §8 |
+| D-08 Creator-derived content | 2026-11-21 | **Approved — Option "original wording, link out"** | Product Owner's answer in the Stage A session. The curriculum is built from the @askvinh channel's frameworks, techniques, exercises, activities and tips, re-expressed in our own words, each linked to its specific source video, with no creator name, likeness or branding (PRD-FR-056/057, SRS-BR-028). Recorded together with the Product Owner's direction that every submitted attempt gets mistakes found + coach tips (PRD-FR-047). Under GR-06 this changes RD-16 §4/§5 and RD-14; the affected documents were updated on 2026-11-21 |
+| D-01…D-07, D-09…D-36 | — | Pending | See RD-99 §8 (gate per decision in RD-99 §10) |
 
 ## 8. Reporting cadence (Stage B)
 

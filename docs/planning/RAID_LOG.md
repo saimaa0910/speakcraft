@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | PLN-04 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: RSK-04/05, ISS-05, DEP-10 updated for the D-08 decision; RSK-17/18 added) |
+| Date | 2026-11-21 |
 | Status | Draft — living document |
 | Owner (role) | Project Manager |
 | Approval | Pending — Product Owner |
@@ -19,8 +19,10 @@ Scales — **Probability**: Low / Medium / High. **Impact**: Low / Medium / High
 | RSK-01 | On-device recognition unavailable or poor on many target devices (minSdk 24; on-device APIs need 31/33) | High | Critical | AI/ML Engineer | SPK-01 before R1 build; tier design T1–T3b; consented online mode; honest audio-only mode; D-14 minSdk review | SPK-01 shows T3 for most mid-range devices or WER > 25 % | Open |
 | RSK-02 | Recognisers "correct" mispronunciations, overstating word checks | High | High | AI/ML Engineer | Label "Recognised as intended", caveat copy, never call it pronunciation (SRS-BR-004) | Beta "Was this accurate?" negatives on word stages | Open |
 | RSK-03 | Grammar rules produce false positives, damaging trust | Medium | High | AI/ML Engineer | SPK-02 corpus; precision ≥ 0.90 gate; max 2 observations | Rule precision < 0.9 in CI | Open |
-| RSK-04 | Content too thin (20 words today; creator content removed) | High | High | Product Manager | EP-09 content workstream; reuse 150 activities after review; ≥ 300 words R1 | Content backlog behind plan by > 2 sprints | Open |
-| RSK-05 | IP/legal exposure from creator-derived content | Medium | High | Product Owner | Remove in R0; legal review of retained frameworks (D-08) | Any retained item lacks provenance | Open |
+| RSK-04 | Content too thin or late (20 words today; creator-derived techniques need verification against specific videos and rewriting before they can ship — CNT-01) | High | High | Product Manager | EP-09: verify and re-express existing items first (T-09.6), then add techniques from further videos; reuse 150 activities after review; ≥ 300 words R1 | Content backlog behind plan by > 2 sprints | Open |
+| RSK-05 | IP/legal exposure from creator-derived content | Medium | High | Product Owner | D-08 decided 2026-11-21 ("original wording, link out"): own wording and examples, no verbatim transcripts, no creator name/likeness/branding, specific-video provenance; branding removed in R0; build-time and release content checks (SRS-BR-028, TST-01). Optional legal opinion before a public store launch | A shipped item without verified provenance, a creator-name string, or text that closely follows a video transcript | Mitigating |
+| RSK-17 | The Product Owner's aim ("all frameworks, techniques… in all videos") exceeds what R1 can verify and rewrite | High | Medium | Product Manager | R1 ships the verified existing items plus the highest-value techniques; the remainder is catalogued with the CNT-01 template and released in content updates (R2) | Catalogue coverage < plan at R1 content freeze | Open |
+| RSK-18 | Feedback "mistakes" are wrong or over-reported, damaging trust (PRD-FR-047) | Medium | High | AI/ML Engineer | Issues raised only outside band by more than the noise band (ARC-05 §8.4); qualified rules only; golden tests; "Was this accurate?" monitoring | Beta "mistake was wrong" ratings > 10 % † | Open |
 | RSK-06 | Single-developer capacity vs scope | High | High | Project Manager | Strict scope; preliminary estimates; incremental releases; re-plan at each gate | Velocity < 70 % of plan for 2 sprints | Open |
 | RSK-07 | Success metrics unmeasurable without analytics | Medium | Medium | Product Manager | ADR-013 beta programme; local aggregates user can share | Beta cohort < 10 | Open |
 | RSK-08 | Legacy data migration loses user data | Low | High | Database Architect | Minimal scope (D-19); idempotent import; legacy docs untouched; migration tests | Migration test failures | Open |
@@ -55,7 +57,7 @@ Scales — **Probability**: Low / Medium / High. **Impact**: Low / Medium / High
 | ISS-02 | CI may ship debug-signed, debuggable beta builds (FND-SEC-02) | Critical if keystore secret unset | Release Engineer | Disable auto-release on push immediately after approval (EP-01) | Open |
 | ISS-03 | Privacy text contradicts behaviour (FND-SEC-05) | High | Security Engineer | Correct text / stop transcript upload (EP-04) | Open |
 | ISS-04 | Account deletion unreachable (FND-SEC-03) | High | Android Tech Lead | Wire with re-auth (EP-04) | Open |
-| ISS-05 | Creator-branded tab/content (FND-UI-03, DOM-09) | High (legal) | Product Owner | Remove in R0 (EP-04) | Open |
+| ISS-05 | Creator-branded tab and creator names in content (FND-UI-03, DOM-09) | High (legal) | Product Owner | Remove the tab, ingestion tool and branding in R0 (EP-04); keep and re-express the techniques (EP-09, D-08 decided) | Open |
 | ISS-06 | Local builds require undocumented `google-services.json`; no wrapper (FND-OPS-02) | Medium | Release Engineer | EP-01 | Open |
 | ISS-07 | 54 documentation conflicts (RD-05) | Medium | Technical Writer | Archive superseded docs after approval | Open |
 | ISS-08 | No test has been executed in CI; claimed pass counts unverifiable | Medium | QA Architect | EP-01 CI test gate | Open |
@@ -73,7 +75,7 @@ Scales — **Probability**: Low / Medium / High. **Impact**: Low / Medium / High
 | DEP-07 | Reference devices (ASM-07) | Testing | SPK-01, EP-18 | QA Architect | Open |
 | DEP-08 | Design system tokens and fonts (DES-05) incl. open-licence font files | Design | EP-17 | Design System Architect | Open |
 | DEP-09 | Beta cohort recruitment (PROP-02) | Product | R1 beta | Product Manager | Open |
-| DEP-10 | Legal review of retained frameworks (D-08) | Legal | EP-09 | Product Owner | Open |
+| DEP-10 | Product Owner verification of each creator-derived item against its specific video (CNT-01 workflow; D-08 decided — a formal legal review is optional, advisable before a public store launch) | Content / legal | EP-09 | Product Owner | Open |
 
 ## 5. Dependency graph (high level)
 

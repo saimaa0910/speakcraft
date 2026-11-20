@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | PLN-03 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: T-04.1.1 scope aligned to the D-08 decision) |
+| Date | 2026-11-21 |
 | Status | Draft — **preliminary**; first sprints planned in detail, later sprints indicative |
 | Owner (role) | Project Manager |
 | Approval | Pending — Product Owner (G4) |
@@ -61,7 +61,7 @@ Dependencies: G4; DEP-05. Testing responsibility: every task adds or updates tes
 
 | Story / task | WBS | Est. | Acceptance criteria |
 |---|---|---|---|
-| Remove YouTube Intelligence & creator branding/content | T-04.1.1 | 2.5 d | No creator name in UI strings or bundled content (grep check in CI); tab removed |
+| Remove YouTube Intelligence (ingestion, seeded per-user copies) & creator branding; keep catalogue content for re-expression (D-08) | T-04.1.1 | 2.5 d | No creator name in UI strings or bundled content (grep check in CI); tab and ingestion removed; catalogue items still present for EP-09 |
 | Remove updater and release collections | T-04.1.3 | 1 d | No install intents; no GitHub API calls |
 | Backup rules; recordings to `noBackupFilesDir` | T-04.2.2 | 1 d | Backup rules test passes; files located under no-backup dir |
 | PII redaction (AppLogger) | T-04.2.3 | 1 d | Log tests show no uid/email |

@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | ARC-01 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21 consistency pass: recording stop ignores configuration changes; export via SAF; outbound video link) |
+| Date | 2026-11-21 |
 | Status | Draft — **Proposed**, awaiting approval (gate G3) |
 | Owner (role) | Solution Architect |
 | Approval | Pending — Product Owner; Android Tech Lead review |
@@ -154,7 +154,7 @@ Room `Flow`s drive all screens; there are no manually incremented counters. Toda
 |---|---|
 | Screen state | `StateFlow<UiState>` per ViewModel; sealed `UiState` with Loading / Content / Empty / Error / Offline variants where applicable (fixes FND-UI-05) |
 | User input surviving rotation/process death | `SavedStateHandle` and `rememberSaveable` (fixes FND-UI-06) |
-| Long-running attempt | Owned by `SessionViewModel`; capture service scoped to the ViewModel; stopped on `onCleared` and lifecycle `ON_STOP` |
+| Long-running attempt | Owned by `SessionViewModel`; capture service scoped to the ViewModel; stopped on `onCleared` and on lifecycle `ON_STOP` **only when the activity is not changing configuration** (`!isChangingConfigurations`), so rotation does not interrupt a recording (SRS-FR-SESS-013) |
 | One-off events (navigation, snackbars) | Channel/`SharedFlow` consumed once |
 | Cross-screen data | Repositories' Flows only (no shared mutable singletons) |
 
@@ -200,7 +200,7 @@ ADR-014 model: immutable facts (attempts, events) uploaded once (create-only); m
 
 | Boundary | Control | Reference |
 |---|---|---|
-| Device ↔ other apps | Only `MainActivity` exported; no security-relevant intent extras; FileProvider limited to `exports/` | SEC-01 §5–6 |
+| Device ↔ other apps | Only `MainActivity` exported; no security-relevant intent extras; export written through the Storage Access Framework (`ACTION_CREATE_DOCUMENT`), no FileProvider sharing; outbound `ACTION_VIEW` only for "Watch the original lesson" | SEC-01 §5–6, §9.1; SRS-FR-SET-004, SRS-FR-PRAC-009 |
 | App data at rest | App-private storage; recordings in `noBackupFilesDir`; backup rules exclude sensitive paths | ADR-015, SEC-01 §6 |
 | Device ↔ Firebase | HTTPS; Firebase Auth identity; Firestore rules limit each user to `users/{uid}`; facts create-only | SEC-01 §5 |
 | Device ↔ speech service | Only in T3a with consent; platform-mediated | ADR-009, SEC-01 §7 |

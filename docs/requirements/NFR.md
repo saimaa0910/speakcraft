@@ -10,7 +10,7 @@
 | Approval | Pending — Product Owner (gate G1) and Android Tech Lead review |
 | Related | PRD §13, SRS §7, ARC-01, ARC-05, SEC-01, DES-07, TST-01 |
 
-> **No performance guarantees are made.** No measurements of the current or future app exist (nothing could be built or run in Stage A). Every target below is a **proposal** with a rationale and a verification method, to be confirmed or adjusted after the device spike (SPK-01) and the first R0 baseline measurements (T-02.6.x in PLN-02).
+> **No performance guarantees are made.** No measurements of the current or future app exist (nothing could be built or run in Stage A). Every target below is a **proposal** with a rationale and a verification method, to be confirmed or adjusted after the device spike (SPK-01) and the first baseline measurements (T-05.4 after SPK-01 and T-18.2 in PLN-02).
 
 ## 1. Reference devices and conditions
 

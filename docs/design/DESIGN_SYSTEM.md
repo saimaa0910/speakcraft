@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | DES-05 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | Design System Architect |
 | Approval | Pending — Product Owner (decision **D-18** brand palette) |
@@ -751,17 +751,54 @@ Shows one measured or estimated value from an attempt or a trend.
 
 One component for every template (it replaces CC:1326-1842 and ETR:645-787; DES-01 UXF-34).
 
+**Revised 2026-11-21** for the Product Owner's direction that every submitted attempt shows the mistakes found and coach tips (PRD-FR-047, SRS-FR-EVAL-015/016, ARC-05 §8.4). The order below is authoritative and is the same in FS-05 and DES-06 §3.3.
+
 | Order | Section | Specification |
 |---|---|---|
-| 1 | Header | `headlineMedium`: "Here's how it went". For an evidence failure, the Inconclusive card (§11.16) is shown **instead** of sections 2–4. |
-| 2 | Strength | `Outlined.CheckCircle` (primary) + `titleMedium` "What went well" + **one** sentence in `bodyLarge` |
-| 3 | Focus | `Outlined.Flag` + `titleMedium` "Try this next" + **one** actionable sentence |
-| 4 | Metrics | At most 3 metric tiles relevant to the template (ARC-05). The rest sit under the expandable "All measurements". Read aloud and Listen & repeat show "Recognised as intended: 82 % (pass mark 75 %)" with a Measured badge. A below-threshold result reads **"Not yet. Try again."** in neutral styling, never red "Fail". |
-| 5 | Transcript | Collapsible; first 3 lines shown, then "Show full transcript". Heading "What we heard". Target words use `targetWordEmphasis`. A play/pause control for the local recording sits here. If recognition was unavailable, it says so plainly (CAP-12). |
-| 6 | Accuracy rating | "Was this accurate?" with two outlined buttons, "Yes" and "No" (icons plus text). "No" offers optional reason chips. Stored per CAP-05. |
-| 7 | Actions | One filled button (per FS-04: "Continue" inside Today, "Try again" in Practice), plus one tonal or text alternative |
+| 1 | Header | `headlineMedium`: "Here's how it went". For an evidence failure, the Inconclusive card (§11.16) is shown **instead** of sections 3–6. |
+| 2 | Transcript | Collapsible; first 3 lines shown, then "Show full transcript". Heading "What we heard". Target words use `targetWordEmphasis`. A play/pause control for the local recording sits here. If recognition was unavailable, it says so plainly (CAP-12). |
+| 3 | Metrics | At most 3 metric tiles relevant to the template (ARC-05 §7). The rest sit under the expandable "All measurements". Read aloud and Listen & repeat show "Recognised as intended: 82 % (pass mark 75 %)" with a Measured badge. A below-threshold result reads **"Not yet. Try again."** in neutral styling, never red "Fail". |
+| 4 | Strength | `Outlined.CheckCircle` (primary) + `titleMedium` "What went well" + **one** sentence in `bodyLarge` |
+| 5 | Mistakes found | `MistakeList` (§11.15a) |
+| 6 | Coach tips | `CoachTipCard` stack (§11.15b): the focus tip first, titled "Try this next", then up to 2 more tips (one tip for word results, SRS-FR-WORD-014) |
+| 7 | Actions | One filled button. **"Continue" when there is a next step** (inside a Today session, in onboarding, after a passed word stage or review item); **"Try again" otherwise** (Practice and Techniques, a failed or Inconclusive word stage). The other action is a tonal or text button (FS-04) |
+| 8 | Accuracy rating | "Was this accurate?" with two outlined buttons, "Yes" and "No" (icons plus text). "No" offers optional reason chips (incl. "A mistake was wrong"). Stored per CAP-05 (ENT-13) |
+| (8a) | Self-check | Only for activities whose technique has aspects audio cannot show: `SelfCheckList` (§11.15c) between Coach tips and Actions |
 
 Semantics: section titles are headings. When the result appears, focus moves to the header and it is announced (DES-07 A11Y-09).
+
+### 11.15a Mistake list (`MistakeList`)
+
+| Part | Specification |
+|---|---|
+| Title | `titleMedium` "Mistakes found" + count ("3"); heading semantics |
+| Row | Leading `Outlined.Info` 20 dp (neutral `onSurfaceVariant`, **never** error red); `bodyLarge` statement; `bodyMedium` evidence line (quoted span in `targetWordEmphasis`, count or value with unit); trailing Evidence badge (§11.14) |
+| Wording | Measured: plain statement ("You used 'um' 7 times"). Estimated: "Possible …" ("Possible issue: 'he don't' → 'he doesn't'"). Never "Wrong", "Error", "Fail" (§12.3) |
+| Count | First 3 rows by ARC-05 §8.4 display priority; "Show all (n)" text button reveals the rest in place |
+| Empty state | "Our checks didn't find issues in this attempt." + `bodySmall` note on what the checks cover ("We check pace, pauses, filler words, length and the words we recognised. We can't check everything."). No celebration, no "perfect" |
+| Semantics | Each row merged into one phrase: "Possible issue, estimated: he don't, suggestion: he doesn't". The count is part of the heading |
+| Not shown | Inconclusive attempts (the Inconclusive card replaces it) |
+
+### 11.15b Coach tip card (`CoachTipCard`)
+
+| Part | Specification |
+|---|---|
+| Container | `surfaceContainerLow`, radius `medium`, padding 16 dp; no elevation |
+| Icon | `Outlined.Lightbulb` 20 dp, `primary` |
+| Title | First card: "Try this next" (the focus, SRS-FR-EVAL-005). Others: the technique's plain name (DES-05 §12.3: no creator names or borrowed framework names) |
+| Body | `bodyLarge`, one or two sentences, in our own words (D-08) |
+| Links | Text button "See the technique" → SCR-PRAC-04; text button "Watch the original lesson" (only when provenance exists; opens the specific video outside the app; offline → "Needs an internet connection") |
+| Rules | Never labelled "AI"; no sparkle icons; deterministic selection (ARC-05 §8.4) |
+| Semantics | Card is a group; title is a heading; links have descriptive labels ("See the technique: Pause before key points") |
+
+### 11.15c Self-check list (`SelfCheckList`)
+
+| Part | Specification |
+|---|---|
+| Title | `titleMedium` "Check yourself" + `bodySmall` "We can't see this from audio — your answers are just for you." |
+| Rows | Checkbox list items (≥ 48 dp), 1–4 statements from the technique ("I looked at the camera or my notes for most of the answer") |
+| Storage label | Stored and shown as **self-reported**; never with a Measured or Estimated badge, never in trends as a measurement |
+| Semantics | Standard checkbox semantics with state descriptions |
 
 ### 11.16 Inconclusive state card
 
@@ -896,6 +933,11 @@ Every screen defines all applicable states (DES-03 state matrix; UX-7).
 | **Feedback** | The result of an attempt | Not "AI feedback", "AI check", "Report" |
 | **What went well / Try this next** | One strength and one focus | **Focus** is the noun ("Your focus: fewer long pauses") |
 | **Transcript / What we heard** | Text recognised from the recording | — |
+| **Mistakes found** | Issues our checks detected in an attempt, each with evidence (PRD-FR-047) | Estimated items start "Possible …"; never "Errors", "Wrong" |
+| **Coach tips** | Tips linked to techniques, chosen by fixed rules (ARC-05 §8.4) | The first tip is titled "Try this next"; never "AI tips" |
+| **Technique** | A named way of speaking better, with steps, tips and exercises (PRD-FR-056) | Plain original names only (§12.3) |
+| **Watch the original lesson** | Link to the specific source video for a technique | Exact label; no creator name (D-08) |
+| **Check yourself / self-reported** | Checklist for what audio cannot show | Never presented as measured |
 | **Measured** | Computed directly from the audio or transcript | Badge text, exactly |
 | **Estimated** | A heuristic inference | Badge text, exactly |
 | **Inconclusive** | Not enough evidence to measure | Badge text, exactly; never "failed" |
@@ -919,7 +961,7 @@ Every screen defines all applicable states (DES-03 state matrix; UX-7).
 |---|---|---|
 | "AI", "AI Coach", "AI Mentor", "AI Check", "Smart …" for deterministic features | Misrepresents template or rule code (PP-1; NG-01/02) | "Feedback", or describe the feature |
 | "Studio", "Engine", "Lab", "Hub", "Console", "Intelligence" | Internal or marketing jargon (UX-1) | Canonical terms in §12.2 |
-| "@askvinh", "Vinh Giang", or any creator name; borrowed framework names ("3-Stage Self-Audit", "5 Vocal Foundations", "4-Color Communicator", "Friendly Authority") | IP risk and unexplained references (PP-8; D-08) | Plain, original names |
+| "@askvinh", "Vinh Giang", or any creator name; borrowed framework names ("3-Stage Self-Audit", "5 Vocal Foundations", "4-Color Communicator", "Friendly Authority") | IP risk and unexplained references (PP-8). D-08 was decided on 2026-11-21 as "original wording, link out": the techniques themselves are kept and re-expressed, so only the names and branding are banned (SRS-BR-028) | Plain, original names. Generic names such as STAR and PREP are allowed. "Watch the original lesson" is the only pointer to the source |
 | Developer terms: "Firestore", "CameraX", "Photo Picker", "TFLite", "Whisper", "Moonshine", "MediaPipe", "DSP", "evaluator", "evidence gate", "LOCAL_ONLY", enum names (e.g. "INSUFFICIENT_EVIDENCE", "EXTRACTED"), byte sizes, exception messages | Not actionable for users (DES-01 UXF-53) | Plain-language cause and action |
 | "Pronunciation score", "accent score" | Not measured (NG-03) | "Recognised as intended" (read and repeat only) |
 | "Overall score", "fluency score", "x/100" for free speaking | No composite (D-06) | Individual labelled metrics |
@@ -1066,3 +1108,4 @@ object SpeakCraftTheme {
 | Version | Date | Change | Author (role) |
 |---|---|---|---|
 | 0.1 | 2026-11-20 | Initial draft. New Calm Indigo palette with computed contrast; type, spacing, motion and component specs; terminology; migration plan. | Design System Architect |
+| 0.2 | 2026-11-21 | Product Owner direction: §11.15 result order revised; new §11.15a `MistakeList`, §11.15b `CoachTipCard`, §11.15c `SelfCheckList`; §12.2 terms (Mistakes found, Coach tips, Technique, Watch the original lesson, self-reported); §12.3 creator row aligned to D-08 decision | Project Manager (consistency review) |

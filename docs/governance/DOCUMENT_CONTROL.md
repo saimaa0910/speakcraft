@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | GOV-02 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting product owner approval |
 | Owner (role) | Technical Writer / Project Manager |
 | Approval | Pending — Product Owner |
@@ -19,7 +19,7 @@ This document is the single index and control standard for the SpeakCraft redeve
 1. How documents are identified, versioned and approved.
 2. Which document is **authoritative** for each kind of information (so the same requirement is never described differently in two places).
 3. The full index of Stage A deliverables and their status.
-4. How the 55 pre-existing documents relate to the new set.
+4. How the 59 pre-existing documents relate to the new set.
 
 ## 2. Ground rules
 
@@ -27,7 +27,7 @@ This document is the single index and control standard for the SpeakCraft redeve
 |---|---|
 | DC-1 | Pre-existing documents in `docs/` (top level), `app/docs/` and `README_DOCUMENTATION_INDEX.md` are **preserved unchanged**. They are historical reference. Their reliability is graded in RD-01 and their contradictions are logged in RD-05. |
 | DC-2 | Every requirement has **exactly one authoritative home** (see §4). Other documents reference the ID; they do not restate the requirement in different words. |
-| DC-3 | Every statement in an audit document is labelled as one of: **VERIFIED** (seen in source/config with `path:line` evidence), **INFERRED** (reasoned from evidence but not directly observed), **ASSUMPTION** (no evidence; needs validation), **RECOMMENDATION** (proposal), or **DECISION** (approved by the Product Owner — none exist yet in Stage A). |
+| DC-3 | Every statement in an audit document is labelled as one of: **VERIFIED** (seen in source/config with `path:line` evidence), **INFERRED** (reasoned from evidence but not directly observed), **ASSUMPTION** (no evidence; needs validation), **RECOMMENDATION** (proposal), or **DECISION** (approved by the Product Owner; as of 2026-11-21 one exists: D-08, recorded in PLN-05 §7). |
 | DC-4 | No test result is recorded as passed unless it was executed and its output captured. In Stage A **no build or test was executed** (no JDK/Android SDK in the analysis environment). |
 | DC-5 | Proposed targets (performance, thresholds, estimates) are marked **Proposed — requires approval** until the Product Owner approves them. |
 | DC-6 | Technology changes are only proposed through an ADR in `docs/architecture/ADR/` with status **Proposed — requires explicit approval**. |
@@ -40,6 +40,7 @@ This document is the single index and control standard for the SpeakCraft redeve
 |---|---|---|
 | RD-nn | `docs/redevelopment/` | Discovery, audit and product-direction documents (RD-00 … RD-16, RD-99 final review) |
 | PRD / BRD / US | `docs/product/` | Product requirements, business requirements, user stories |
+| CNT-nn | `docs/product/` | Content catalogue and content audits (CNT-01 technique catalogue audit) |
 | FS-nn | `docs/product/FEATURE_SPECIFICATIONS/` | Feature specifications (one per approved capability) |
 | SRS / NFR / UC | `docs/requirements/` | Software requirements, non-functional requirements, use cases |
 | DES-nn | `docs/design/` | UX/UI design documents |
@@ -106,7 +107,10 @@ Every new document begins with the table: Document ID, Version, Date, Status, Ow
 | Persistent data model | ARC-03 Database Design | SRS data requirements |
 | Evaluation / intelligence behaviour | ARC-05 Local Intelligence Architecture (+ SRS-FR-EVAL) | Feature specs |
 | Security controls and threat model | SEC-01 | SRS security section |
-| Test levels, environments, exit criteria | TST-01 | Feature-spec test cases |
+| Test levels, environments, exit criteria, defect severity | TST-01 (§11 severity) | Feature-spec test cases, ENG-01, PLN-05 |
+| Evaluation issue codes, tip selection, metric bands | ARC-05 §6, §8.4 | FS-05, FS-07, DES-05/06, ARC-02/03, TST-01 |
+| Content schema (techniques, tips, provenance, `licenceStatus`) | ARC-03 §6 (+ SRS-BR-028 rule) | FS-06, CNT-01 |
+| Inventory of existing creator-derived content and its verification | CNT-01 Technique Catalogue Audit | PLN-02 EP-09 |
 | Work items, estimates, sequence | PLN-02 WBS + PLN-01 Roadmap | Sprint plan |
 | Risks, assumptions, issues, dependencies | PLN-04 RAID | All |
 | Open decisions requiring approval | RD-99 Final Review §8 | All |
@@ -138,7 +142,8 @@ Every new document begins with the table: Document ID, Version, Date, Status, Ow
 | BRD | `docs/product/BRD.md` | Business Requirements Document | Business Analyst | Draft |
 | US | `docs/product/USER_STORIES.md` | User Stories | Product Manager | Draft |
 | FS-00 | `docs/product/FEATURE_SPECIFICATIONS/README.md` | Feature Specification Index | Product Manager | Draft |
-| FS-01…FS-nn | `docs/product/FEATURE_SPECIFICATIONS/FS-nn_*.md` | Feature Specifications | Product Manager / BA | Draft |
+| FS-01…FS-12 | `docs/product/FEATURE_SPECIFICATIONS/FS-nn_*.md` (12 files) | Feature Specifications | Product Manager / BA | Draft |
+| CNT-01 | `docs/product/TECHNIQUE_CATALOGUE_AUDIT.md` | Technique Catalogue Audit (existing creator-derived content; added 2026-11-21) | Content Strategist / BA | Draft |
 | SRS | `docs/requirements/SRS.md` | Software Requirements Specification | Business Analyst / Solution Architect | Draft |
 | NFR | `docs/requirements/NFR.md` | Non-Functional Requirements | Solution Architect / QA Architect | Draft |
 | UC | `docs/requirements/USE_CASES.md` | Use Cases | Business Analyst | Draft |
@@ -166,6 +171,8 @@ Every new document begins with the table: Document ID, Version, Date, Status, Ow
 | PLN-05 | `docs/planning/PROJECT_GOVERNANCE.md` | Project Governance | Project Manager | Draft |
 | GOV-01 | `docs/governance/REQUIREMENT_TRACEABILITY_MATRIX.md` | Requirement Traceability Matrix | BA / QA Architect | Draft |
 | GOV-02 | `docs/governance/DOCUMENT_CONTROL.md` | Document Control (this document) | Technical Writer | Draft |
+| BOOK-01 | `docs/books/SpeakCraft_Book1_Product_Planning.pdf` (source `docs/books/src/book1_product_planning.html`) | Book 1 — Product Planning (edited compilation, Product Owner request 2026-11-21; not authoritative — the source documents win) | Technical Writer / Product Manager | Draft |
+| BOOK-02 | `docs/books/SpeakCraft_Book2_System_Design_and_Delivery.pdf` (sources `docs/books/src/book2_*.html`; build `build_books.ps1`) | Book 2 — System Design & Delivery (edited compilation; not authoritative) | Technical Writer / Solution Architect | Draft |
 
 ## 6. Relationship to pre-existing documentation
 
@@ -199,3 +206,4 @@ PO-REQ-1119 required ten documents that were never produced (RD-05 CONF-044). Th
 | Version | Date | Change | Author (role) |
 |---|---|---|---|
 | 0.1 | 2026-11-20 | Initial Stage A document set index and control standard | Technical Writer |
+| 0.2 | 2026-11-21 | All Stage A deliverables written; CNT-01 added (Product Owner request); authority entries for defect severity, issue codes/tip selection, content schema and content inventory; 59 pre-existing documents; DC-3 note: first DECISION recorded (D-08, PLN-05 §7) | Technical Writer |

@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | DES-02 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: Techniques collection on SCR-PRAC-01 and new SCR-PRAC-04 Technique detail, per Product Owner direction PRD-FR-056/057 and D-08) |
+| Date | 2026-11-21 |
 | Status | Draft — **Recommendation**, awaiting Product Owner approval (gate G2) |
 | Owner (role) | UX Strategist |
 | Approval | Pending — Product Owner |
@@ -81,6 +81,8 @@ flowchart TD
     TRACK --> ACT[Activity detail SCR-PRAC-03]
     ACT --> SESS
     PRAC --> SAVED[Saved filter on SCR-PRAC-02]
+    PRAC --> TECH[Technique detail SCR-PRAC-04]
+    TECH --> ACT
 
     WORD --> WDETAIL[Word detail SCR-WORD-02]
     WDETAIL --> WSTAGE[Word stage flow SCR-WORD-03]
@@ -127,9 +129,10 @@ flowchart TD
 | | SCR-TODAY-02 | Session complete | R1 |
 | Session | SCR-SESS-01 | Session player (states: prompt, prepare, ready, recording, processing, result, inconclusive, interrupted, error) | R1 |
 | | SCR-SESS-02 | Feedback detail sheet ("How we measured this") | R1 |
-| Practice | SCR-PRAC-01 | Practice home (tracks) | R1 |
+| Practice | SCR-PRAC-01 | Practice home (tracks; Techniques collection — PRD-FR-056) | R1 |
 | | SCR-PRAC-02 | Track (activity list, filters, saved) | R1 |
 | | SCR-PRAC-03 | Activity detail | R1 |
+| | SCR-PRAC-04 | Technique detail (idea, why it works, steps, tips, linked exercises with "Practise it", "Watch the original lesson" link — SRS-FR-PRAC-008/009; added 2026-11-21) | R1 |
 | Words | SCR-WORD-01 | Words home (today's words, due, list, filters) | R1 |
 | | SCR-WORD-02 | Word detail | R1 |
 | | SCR-WORD-03 | Word stage flow (Learn → Say it → Use it → Make your own) | R1 |
@@ -157,7 +160,7 @@ flowchart TD
 | | SCR-INBOX-01 | Inbox | R2 |
 | | SCR-SYS-01 | Account-deletion resume / blocking states | R1 |
 
-Total R1: 37 screens (≤ 30 distinct layouts once state variants are counted together; KPI-11).
+Total R1: 38 screens (≤ 30 distinct layouts once state variants are counted together; KPI-11).
 
 ## 5. Mapping current routes to the new IA
 
@@ -170,7 +173,7 @@ Total R1: 37 screens (≤ 30 distinct layouts once state variants are counted to
 | `vocabulary` | SCR-WORD-01…04 | 5-stage lifecycle |
 | `analytics` | SCR-PROG-01…04 | Evidence-based only |
 | `profile`, `settings` | SCR-PROF-01, SCR-SET-* | Reorganised; developer diagnostics moved to About → Share diagnostics |
-| `youtube_library` | — | Removed (ADR-011) |
+| `youtube_library` | SCR-PRAC-01 Techniques collection, SCR-PRAC-04 | The ingestion tool and the creator-named tab are removed (ADR-011). The techniques themselves are kept, re-verified and re-expressed in our own words, with links to the specific source videos (D-08 decided 2026-11-21; PRD-FR-056/057) |
 | `ai_mentor`, `conversation` | — | Removed; R2 scripted role-play lives in Practice |
 | `app_updates` | — | Removed (ADR-004) |
 | `admin_console` | — | Removed (NG-10) |

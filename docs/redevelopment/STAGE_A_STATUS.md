@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-STATUS |
-| Date | 2026-11-20 |
-| Status | **Paused at the Product Owner's request** — resume on instruction "start again" |
+| Date | 2026-11-20 (paused) · 2026-11-21 (resumed) |
+| Status | **All Stage A deliverables written (2026-11-21)** — items 1–24 in §2 exist, including GOV-01 (RTM), RD-99 (approval package, decisions D-01…D-36) and CNT-01. Consistency review C-6 done (log: `working_papers/CONSISTENCY_LOG.md`, CL-01…CL-92: 68 fixed, 7 accepted, 6 decisions in RD-99 §8, 11 Stage B refinements, including the G4 plan re-baseline). Two PDF books produced under `docs/books/`: Book 1 Product Planning (85 pages) and Book 2 System Design & Delivery (154 pages); rebuild with `docs/books/src/build_books.ps1`. **Stage A is complete. Next: Product Owner review and approval (G1–G4, RD-99 §10); no implementation before G4 and an explicit "start Stage B".** |
 | Owner (role) | Project Manager |
 
 Stage A is **documentation only**. No product code, configuration, rules or workflow has been changed. Nothing has been built, run, committed or pushed.
@@ -54,6 +54,14 @@ Stage A is **documentation only**. No product code, configuration, rules or work
 | 21 | TST-01 Test strategy (keep §5 devices, §9 honesty checklist, §10 entry/exit) | `docs/testing/TEST_STRATEGY.md` | SRS, NFR, SEC-01 §13, FS test-case ranges |
 | 22 | GOV-01 Requirement traceability matrix | `docs/governance/REQUIREMENT_TRACEABILITY_MATRIX.md` | All of the above (written last, before RD-99) |
 | 23 | RD-99 Final redevelopment review (decisions D-01…D-31 in §8) | `docs/redevelopment/FINAL_REDEVELOPMENT_REVIEW.md` | Everything; consistency review results |
+| 24 | CNT-01 Technique catalogue audit (added 2026-11-21 at the Product Owner's request: "check" the creator-derived content already in the app) | `docs/product/TECHNIQUE_CATALOGUE_AUDIT.md` | `CurriculumCatalog.kt` and related code; ARC-05; SRS-BR-028 |
+
+### 2.1 Product Owner direction received on 2026-11-21 (applied to PRD v0.2 / SRS v0.2; relayed to running writers)
+- Aim: curriculum built from the techniques, frameworks, exercises, activities and tips of the @askvinh channel (PRD-FR-056).
+- **D-08 DECIDED — "original wording, link out"** (PRD-FR-057, SRS-BR-028).
+- Mistakes found + coach tips after every submitted attempt (PRD-FR-047; SRS-FR-EVAL-015/016, SRS-FR-WORD-014).
+- **Done 2026-11-21 (v0.2 of each):** PRD (PRD-FR-047/056/057), SRS (EVAL-015/016, PRAC-008/009, WORD-014, SRS-BR-028), RD-10 row 9, RD-12 OPP-15, RD-13 §6/§9, RD-14 (scope note, RSK-04/05, D-08 row), RD-16 (CAP-05/06, NG-08, retired features), BRD §1/§2, ADR-011 (ingestion and branding only), DES-02 (Techniques collection + new **SCR-PRAC-04**; 38 R1 screens), ARC-05 §8.4 (issue catalogue, tip selection, self-check, candidate acoustic metrics), PLN-01/02/03/04/05 (T-07.8, T-09.6–9.8, T-10.2; RSK-17/18; D-08 recorded as the first approved decision).
+- **Still to do:** GOV-02 index (CNT-01), FS-00 index, final consistency pass once the writers and CNT-01 finish.
 
 ## 3. Known consistency items to apply on resume
 

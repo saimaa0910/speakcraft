@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-12 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: OPP-15 decision superseded by Product Owner direction / D-08) |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | CPO / Product Manager |
 | Approval | Pending — Product Owner |
@@ -36,7 +36,7 @@ Scores 1–5: **User need** (how strongly personas need it), **Market gap** (how
 | OPP-12 | Open-ended AI conversation partner | 4 | 1 | 1 | 1 | 1 | 8 | RD-11 §6 "should not compete" | **Rejected** (NG-01/02) |
 | OPP-13 | Phoneme-level pronunciation scoring | 4 | 1 | 1 | 2 | 1 | 9 | RD-11 §6 | **Rejected** (NG-03) |
 | OPP-14 | Exam score prediction | 3 | 2 | 1 | 1 | 2 | 9 | RD-11 §6 | **Rejected** (NG-04) |
-| OPP-15 | Creator-based content library | 3 | 2 | 3 | 1 | 3 | 12 | FND-DOM-09 (IP) | **Rejected** (PP-8) |
+| OPP-15 | Creator-based content library | 3 | 2 | 3 | 1 | 3 | 12 | FND-DOM-09 (IP) | ~~Rejected (PP-8)~~ **Superseded 2026-11-21 by Product Owner direction:** the channel's techniques form the curriculum, re-expressed in original wording with source-video links and no branding (D-08 decided; PRD-FR-056/057). The scraping/branding form scored here stays rejected |
 
 ## 3. Opportunity map
 
@@ -71,4 +71,4 @@ The intersection of OPP-01, OPP-02, OPP-03 and OPP-05 is unoccupied: **no mainst
 1. Position on OPP-01 + OPP-02 + OPP-03 (RD-13 §7).
 2. Treat OPP-04 and OPP-05 as the core loop's engine (RD-14 §4).
 3. Sequence OPP-06 into R1 (Words tab) and OPP-07/09 into R2 (D-20).
-4. Explicitly reject OPP-12…OPP-15 (RD-16 §4).
+4. Explicitly reject OPP-12…OPP-14 (RD-16 §4). OPP-15 is superseded: the channel's techniques form the curriculum under D-08 (decided 2026-11-21), while scraping and creator branding stay rejected.

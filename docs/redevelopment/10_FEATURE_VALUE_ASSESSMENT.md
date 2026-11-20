@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-10 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: row 9 disposition changed by Product Owner direction / D-08 decision) |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | Product Manager |
 | Approval | Pending — Product Owner |
@@ -28,7 +28,7 @@ Every existing user-facing feature and major subsystem is classified (**Essentia
 | 6 | Whisper/Moonshine TFLite ASR | Fabricated | Experimental | — | — | H | H | L (as built) | H | L | Model files | — | **Remove**; SPK-03 research R3 |
 | 7 | Daily plans ×3 (routine, dashboard plan, activity plan) | Duplicated; partly broken | Essential concept / Redundant impl. | H | H | M | H (×3) | H | L | L | Content | P0 | **Merge** into one Today session (CAP-03) |
 | 8 | 150-activity catalogue & 25 templates | Implemented (structure); content reusable | **High value** (content) | H | M | M | M | H | L | L | — | P0 | **Merge**: content into 5 tracks × 5 templates (CAP-06) |
-| 9 | 15 curriculum modules, 12 lessons, creator knowledge base | Implemented; creator-derived | Low value / legal risk | M | L (risk) | — | M | H | L | L | Creator permission | — | **Remove** (ADR-011, D-08) |
+| 9 | 15 curriculum modules, 12 lessons, creator knowledge base | Implemented; creator-derived | ~~Low value / legal risk~~ **High value (content basis) — superseded 2026-11-21** | H | H | M | M | H | L | L | D-08 guardrails (SRS-BR-028) | P0 | ~~Remove~~ **Keep the techniques: verify, re-express in our own words, link to the specific source video, remove branding** (Product Owner direction; D-08 decided "original wording, link out"; PRD-FR-056/057; CNT-01). Module/lesson *structure* still merges into tracks + Techniques collection (CAP-06) |
 | 10 | 30/60/90 programs, 10 learning paths, "My Learning Tracks" | Partial; 6/7 uncompletable | Redundant | L | L | — | M | H | L | L | — | — | **Remove** (tracks replace) |
 | 11 | Labs ×8 (pronunciation, articulation, voice, listening, grammar, public speaking, challenges, real-world tasks) | Same engine; overlapping | Redundant | M (content) | L | — | H | H | L | L | — | — | **Merge** content into tracks/templates; remove screens |
 | 12 | Read-aloud / listen-and-repeat drills with TTS reference | Partial (no target alignment used) | **High value** | H (P5, P3) | M | L | L | H | L | L | TTS | P0 | **Rebuild** as TPL-READ/REPEAT with M-MATCH |
@@ -69,8 +69,9 @@ Every existing user-facing feature and major subsystem is classified (**Essentia
 | Keep & extend / reuse design | 16, 40 |
 | Rebuild | 1, 3, 5, 12, 15, 17, 19, 21, 22, 36, 38, 39 |
 | Merge | 7, 8, 11, 18, 35 |
+| Keep — verify and re-express (D-08, 2026-11-21) | 9 (techniques kept; module/lesson structure merged into tracks and the Techniques collection) |
 | Build new | 25 |
 | Simplify / replace | 24, 26, 28, 37 |
-| Remove | 4, 6, 9, 10, 13, 14, 27, 29, 30, 31, 32, 33, 34 |
+| Remove | 4, 6, 10, 13, 14, 27, 29, 30, 31, 32, 33, 34 |
 
 **Result:** 13 of 40 features/subsystems removed, 5 merged, 4 replaced or simplified — the product surface shrinks from 26 routes to 4 primary destinations and ~37 screens (DES-02), while the essential value (speaking with honest feedback, daily habit, vocabulary in use, evidence-based progress, privacy) is rebuilt to production quality.

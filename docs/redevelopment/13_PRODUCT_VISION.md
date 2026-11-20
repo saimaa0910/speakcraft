@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-13 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: techniques curriculum and after-attempt mistakes/tips added per Product Owner direction; D-08 decided) |
+| Date | 2026-11-21 |
 | Status | Draft — **Recommendation**, awaiting Product Owner approval |
 | Owner (role) | Chief Product Officer |
 | Approval | Pending — Product Owner (decision D-01, D-02) |
@@ -56,7 +56,8 @@ People with good English knowledge still freeze, ramble or sound unsure when the
 | For the user | SpeakCraft provides | Because |
 |---|---|---|
 | "I don't know what to practise." | **A ten-minute daily session** chosen for their goal and level | Decision fatigue was a key failure of the current 23-route product |
-| "I can't tell how I sound." | **A transcript of what they said and three measured insights** (pace, pauses, filler words, answer length, vocabulary range, words recognised as intended) with one concrete focus for the next attempt | Users need objective, specific feedback; vague scores are distrusted (RD-11) |
+| "I can't tell how I sound." | **A transcript of what they said and three measured insights** (pace, pauses, filler words, answer length, vocabulary range, words recognised as intended), **the mistakes our checks found — with evidence — and coach tips**, led by one concrete focus for the next attempt (PRD-FR-047) | Users need objective, specific feedback; vague scores are distrusted (RD-11) |
+| "I want proven techniques, not just practice." | **A techniques curriculum**: the communication frameworks, techniques, exercises, activities and tips taught on the @askvinh YouTube channel, explained in our own words, each with exercises to practise and a link to the original lesson (PRD-FR-056/057) | Product Owner aim (2026-11-21); D-08 decided "original wording, link out" — the app does not use the creator's name or branding |
 | "I don't trust the score." | **Honest feedback**: every metric labelled *Measured* or *Estimated*; the app says "Inconclusive — try again" rather than inventing a score | The current app's mislabelled and fabricated scores destroyed trust (RD-03) |
 | "I want to use better words when I speak." | **Words you can use**: each word is learned, said aloud, used in a sentence and reviewed at spaced intervals | Product Owner's explicit vocabulary-lifecycle requirement (PO-REQ-1119, Phase 8) |
 | "Am I actually improving?" | **Progress from evidence**: trends of measured metrics and periodic check-ins on the same task — not lesson counts | Category "progress" usually measures activity, not ability (RD-11) |
@@ -85,7 +86,7 @@ What SpeakCraft deliberately does **not** compete on is listed in RD-16 §4 (pho
 ## 9. Learning philosophy
 
 1. **Output beats input.** Speaking improves by speaking. Every session includes real speaking attempts, not just reading or tapping.
-2. **One focus at a time.** Each result gives one strength and one thing to change next — not a list of twelve problems.
+2. **One focus at a time.** Each result shows the mistakes our checks actually found (a short, evidenced list — at most three shown first) and coach tips, led by one strength and one thing to change next — never a wall of twelve problems or invented ones.
 3. **Rehearse the real situation.** Practise the interview answer, the meeting update, the self-introduction — then transfer.
 4. **Repetition with variation.** Retry the same prompt to feel improvement; revisit skills with new prompts to consolidate; review words at spaced intervals.
 5. **Listen to yourself.** Seeing your transcript and hearing your recording is itself feedback.

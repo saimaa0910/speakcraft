@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | FS-00 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | Product Manager / Business Analyst |
 | Approval | Pending — Product Owner |
@@ -25,13 +25,13 @@ One feature specification per capability (RD-16 §2). Screen IDs are from DES-02
 | FS-03 | Today — daily session | CAP-03 | R1 | SCR-TODAY-01, SCR-TODAY-02 | TC-TODAY | `FS-03_TODAY_DAILY_SESSION.md` | Draft |
 | FS-04 | Speaking practice session | CAP-04 | R1 | SCR-SESS-01, SCR-PERM-01 | TC-SESS | `FS-04_SPEAKING_PRACTICE_SESSION.md` | Draft |
 | FS-05 | Honest feedback & evaluation | CAP-05 | R1 | SCR-SESS-01 (Result / Inconclusive states), SCR-SESS-02 | TC-EVAL | `FS-05_HONEST_FEEDBACK_AND_EVALUATION.md` | Draft |
-| FS-06 | Practice library | CAP-06 | R1 (5 tracks, 5 templates); R2 (role-play) | SCR-PRAC-01…03 | TC-PRAC | `FS-06_PRACTICE_LIBRARY.md` | Draft |
-| FS-07 | Words — vocabulary lifecycle | CAP-07 | R1; R2 (notebook, quiz) | SCR-WORD-01…06 (expected) | TC-WORD | `FS-07_*.md` (name set by its author) | In preparation (parallel) |
-| FS-08 | Progress & streak | CAP-08 | R1; R2 (check-ins) | SCR-PROG-01…05 (expected) | TC-PROG | `FS-08_*.md` | In preparation (parallel) |
-| FS-09 | Reminders & inbox | CAP-09 | R1; R2 (inbox) | SCR-SET-03, SCR-INBOX-01, SCR-PERM-01 (expected) | TC-REM | `FS-09_*.md` | In preparation (parallel) |
-| FS-10 | Profile, settings, privacy & data rights | CAP-10 | R1 | SCR-PROF-01, SCR-SET-01…09 (expected) | TC-SET | `FS-10_*.md` | In preparation (parallel) |
-| FS-11 | Offline-first storage & sync | CAP-11 | R0 / R1 | SCR-SET-07 sync status (expected) | TC-DATA | `FS-11_*.md` | In preparation (parallel) |
-| FS-12 | Speech capability management | CAP-12 | R1 | SCR-ONB-07, SCR-SET-04 (expected) | TC-SPCH | `FS-12_*.md` | In preparation (parallel) |
+| FS-06 | Practice library & techniques | CAP-06 | R1 (5 tracks, 5 templates); R2 (role-play) | SCR-PRAC-01…03, SCR-PRAC-04 | TC-PRAC | `FS-06_PRACTICE_LIBRARY.md` | Draft |
+| FS-07 | Words — vocabulary lifecycle | CAP-07 | R1; R2 (notebook, quiz) | SCR-WORD-01…06 (expected) | TC-WORD | `FS-07_WORDS_VOCABULARY_LIFECYCLE.md` | Draft |
+| FS-08 | Progress & streak | CAP-08 | R1; R2 (check-ins) | SCR-PROG-01…05 (expected) | TC-PROG | `FS-08_PROGRESS_AND_STREAK.md` | Draft |
+| FS-09 | Reminders & inbox | CAP-09 | R1; R2 (inbox) | SCR-SET-03, SCR-INBOX-01, SCR-PERM-01 (expected) | TC-REM | `FS-09_REMINDERS_AND_INBOX.md` | Draft |
+| FS-10 | Profile, settings, privacy & data rights | CAP-10 | R1 | SCR-PROF-01, SCR-SET-01…09 (expected) | TC-SET | `FS-10_PROFILE_SETTINGS_PRIVACY_DATA_RIGHTS.md` | Draft |
+| FS-11 | Offline-first storage & sync | CAP-11 | R0 / R1 | SCR-SET-07 sync status (expected) | TC-DATA | `FS-11_OFFLINE_FIRST_STORAGE_AND_SYNC.md` | Draft |
+| FS-12 | Speech capability management | CAP-12 | R1 | SCR-ONB-07, SCR-SET-04 (expected) | TC-SPCH | `FS-12_SPEECH_CAPABILITY_MANAGEMENT.md` | Draft |
 
 ### 1.1 Feature boundaries (who owns what)
 
@@ -72,9 +72,9 @@ One feature specification per capability (RD-16 §2). Screen IDs are from DES-02
 | 18 | Open questions | Questions needing a Product Owner or architecture answer; link to D-nn where relevant |
 | 19 | Issues found in source documents | Gaps/inconsistencies in PRD, SRS, ARC-05, DES-02 etc., for the document owner to resolve |
 
-### 2.1 Entity names used (ARC-03 being designed in parallel)
+### 2.1 Entity names used (ARC-03 §3 is authoritative)
 
-ENT-01 Profile · ENT-03 Attempt · ENT-04 AttemptMetric · ENT-05 SessionPlan · ENT-06 SessionStep · ENT-07 WordProgress · ENT-08 WordReview · ENT-09 LearningEvent · ENT-10 SyncOutbox · ENT-11 RecordingFile · ENT-12 SavedActivity · ENT-14 SyncState · ENT-18 DeletionState. The content pack (bundled JSON assets, ARC-03 §6) is referenced by name, not by an ENT ID. Learning preferences held in DataStore are reached through `PreferencesRepository`.
+ENT-01 Profile · ENT-02 LearningPreferences · ENT-03 Attempt · ENT-04 AttemptMetric · ENT-05 SessionPlan · ENT-06 SessionStep · ENT-07 WordProgress · ENT-08 WordReview · ENT-09 LearningEvent · ENT-10 SyncOutbox · ENT-11 RecordingFile · ENT-12 SavedActivity · ENT-13 FeedbackRating · ENT-14 SyncState · ENT-15 NotebookEntry (R2) · ENT-16 InboxMessage (R2) · ENT-17 QuizAttempt (R2) · ENT-18 DeletionState. The content pack (bundled JSON assets, ARC-03 §6) is referenced by name, not by an ENT ID. Learning preferences are a Room entity (ENT-02, synced with the profile, SRS §9); device and UI preferences live in the `settings` DataStore. `PreferencesRepository` fronts both. Transcript text is stored in the separate `sensitive.db` (SEC-01 §3.2), not in ENT-03.
 
 ## 3. Conventions
 
@@ -107,14 +107,14 @@ ENT-01 Profile · ENT-03 Attempt · ENT-04 AttemptMetric · ENT-05 SessionPlan �
 Rules:
 
 1. Numbers are three digits, start at 001 and are unique within the prefix. Retired cases are marked *Withdrawn*, never reused.
-2. Cross-cutting prefixes owned by other documents — TC-A11Y (DES-07), TC-UX (RD-15), TC-SEC (SEC-01 / NFR-SEC-006) — are not used in FSs; FSs reference them.
+2. Cross-cutting prefixes owned by other documents — TC-A11Y (DES-07), TC-UX (RD-15), TC-SEC (SEC-01 / NFR-SEC-006), and TC-PERF, TC-REL, TC-PRIV, TC-COMP, TC-REG, TC-MIG, TC-CONT (TST-01 §16; TC-CONT = D-08 content compliance) — are not used in FSs; FSs reference them.
 3. **Test types** used in FS tables:
 
 | Type | Meaning | Runs in |
 |---|---|---|
 | unit | Pure JVM test of an engine, rule, mapper or ViewModel with fakes | CI on every commit |
 | Robolectric UI | Compose UI / semantics test on the JVM (incl. font-scale 2.0 and dark theme variants) | CI on every commit |
-| instrumented | `androidTest` on emulator or reference device (RD-LOW/MID/HIGH, NFR §1) | CI nightly / release candidate |
+| instrumented | `androidTest` on emulator or reference device (RD-LOW/MID/HIGH, NFR §1) | Release-candidate testing on emulator and reference devices with recorded evidence (TST-01 §10); automated in CI once an emulator job or the optional nightly workflow is added (ENG-01) |
 | manual | Scripted manual test on a reference device, with captured evidence | Release candidate (TST-01) |
 
 4. No FS test case is recorded as passed in Stage A (GOV-02 DC-4). TST-01 owns environments, data sets and exit criteria; GOV-01 links each TC to its requirements.
@@ -148,7 +148,7 @@ flowchart LR
 | TST-01 | FS test cases are the feature-level test inventory; TST-01 adds cross-cutting suites (privacy egress, accessibility, performance) |
 | GOV-01 | Holds the full PRD-FR → SRS-FR → AC → TC matrix; FS §17 is the per-feature slice |
 
-## 6. Issues found in source documents (FS-01…FS-06 summary)
+## 6. Issues found in source documents (FS-01…FS-12 summary)
 
 Each FS lists its issues in §19 with detail. Summary for the document owners:
 
@@ -163,6 +163,12 @@ Each FS lists its issues in §19 with detail. Summary for the document owners:
 | FS-04 | T3b handling of transcript-required templates; T3a network loss outcome; live partial transcript undecided | SRS-FR-SESS-007, ARC-05 §4.2/§5, NG-14 |
 | FS-05 | ARC-05 §6 vs §7 template applicability (M-PAUSE for READ, M-RATIO for T3b); bands defined only for M-WPM; accuracy rating vs immutable attempts | ARC-05, SRS-FR-EVAL-004/009, SRS-FR-DATA-002 |
 | FS-06 | Saved-activity sync undefined; per-activity level vs 15-per-track minimum; role-play turn validity vs 8-word gate | ADR-014, PRD-FR-053, SRS-BR-001, SRS-FR-PRAC-007 |
+| FS-07 | T3b word-stage outcome contradictory (Inconclusive vs delivery-only valid); a Learn-only `WORD_LEARN` step can never complete; threshold "Not yet" can show no mistake because of noise-band suppression | SRS-FR-WORD-006, SRS-FR-SPCH-007, SRS-BR-009, ARC-05 §8.4 |
+| FS-08 | Streak rule misses a west-bound time-zone move (latest day after today); practice time defined three ways; trend "change" computation undefined | SRS-BR-011, SRS-BR-018, SRS-BR-024, ARC-05 §6 |
+| FS-09 | WorkManager-merged permissions not in SRS-FR-PLAT-002; reschedule triggers and "near the chosen time" bound incomplete; reminder preference storage and sync unclear | SRS-FR-PLAT-002, SRS-FR-REM-001/006, SEC-01 §3.2 |
+| FS-10 | Export delivery share sheet vs Storage Access Framework; export lists omit ratings, UI preferences and saved activities; clear history not resumable across `sensitive.db` | SRS-FR-SET-004/005, SEC-01 §9.1/§9.2 |
+| FS-11 | Per-document LWW on plans can undo completed steps; per-attempt delete not propagated to other devices; legacy documents "untouched" vs deleted after migration | ADR-014, SRS-BR-013/021, SEC-01 §5.6, SRS-FR-DATA-007 |
+| FS-12 | T3a definition conflicts (no recogniser vs locale missing); no "not yet verified" tier state; recogniser error classes unmapped | SRS-FR-SPCH-001/003/010, ARC-05 §3/§4.2, SEC-01 §7.3 |
 
 ## 7. Review and approval
 

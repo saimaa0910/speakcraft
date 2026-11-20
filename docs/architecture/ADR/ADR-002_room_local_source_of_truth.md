@@ -29,7 +29,7 @@ The redesigned product is offline-first and account-optional (D-05). It needs tr
 **Option A.** Room becomes the single local source of truth for learning data. DataStore remains for preferences. Firestore becomes a sync target for signed-in users (ADR-014). All JSON-file stores are retired after migration.
 
 ## Consequences
-- Add `androidx.room:room-runtime`, `room-ktx`, `room-compiler` (KSP) using the catalog versions (version upgrade evaluated under ADR-006).
+- Add `androidx.room:room-runtime`, `room-ktx`, `room-compiler` (KSP) and, for tests only, `androidx.room:room-testing` (migration tests, `MigrationTestHelper`) using the catalog versions (version upgrade evaluated under ADR-006). Approving this ADR approves all four artefacts (added 2026-11-21, consistency item CL-22).
 - Exported schema JSON committed under `app/schemas/` and migration tests in CI.
 - Repositories expose `Flow` from Room; ViewModels never call Firestore directly.
 - Local data must be partitioned by profile (local profile id → Firebase uid after sign-in) and wiped on account deletion (SEC-01).

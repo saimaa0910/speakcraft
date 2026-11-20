@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BRD |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: Product Owner aim — curriculum based on the @askvinh channel's techniques — and D-08 decision recorded; see §1 and §2) |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | Business Analyst |
 | Approval | Pending — Product Owner (final approver) |
@@ -20,6 +20,8 @@ SpeakCraft is an individually owned Android application intended to help people 
 
 There is **no evidence** of: paying customers, a published store listing, revenue targets, a marketing plan, commercial partners, or a licence for the third-party creator content the current app is built around. The app is currently distributed as GitHub-release APKs.
 
+**Product Owner direction (2026-11-21).** The Product Owner's aim is a communication-improvement app whose curriculum is built from the frameworks, techniques, tasks, exercises, activities and tips taught on the @askvinh YouTube channel, giving feedback (mistakes and coach tips) after every submitted attempt. No licence is sought; the Product Owner decided D-08 "original wording, link out" (BR-008 is met by original re-expression; PRD-FR-056/057, PRD-FR-047).
+
 ## 2. Stakeholders
 
 | Stakeholder | Interest | Role in approvals |
@@ -29,7 +31,7 @@ There is **no evidence** of: paying customers, a published store listing, revenu
 | Beta testers (to be recruited) | Early access; give feedback | UAT participants |
 | Google Play (if ADR-004 approved) | Policy compliance (data safety, account deletion, no self-updating) | External constraint |
 | Google Firebase (provider) | Terms of service; quota | External dependency |
-| Third-party content creator referenced in the current app | Use of name, frameworks and material | Affected party — decision D-08, legal review |
+| Third-party content creator whose channel the curriculum is based on | Use of name, frameworks and material | Affected party. **D-08 decided 2026-11-21:** techniques re-expressed in original wording with links to the creator's specific videos; no use of name, likeness or branding (PRD-FR-057) |
 | Contributors acting as the product/engineering roles (this documentation) | Clear, traceable plan | Prepare review artefacts |
 
 ## 3. Business objectives
@@ -112,7 +114,7 @@ All targets are **Proposed — requires Product Owner approval**. Measurement me
 | KPI-08 | Stability | Crash-free users (Play vitals or diagnostic log) | ≥ 99 % | R1 | BO-01 |
 | KPI-09 | Privacy & data rights | Privacy incidents; data-rights test suite pass rate | 0; 100 % | R1 | BO-04 |
 | KPI-10 | Engineering quality | P0/P1 open defects at release; CI gates passing; line coverage of `speech/` and `data/` packages | 0 / 0; 100 %; ≥ 70 % | R0/R1 | BO-05 |
-| KPI-11 | Complexity | Number of duplicate engines per concern (RD-03 §11); user-facing screens | 1 per concern; ≤ 30 screens | R1 | BO-05 |
+| KPI-11 | Complexity | Number of duplicate engines per concern (RD-03 §11); distinct user-facing screen layouts | 1 per concern; ≤ 30 distinct layouts † (DES-02 lists 38 R1 screen IDs, including sub-screens and settings pages that share layouts) | R1 | BO-05 |
 | KPI-12 | Legal/policy exposure | Unlicensed third-party content items; policy-violating mechanisms | 0; 0 | R0 | BO-06 |
 
 ## 9. Business risks

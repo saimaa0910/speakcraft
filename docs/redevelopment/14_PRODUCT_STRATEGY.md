@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-14 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: Product Owner direction on creator-derived content applied — D-08 decided) |
+| Date | 2026-11-21 |
 | Status | Draft — **Recommendation**, awaiting Product Owner approval |
 | Owner (role) | Chief Product Officer |
 | Approval | Pending — Product Owner (decisions D-01…D-06) |
@@ -55,7 +55,9 @@ The canonical capability list (CAP-nn) is defined authoritatively in RD-16 §2. 
 | **Core** — the product fails without these | CAP-03 Today session · CAP-04 Speaking practice session · CAP-05 Honest feedback · CAP-12 Speech capability management | They are the core loop and its technical precondition |
 | **Supporting** — make the core valuable and sustainable | CAP-02 Onboarding · CAP-06 Practice library · CAP-07 Words · CAP-08 Progress & streak · CAP-09 Reminders · CAP-10 Profile, settings, privacy & data rights · CAP-11 Offline-first storage & sync · CAP-01 Account | Personalisation, content, motivation, trust, compliance |
 | **Deferred** (R2/R3, conditional) | Scripted role-play (CAP-06 extension, R2) · Progress check-ins (CAP-08 extension, R2) · Vocabulary notebook & quiz (CAP-07 extension, R2) · In-app inbox (CAP-09 extension, R2) · Video self-review (R3) · Store launch (R3, ADR-004) | Valuable but not needed to prove the core loop |
-| **Removed** | YouTube Intelligence · @askvinh branding and derived content (pending legal review) · "AI Mentor" chat · free conversation simulator · cloud AI · fake Whisper/Moonshine engines · automated body-language scoring · in-app admin console · in-app APK updater (subject to D-03) · 24-feature tutorial overlay · duplicate labs, plans, streaks, paths, programs | RD-10 per-feature rationale |
+| **Removed** | YouTube Intelligence (channel ingestion/scraping) · @askvinh branding (the channel's techniques themselves are **kept** and re-expressed in our own words — D-08 decided, see note below) · "AI Mentor" chat · free conversation simulator · cloud AI · fake Whisper/Moonshine engines · automated body-language scoring · in-app admin console · in-app APK updater (subject to D-03) · 24-feature tutorial overlay · duplicate labs, plans, streaks, paths, programs | RD-10 per-feature rationale |
+
+> **Content basis and feedback (Product Owner direction, 2026-11-21 — DECISION).** The product's curriculum is built from the communication frameworks, techniques, tasks, exercises, activities and tips taught on the @askvinh YouTube channel (PRD-FR-056). Under **D-08 ("original wording, link out")** every item is re-expressed in our own words and examples, links to its specific source video, and the app never uses the creator's name, likeness or branding (PRD-FR-057, SRS-BR-028). The starting point is the material already in the current app, verified item by item (CNT-01). After every submitted attempt the user sees the **mistakes our checks detected and coach tips** linked to techniques, produced by deterministic logic and on-device analysis (PRD-FR-047). This supersedes the earlier recommendation in this document and in RD-10/RD-12 to remove creator-derived content; their analysis of the legal risk remains valid and is what the D-08 guardrails address.
 
 ## 4. Product pillars
 
@@ -102,8 +104,8 @@ No cloud AI; no open-ended chatbot; no phoneme-level pronunciation claims; no ex
 | RSK-01 | On-device speech recognition is unavailable or poor on many target devices (minSdk 24; on-device recogniser needs API 31+) | Core loop degraded | Device-tier strategy (ARC-05 §4); explicit consented online fallback; device spike SPK-01 before R1 build |
 | RSK-02 | Recognition "auto-corrects" mispronunciations, so word-level checks overstate accuracy | Users mistrust or are misled | Never label recognition match as pronunciation; show *Recognised as intended* with caveat (SRS-BR-004) |
 | RSK-03 | Heuristic grammar rules produce false positives | Trust damage | Ship only rules that pass a precision threshold on a labelled corpus (NFR-QUAL-003) |
-| RSK-04 | Content volume too thin (only 20 vocabulary words exist today; @askvinh-derived items may need removal) | Empty-feeling product | Content workstream EP-09; reuse vetted activity text |
-| RSK-05 | IP exposure from creator-derived content and naming | Legal | Remove creator branding in R0; legal review of retained frameworks (D-08) |
+| RSK-04 | Content volume too thin (only 20 vocabulary words exist today; @askvinh-derived items need verification and rewriting before they can ship — CNT-01) | Empty-feeling product | Content workstream EP-09; verify and re-express existing items first, then extend from further videos |
+| RSK-05 | IP exposure from creator-derived content and naming | Legal | D-08 decided: original wording and examples, no verbatim transcripts, no creator name/likeness/branding, specific-video links (SRS-BR-028); remove branding in R0; build-time and release checks (TST-01). Residual risk: a specific framework could still be considered distinctive — an optional legal opinion remains advisable before a public store launch |
 | RSK-06 | Single-developer capacity vs scope | Delays | Strict scope (RD-16), incremental releases, preliminary estimates flagged |
 | RSK-07 | Without analytics, success metrics cannot be measured | Blind decisions | ADR-013 opt-in minimal analytics or beta survey programme (D-09) |
 | RSK-08 | Migration of existing users' data | Data loss | Minimal, tested migration (ARC-03 §9); legacy data retained read-only |
@@ -130,7 +132,7 @@ No cloud AI; no open-ended chatbot; no phoneme-level pronunciation claims; no ex
 | D-05 | Account model | Account optional (FS-01) |
 | D-06 | Composite "overall score" for free speaking | Do not show one in R1; show measured insights + focus (FS-05) |
 | D-07 | Monetisation | Out of scope until after R1 |
-| D-08 | Creator-derived content | Remove branding; legal review of retained frameworks |
+| D-08 | Creator-derived content | **DECIDED 2026-11-21 by the Product Owner: "original wording, link out."** The curriculum is built from the @askvinh channel's frameworks, techniques, exercises, activities and tips (PRD-FR-056), re-expressed in our own words with links to the specific source videos and no creator branding (PRD-FR-057, SRS-BR-028) |
 | D-09 | Success measurement method | Opt-in minimal analytics (ADR-013) or structured beta survey |
 
 The consolidated decision list, with all other open decisions, is RD-99 §8.

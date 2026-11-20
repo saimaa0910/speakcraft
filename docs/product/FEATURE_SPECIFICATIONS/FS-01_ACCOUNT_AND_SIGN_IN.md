@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | FS-01 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.3 — Draft for review (2026-11-21: sign-out default aligned to decision D-21; Remove wipe scope aligned to SEC-01 §6.4. 0.3, consistency review CL-58/CL-79: deletion phases aligned to SEC-01 §9.3 / ARC-03 ENT-18; adoption and re-key wording aligned to ARC-03 §7.2) |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | Product Manager / Business Analyst |
 | Approval | Pending — Product Owner |
@@ -53,25 +53,25 @@
 2. SCR-ACC-01 explains, in text generated from the policy constants (SRS-PRIV-002): what backs up (profile, learning preferences, attempt metrics, plans, word progress, events), what never leaves the device (recordings, file paths) and that transcripts are not uploaded by default (SRS-FR-DATA-006).
 3. User taps **Continue with Google**; the Credential Manager sheet opens; user selects an account.
 4. `AccountRepository` exchanges the Google ID token for a Firebase credential and signs in.
-5. For a `LOCAL` profile signing in for the first time: in **one Room transaction**, all profile-keyed rows are re-keyed from `profileId` to the Firebase UID, `authState = SIGNED_IN`, and an ENT-10 SyncOutbox entry is created for every syncable record (SRS-FR-ACC-003).
+5. For a `LOCAL` profile signing in for the first time: all profile-keyed rows are re-keyed from `profileId` to the Firebase UID and `authState = SIGNED_IN`, using the crash-safe, idempotent re-key procedure of ARC-03 §7.2 (a `rekey_pending` marker; one transaction per database — `learning.db` rows cascade, `sensitive.db` transcripts re-keyed; then the recording folder is renamed; an interrupted re-key completes at the next app start). ENT-10 SyncOutbox rows already exist for every syncable record, because they are written for every profile (ARC-03 §3.11), so the backlog uploads without an extra enqueue step (SRS-FR-ACC-003; ARC-03 §7.2 case A).
 6. `SyncRepository` pulls cloud documents changed since the watermark and merges them per SRS-BR-021; no completed attempt or passed word stage is discarded (SRS-FR-ACC-004). Legacy users are migrated per SRS-FR-DATA-007 (FS-11).
 7. SCR-ACC-01 shows "You're signed in as {email}. Your progress backs up when you're online." and returns to the originating screen. SCR-SET-07 shows sync status (SRS-FR-DATA-005).
 
 ### 5.3 Sign out (SRS-FR-ACC-006)
-1. SCR-SET-07 → **Sign out** opens a dialog with two options: **Keep my practice data on this device** (pre-selected) and **Remove it from this device**.
-2. RECOMMENDATION: if ENT-10 holds un-uploaded entries, the dialog adds "{n} changes haven't backed up yet. If you remove your data now, they will be lost."
+1. SCR-SET-07 → **Sign out** opens a dialog with two options: **Keep my practice data on this device** and **Remove it from this device**. The pre-selected option follows decision **D-21** (Pending — Product Owner; SRS-FR-ACC-006, SEC-REQ-04): **Remove** is pre-selected when every change has been uploaded; **Keep** is pre-selected when un-uploaded changes exist (step 2).
+2. If ENT-10 holds un-uploaded entries, the dialog shows the warning "{n} changes haven't backed up yet. If you remove your data now, they will be lost." (mandatory per D-21; the wording is RECOMMENDATION).
 3. On confirm, `AccountRepository` clears credential state (Credential Manager `clearCredentialState` + Firebase sign-out) and cancels `SyncWorker` — in both cases.
 4. **Keep:** Profile `authState = SIGNED_OUT`; data stays on the device, keyed by the UID; no sync while signed out.
-5. **Remove:** all profile rows, learning preferences and the recording folder `noBackupFilesDir/recordings/<profileId>/` are deleted; a new local profile is created and onboarding starts (RECOMMENDATION).
+5. **Remove:** every store marked for wipe in SEC-01 §6.4 is cleared for the profile — `learning.db` rows, `sensitive.db` transcripts, profile preferences, the recording folder `noBackupFilesDir/recordings/<profileId>/`, the Firestore local cache and work tagged with the profile; a new local profile is created and onboarding starts (RECOMMENDATION).
 
 ### 5.4 Delete account (SRS-FR-ACC-007, -008)
 1. SCR-SET-07 → **Delete account** opens SCR-ACC-02 *Explain*: what will be deleted in the cloud and on the device, that it cannot be undone, and a link to Export (FS-10) first.
-2. *Confirm*: user types **DELETE** (RECOMMENDATION; SRS permits "typed or explicit confirmation") and taps **Delete my account**.
-3. *Re-authenticate*: Credential Manager re-auth for the same account; `AccountRepository` calls Firebase re-authentication. Nothing is deleted before re-auth succeeds.
-4. ENT-18 DeletionState is persisted `{uid, step = CLOUD_DOCS, startedAt}`.
-5. All Firestore documents under `users/{uid}` are deleted (sub-collections paged, then the user document) → `step = AUTH_USER`.
-6. The Firebase Auth user is deleted → `step = LOCAL_DATA`.
-7. All local rows, DataStore preferences and the profile's recording folder are deleted; workers cancelled → `step = DONE`.
+2. *Confirm*: user types **DELETE** (RECOMMENDATION; SRS permits "typed or explicit confirmation") and taps **Delete my account** (SEC-01 §9.3 phase `CONFIRMED`).
+3. *Re-authenticate*: Credential Manager re-auth for the same account; `AccountRepository` calls Firebase re-authentication (phase `REAUTHENTICATED`). Nothing is deleted before re-auth succeeds.
+4. ENT-18 DeletionState (`sensitive.db`, ARC-03 §3.19) is persisted `{uid, phase, startedAt}`; the phase advances through the SEC-01 §9.3 sequence, each phase idempotent and resumable: `MARKER_WRITTEN` (`meta/sync.deletionRequestedAt` written; other devices stop uploading) → `SYNC_STOPPED` (`SyncWorker` cancelled, outbox cleared).
+5. `CLOUD_SUBCOLLECTIONS` (the collections listed in SEC-01 §9.3 are emptied in pages until empty) → `VERIFIED` (each collection returns empty from the server) → `CLOUD_PROFILE` (`meta/sync`, then `users/{uid}`, deleted).
+6. `AUTH_DELETED`: the Firebase Auth user is deleted.
+7. `LOCAL_WIPED`: all local data in the SEC-01 §6.4 "Delete account" column is deleted — rows, preferences, the profile's recording folder, Firestore cache and credential state; workers cancelled; the ENT-18 row is kept until the next phase. `DONE`: the deletion state is cleared.
 8. *Done*: "Your account and all your SpeakCraft data have been deleted." **Continue** → fresh first-launch state (new local profile, onboarding).
 
 ### 5.5 Delete everything on this device (SRS-FR-ACC-009)
@@ -87,7 +87,7 @@
 | A2 | Account already has cloud data from another device | Merge (step 5.2.6); confirmation line "We combined the progress on this phone with your account." |
 | A3 | Same account signs in again after *Keep* sign-out | No re-key; RECOMMENDATION: enqueue every record created or changed while signed out (idempotent by UUID, SRS-BR-020). See Issue 2 |
 | A4 | A **different** account signs in while another account's kept data is on the device | RECOMMENDATION: never adopt automatically; show "This phone has practice data from another account. Remove it and continue?" → Remove and continue / Cancel. See Issue 1 |
-| A5 | App relaunched with ENT-18 `step ≠ DONE` | SCR-SYS-01 "Finishing account deletion…" is shown before any other screen and resumes from the persisted step (SRS-FR-ACC-008). If Firebase requires recent login, prompt re-auth; if the Auth user is already gone, continue with local deletion |
+| A5 | App relaunched with ENT-18 `phase ≠ DONE` | SCR-SYS-01 "Finishing account deletion…" is shown before any other screen and resumes from the persisted phase (SRS-FR-ACC-008). If Firebase requires recent login, prompt re-auth; if the Auth user is already gone, skip to `LOCAL_WIPED` (SEC-01 §9.3) |
 | A6 | Legacy signed-in user upgrades (Firebase session persists) | Profile starts `SIGNED_IN`; no adoption step; legacy migration per FS-11 |
 | A7 | Sign-in started from the Progress "back up" prompt | Same as 5.2; returns to SCR-PROG-01 |
 
@@ -104,7 +104,7 @@
 | E7 | Deletion interrupted (network loss, process death) | DeletionState kept; resume per A5 | SRS-ERR-009 |
 | E8 | Offline when starting account deletion | "Connect to the internet to delete your account." Deletion does not start | — |
 | E9 | Offline when resuming deletion | SCR-SYS-01 "Waiting for a connection to finish deleting your account" + Retry (see Open question Q3) | SRS-ERR-009 |
-| E10 | Local file deletion fails | DeletionState stays `LOCAL_DATA`; retried on next launch; PII-free diagnostic | SRS-ERR-005 |
+| E10 | Local file deletion fails | DeletionState stays `LOCAL_WIPED`; retried on next launch; PII-free diagnostic | SRS-ERR-005 |
 
 ## 8. Business rules
 
@@ -144,7 +144,7 @@
 | Error | Sync "Error — Retry" chip (SRS-ERR-006) | Retry |
 | Offline | "Waiting for connection" sync status; sign-in button shows E1 on tap | Delete everything on this device (local) |
 | Permission | N/A | — |
-| Sign-out dialog | Keep (default) / Remove; unsynced warning (5.3.2) | Sign out; Cancel |
+| Sign-out dialog | Keep / Remove; pre-selection per D-21 (Remove when fully synced, Keep with the unsynced warning otherwise; 5.3.1–5.3.2) | Sign out; Cancel |
 
 **SCR-ACC-02 Delete account**
 
@@ -153,7 +153,7 @@
 | Default (Explain) | Itemised list of what is deleted where; irreversible; export link | Continue; Cancel |
 | Confirm | Text field "Type DELETE to confirm" | Delete my account (enabled only when field = DELETE); Cancel |
 | Re-auth | Credential Manager sheet | — |
-| Loading (Progress) | Step list: Cloud data → Account → This phone, current step announced | — (Back disabled; leaving is safe, resumes per A5) |
+| Loading (Progress) | Step list: Cloud data (`MARKER_WRITTEN`…`CLOUD_PROFILE`) → Account (`AUTH_DELETED`) → This phone (`LOCAL_WIPED`), current step announced | — (Back disabled; leaving is safe, resumes per A5) |
 | Error | E6/E7 message | Retry; Cancel (before step 4 only) |
 | Offline | E8 message; Continue disabled | Cancel |
 | Empty / Permission | N/A | — |
@@ -165,12 +165,12 @@
 
 | Entity | Fields needed by FS-01 (minimum; ARC-03 authoritative) |
 |---|---|
-| ENT-01 Profile | `profileId`, `authState` (LOCAL / SIGNED_IN / SIGNED_OUT), `uid?`, `displayName?`, `email?` (display only), `memberSince`, `updatedAt`, `deviceId` |
-| ENT-10 SyncOutbox | Bulk entries created on adoption (5.2.5) and on re-sign-in (A3) |
+| ENT-01 Profile | `profileId`, `authState` (LOCAL / SIGNED_IN / SIGNED_OUT), `uid?`, `displayName?`, `memberSince`, `updatedAt`, `deviceId`. The email is not stored; it is read from Firebase Auth at display time (ARC-03 §3.2, I-13) |
+| ENT-10 SyncOutbox | Rows written for every syncable change on every profile (ARC-03 §3.11); drained after adoption (5.2.5) and on re-sign-in (A3) |
 | ENT-14 SyncState | `lastPullWatermark`, `status`, `lastError` — reset on sign-out/remove/deletion |
-| ENT-18 DeletionState | `uid`, `step` (CLOUD_DOCS / AUTH_USER / LOCAL_DATA / DONE), `startedAt`, `attemptCount`, `lastErrorClass` |
-| Re-keyed on adoption | ENT-03, ENT-04, ENT-05, ENT-06, ENT-07, ENT-08, ENT-09, ENT-11, ENT-12 (all profile-keyed) |
-| Files | `noBackupFilesDir/recordings/<profileId>/` (ADR-015); renamed or re-pointed on re-key (ARC-03 to decide) |
+| ENT-18 DeletionState | `uid`, `phase` (SEC-01 §9.3 / ARC-03 §11.21: `CONFIRMED` · `REAUTHENTICATED` · `MARKER_WRITTEN` · `SYNC_STOPPED` · `CLOUD_SUBCOLLECTIONS` · `VERIFIED` · `CLOUD_PROFILE` · `AUTH_DELETED` · `LOCAL_WIPED` · `DONE`), `startedAt`, `attemptCount`, `lastErrorCode`; stored in `sensitive.db`, not backed up (ARC-03 §3.19) |
+| Re-keyed on adoption | All profile-keyed rows (ON UPDATE CASCADE in `learning.db`, plus `sensitive.db` transcripts; ARC-03 §7.2), including ENT-03, ENT-04, ENT-05, ENT-06, ENT-07, ENT-08, ENT-09, ENT-11, ENT-12 |
+| Files | `noBackupFilesDir/recordings/<profileId>/` (ADR-015); renamed to `recordings/<uid>/` on re-key (ARC-03 §7.2 step 4) |
 | Cloud | `users/{uid}` subtree only (ARC-04) |
 
 ## 11. API / repository dependencies
@@ -179,7 +179,7 @@
 |---|---|
 | `AccountRepository` | signIn, signOut(keepLocal), reauthenticate, deleteAccount (resumable), deletionState Flow |
 | `ProfileRepository` | Create local profile; re-key transaction; authState Flow; onboarding gate |
-| `SyncRepository` / `SyncEngine` + `SyncWorker` | Enqueue-all on adoption, pull and merge, status, cancel on sign-out |
+| `SyncRepository` / `SyncEngine` + `SyncWorker` | Drain the outbox after adoption (ARC-03 §7.2), pull and merge, status, cancel on sign-out |
 | `PreferencesRepository` | Clear preferences on Remove / deletion |
 | `CleanupWorker` | Removal of recording folder (also enforced directly in deletion) |
 | Platform | Credential Manager (Google ID), Firebase Auth, Cloud Firestore |
@@ -206,17 +206,18 @@ TalkBack labels on all buttons ("Delete my account, destructive"); the deletion 
 |---|---|---|---|
 | AC-FS01-01 | A fresh install with no network | The app is opened | A local profile with a UUID is created, onboarding starts, and no network request is made |
 | AC-FS01-02 | A local user on any screen of the core loop | They use Today, Practice, Words and Progress | Every feature works without sign-in |
-| AC-FS01-03 | A local user with 5 attempts and 3 words in progress, online | They sign in with Google for the first time | All rows are re-keyed to the UID in one transaction and every syncable record has an outbox entry |
+| AC-FS01-03 | A local user with 5 attempts and 3 words in progress, online | They sign in with Google for the first time | All rows are re-keyed to the UID by the ARC-03 §7.2 procedure (complete, or completed at the next start after a crash) and every syncable record has an outbox entry |
 | AC-FS01-04 | An account with cloud attempts from another device | The user signs in on a device with local attempts | After merge, both sets of attempts exist and no passed word stage is lost |
 | AC-FS01-05 | The sign-in sheet is open | The user cancels | They return to the previous screen and no error text is shown |
 | AC-FS01-06 | A sign-in fails for a network reason | The error is returned | A plain-language message and Retry are shown, with no error codes |
 | AC-FS01-07 | A signed-in user | They sign out and keep data | Credentials are cleared, sync stops and their data remains visible as a signed-out user |
 | AC-FS01-08 | A signed-in user | They sign out and choose Remove | All local data, preferences and recordings for the profile are deleted and onboarding starts |
 | AC-FS01-09 | A signed-in user online | They complete Explain → DELETE → re-auth | Firestore `users/{uid}` is empty, the Auth user is deleted, local data and recordings are gone and Done is shown |
-| AC-FS01-10 | Deletion was interrupted after cloud documents were deleted | The app is relaunched | SCR-SYS-01 is shown before any other screen and deletion completes from step AUTH_USER |
+| AC-FS01-10 | Deletion was interrupted after cloud documents were deleted | The app is relaunched | SCR-SYS-01 is shown before any other screen and deletion completes from phase `AUTH_DELETED` |
 | AC-FS01-11 | Re-auth is cancelled | During deletion | Nothing is deleted and the Confirm step is shown again |
 | AC-FS01-12 | A local user | They choose Delete everything on this device and confirm | All local data and recordings are deleted without network and onboarding starts |
 | AC-FS01-13 | Account B signs in on a device holding account A's kept data | Sign-in completes | A's data is not merged into B without the user explicitly removing it (RECOMMENDATION, Issue 1) |
+| AC-FS01-14 | A signed-in user whose outbox is empty (everything uploaded) | They open the sign-out dialog | "Remove it from this device" is pre-selected and no unsynced warning is shown (D-21) |
 
 ## 16. Test cases
 
@@ -224,7 +225,7 @@ TalkBack labels on all buttons ("Delete my account, destructive"); the deletion 
 |---|---|---|---|---|---|---|
 | TC-ACC-001 | Local profile created offline | instrumented | Fresh install, airplane mode, network monitor | Launch app | Profile row with UUID; onboarding shown; 0 network requests | SRS-FR-ACC-001 |
 | TC-ACC-002 | Core features without account | manual | Local profile, onboarding done | Complete a Today step, a Practice activity, a word stage, open Progress | All succeed; no sign-in prompt blocks | SRS-FR-ACC-001, PRD-FR-001 |
-| TC-ACC-003 | Re-key is atomic | unit | Fake DB with rows in all profile tables | Run adoption; inject failure on last table | Success case: all rows have UID; failure case: all rows keep profileId | SRS-FR-ACC-003, SRS-ERR-005 |
+| TC-ACC-003 | Re-key is crash-safe and idempotent (ARC-03 §7.2) | unit | Fake DBs with rows in all profile tables, transcripts and a recording folder | Run adoption; (a) inject failure inside the `learning.db` transaction; (b) inject a crash after it and restart | (a) all `learning.db` rows keep profileId; (b) `rekey_pending` re-runs steps 2–5 and all rows, transcripts and the folder carry the UID; re-running is a no-op | SRS-FR-ACC-003, SRS-ERR-005 |
 | TC-ACC-004 | Outbox filled on adoption | unit | 5 attempts, 3 word states, 2 plans | Run adoption | One outbox entry per syncable record; none for recordings | SRS-FR-ACC-003 |
 | TC-ACC-005 | Merge keeps all facts | unit | Local and cloud sets with overlapping and distinct UUIDs | Merge | Union by UUID; duplicates ignored; most advanced word stage kept | SRS-FR-ACC-004, SRS-BR-020, SRS-BR-021 |
 | TC-ACC-006 | Cancel sign-in | Robolectric UI | Fake AccountRepository returns Cancelled | Tap Continue with Google | Back on previous screen; no error text node | SRS-FR-ACC-005 |
@@ -234,12 +235,13 @@ TalkBack labels on all buttons ("Delete my account, destructive"); the deletion 
 | TC-ACC-010 | Unsynced warning | Robolectric UI | 3 outbox entries pending | Open sign-out dialog | Warning shows "3 changes"; Keep pre-selected | SRS-FR-ACC-006 |
 | TC-ACC-011 | Delete account end-to-end | instrumented | Firebase emulator; signed-in user with data in every collection | Explain → DELETE → re-auth → wait | 0 docs under users/{uid}; Auth user gone; 0 local rows/files; Done | SRS-FR-ACC-007, NFR-REL-009 |
 | TC-ACC-012 | Delete button gating | Robolectric UI | On Confirm step | Type "delete", "DELET", "DELETE" | Button enabled only for "DELETE" | SRS-FR-ACC-007 |
-| TC-ACC-013 | Resume after interruption | instrumented | DeletionState step=AUTH_USER persisted | Relaunch app | SCR-SYS-01 first; completes; onboarding | SRS-FR-ACC-008, SRS-ERR-009 |
+| TC-ACC-013 | Resume after interruption | instrumented | DeletionState phase=`AUTH_DELETED` persisted | Relaunch app | SCR-SYS-01 first; completes; onboarding | SRS-FR-ACC-008, SRS-ERR-009 |
 | TC-ACC-014 | Re-auth cancel deletes nothing | unit | Fake re-auth returns Cancelled | Run deletion flow | No DeletionState persisted; no delete calls | SRS-FR-ACC-007 |
 | TC-ACC-015 | Local delete everything | instrumented | Local profile with data, airplane mode | Delete everything on this device | All rows/files deleted; new profile; onboarding | SRS-FR-ACC-009 |
 | TC-ACC-016 | Different-account guard | unit | Kept data for uid A; sign-in as uid B | Complete sign-in | No re-key/merge of A's rows into B; conflict state emitted | SRS-FR-ACC-003 (Issue 1) |
 | TC-ACC-017 | No PII in logs | unit | Log capture | Run sign-in, sign-out, deletion flows | No uid, email or name in captured release-level logs | NFR-SEC-002 |
 | TC-ACC-018 | No Firebase traffic for local user | manual | Fresh install, network capture proxy | Onboard and practise for 10 min | No requests to Firebase hosts | SRS-PRIV-001 (RECOMMENDATION §13) |
+| TC-ACC-019 | Sign-out default when fully synced | Robolectric UI | 0 outbox entries pending | Open sign-out dialog | Remove pre-selected; no unsynced warning node | SRS-FR-ACC-006, SEC-REQ-04 (D-21) |
 
 ## 17. Traceability
 
@@ -248,7 +250,7 @@ TalkBack labels on all buttons ("Delete my account, destructive"); the deletion 
 | PRD-FR-001 | SRS-FR-ACC-001 | AC-FS01-01, -02 | TC-ACC-001, -002, -018 |
 | PRD-FR-002 | SRS-FR-ACC-002, -005 | AC-FS01-05, -06 | TC-ACC-006, -007 |
 | PRD-FR-003 | SRS-FR-ACC-003, -004 | AC-FS01-03, -04, -13 | TC-ACC-003, -004, -005, -016 |
-| PRD-FR-004 | SRS-FR-ACC-006 | AC-FS01-07, -08 | TC-ACC-008, -009, -010 |
+| PRD-FR-004 | SRS-FR-ACC-006 | AC-FS01-07, -08, -14 | TC-ACC-008, -009, -010, -019 |
 | PRD-FR-005 | SRS-FR-ACC-007, -008 | AC-FS01-09, -10, -11 | TC-ACC-011, -012, -013, -014 |
 | PRD-FR-094 | SRS-FR-ACC-009 | AC-FS01-12 | TC-ACC-015 |
 | PRD-NFR-008 | NFR-SEC-002 | — | TC-ACC-017 |

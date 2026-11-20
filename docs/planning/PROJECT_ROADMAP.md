@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | PLN-01 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: R1 entry criterion updated for the D-08 decision) |
+| Date | 2026-11-21 |
 | Status | Draft — **estimates preliminary until reviewed by engineering** (G4) |
 | Owner (role) | Project Manager |
 | Approval | Pending — Product Owner |
@@ -75,7 +75,7 @@ Units are sprints (2 weeks). Indicative total: **R0 ≈ 5 sprints, R1 ≈ 14 spr
 | Dependencies | R0 exit; DEP-01, DEP-02, DEP-06, DEP-08, DEP-09; ADR-005, ADR-007, ADR-009, ADR-013, ADR-014, ADR-015 approved |
 | Estimated effort | 101–146 d (≈ 13–18 sprints; plan uses 14) |
 | Risks | RSK-01…04, RSK-06, RSK-09, RSK-14 |
-| Entry criteria | R0 exit; content plan agreed (D-08) |
+| Entry criteria | R0 exit; content verification plan agreed (D-08 decided 2026-11-21; CNT-01 item list and effort) |
 | Exit criteria | PRD §21 acceptance criteria; TST-01 R1 exit criteria; G6 and G7 |
 | Approval gate | G5 per epic; G6; G7 |
 

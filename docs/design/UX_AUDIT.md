@@ -3,12 +3,14 @@
 | Field | Value |
 |---|---|
 | Document ID | DES-01 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval |
 | Owner (role) | UX Researcher |
 | Approval | Pending — Product Owner |
 | Related | RD-03 Source Code Audit (FND-*), RD-13 Vision, RD-15 Principles (PP-n, UX-n), RD-16 Scope (CAP-nn, NG-nn), DES-02 Information Architecture, DES-03 Screen Inventory, DES-05 Design System, DES-06 UI/UX Specifications, DES-07 Accessibility Guidelines, DES-08 Redesign Decisions |
+
+> **Note (2026-11-21):** DES-01 audits the current app. Its recommendation to remove creator-derived content is superseded by decision D-08 ("original wording, link out"): the techniques are kept and re-expressed; only the creator branding and the YouTube ingestion tool are removed (PRD-FR-056/057, SRS-BR-028).
 
 ---
 
@@ -403,3 +405,4 @@ Paths are relative to `app/src/main/java/com/example/` unless noted.
 | Version | Date | Change | Author (role) |
 |---|---|---|---|
 | 0.1 | 2026-11-20 | Initial draft from Stage A static code audit | UX Researcher |
+| 0.2 | 2026-11-21 | Consistency review: CL-61 (header note — creator-content removal superseded by D-08) | Technical Writer (consistency review) |

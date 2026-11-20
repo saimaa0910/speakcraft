@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | SRS |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: SRS-FR-ACC-006 default aligned to D-21; trace column now also lists PRD-FR-014 on SET-001, PRD-FR-061 on TODAY-002/004 and PRD-FR-051 on SESS-002/003, found by the GOV-01 coverage check; Product Owner direction of 2026-11-21 added as SRS-FR-EVAL-015/016, SRS-FR-PRAC-008/009, SRS-FR-WORD-014 and SRS-BR-028) |
+| Date | 2026-11-21 |
 | Status | Draft — awaiting Product Owner approval (gate G1) |
 | Owner (role) | Business Analyst / Solution Architect |
 | Approval | Pending — Product Owner |
@@ -117,9 +117,9 @@ Architecture detail: ARC-01.
 | ID | Requirement | Trace |
 |---|---|---|
 | SRS-FR-TODAY-001 | Today shall display: greeting, today's session card (steps, estimated minutes, one primary action), streak summary and today's progress | PRD-FR-020, PRD-FR-024 |
-| SRS-FR-TODAY-002 | The plan engine shall generate a session for the current dateKey when Today is first shown that day, using inputs: track, level, daily minutes, measured weakest metric family, due reviews, new-word goal, last 14 days of attempts, content version | PRD-FR-021 |
+| SRS-FR-TODAY-002 | The plan engine shall generate a session for the current dateKey when Today is first shown that day, using inputs: track, level, daily minutes, measured weakest metric family, due reviews, new-word goal, last 14 days of attempts, content version | PRD-FR-021, PRD-FR-061 |
 | SRS-FR-TODAY-003 | Plan generation shall be deterministic: identical inputs and dateKey shall yield an identical plan | PRD-FR-021 |
-| SRS-FR-TODAY-004 | A 10-minute session shall contain: 1 warm-up (TPL-READ or TPL-REPEAT), 1 main speaking task (track-matched TPL-ANSWER/STRUCT/STORY), 1 word task (new word stage or review set), optionally 1 retry/focus task; 5- and 15-minute sessions scale per FS-03 table | PRD-FR-020 |
+| SRS-FR-TODAY-004 | A 10-minute session shall contain: 1 warm-up (TPL-READ or TPL-REPEAT), 1 main speaking task (track-matched TPL-ANSWER/STRUCT/STORY), 1 word task (new word stage or review set), optionally 1 retry/focus task; 5- and 15-minute sessions scale per FS-03 table | PRD-FR-020, PRD-FR-061 |
 | SRS-FR-TODAY-005 | The engine shall not select an activity completed in the previous 7 days if an unpractised alternative of the same template and track exists | PRD-FR-021 |
 | SRS-FR-TODAY-006 | Plans shall be persisted; completed steps shall never be removed or reordered (SRS-BR-013) | PRD-FR-022 |
 | SRS-FR-TODAY-007 | Changing duration or preferences mid-day shall regenerate only incomplete steps | PRD-FR-022, PRD-FR-026 |
@@ -133,8 +133,8 @@ Architecture detail: ARC-01.
 | ID | Requirement | Trace |
 |---|---|---|
 | SRS-FR-SESS-001 | The session player shall present states: Prompt → (Prepare) → Ready → Recording → Processing → Result, plus Inconclusive, Error and Interrupted | PRD-FR-030 |
-| SRS-FR-SESS-002 | Preparation time per template: TPL-ANSWER 15 s, TPL-STRUCT 30 s, TPL-STORY 30 s, others 0 †; users can skip preparation | PRD-FR-030 |
-| SRS-FR-SESS-003 | Maximum recording length per template: TPL-READ/REPEAT 30 s, TPL-ANSWER 90 s, TPL-STRUCT 120 s, TPL-STORY 120 s †; recording stops automatically at the limit with a 10 s warning | PRD-FR-030 |
+| SRS-FR-SESS-002 | Preparation time per template: TPL-ANSWER 15 s, TPL-STRUCT 30 s, TPL-STORY 30 s, others 0 †; users can skip preparation | PRD-FR-030, PRD-FR-051 |
+| SRS-FR-SESS-003 | Maximum recording length per template: TPL-READ/REPEAT 30 s, TPL-ANSWER 90 s, TPL-STRUCT 120 s, TPL-STORY 120 s †; recording stops automatically at the limit, with a 10 s warning for limits of 30 s or more (shorter limits, e.g. the 5 s word stage, show only the elapsed-time indicator) | PRD-FR-030, PRD-FR-051 |
 | SRS-FR-SESS-004 | While recording the UI shall show elapsed time, remaining time, an input-level indicator and a single Stop control; TalkBack shall announce recording start/stop | PRD-FR-030 |
 | SRS-FR-SESS-005 | The system shall capture audio per the device tier (SRS-FR-SPCH-002) | PRD-FR-031 |
 | SRS-FR-SESS-006 | After Stop, processing shall run automatically; the result shall show the transcript (if any) with a tier label ("On-device", "Online (consented)", or "No transcript — audio-only") | PRD-FR-031 |
@@ -165,6 +165,8 @@ Architecture detail: ARC-01.
 | SRS-FR-EVAL-012 | Recognition confidence shall be shown only if supplied by the recogniser; otherwise not shown (SRS-BR-005) | PRD-NFR-001 |
 | SRS-FR-EVAL-013 | Evaluation shall complete within the NFR-PERF-005 budget; if it exceeds 2× the budget, the system shall show the Error state with Retry evaluation (audio retained until retry or exit) | PRD-NFR-004 |
 | SRS-FR-EVAL-014 | Structured-answer evaluation shall report which framework elements were detected (e.g. STAR: Situation, Task, Action, Result) as Estimated, with the cue phrases that triggered detection | PRD-FR-040 |
+| SRS-FR-EVAL-015 | Every valid attempt's result shall include a **Mistakes found** section listing each issue detected by deterministic checks (e.g. words not recognised as intended, target word missing, missing framework element, fillers above band, long pauses, pace outside target, high-precision language observations). Each entry shows evidence (quoted span, count or value) and its Measured/Estimated label. Measured entries are stated plainly; Estimated entries are phrased as "Possible …" (consistent with SRS-FR-EVAL-006), so the section never presents an estimate as a certain mistake. At most 3 are shown first (ordered by the ARC-05 §8.4 issue display priority), with "Show all" for the rest. If none are detected, the section states "Our checks didn't find issues in this attempt" plus a one-line note on what the checks cover. Inconclusive attempts show the Inconclusive reason instead (SRS-BR-008) | PRD-FR-047 |
+| SRS-FR-EVAL-016 | Every valid attempt's result shall include **Coach tips**: the focus tip (SRS-FR-EVAL-005) plus up to 2 further tips, selected deterministically from the content pack's technique tips. A tip is selected when its trigger (issue code, metric band, template or technique) matches the attempt. Each tip links to its technique and, where available, to the source video (PRD-FR-057). With no matching trigger, a general tip for the activity's technique is shown. No generative or cloud model is used (D-04) | PRD-FR-047, PRD-FR-056 |
 
 ### 6.6 Practice library (PRAC) — CAP-06, FS-06
 
@@ -177,6 +179,8 @@ Architecture detail: ARC-01.
 | SRS-FR-PRAC-005 | Content shall be loaded from a bundled, versioned content pack (JSON in assets) validated at build time (schema, unique IDs, required fields) | PRD-FR-053 |
 | SRS-FR-PRAC-006 | Users shall be able to save/unsave an activity; saved activities appear in a "Saved" filter | PRD-FR-054 |
 | SRS-FR-PRAC-007 (R2) | TPL-ROLE shall present a scripted multi-turn scenario: each partner line is shown and spoken via TTS; each user turn is recorded and evaluated as TPL-ANSWER with turn-specific expected elements | PRD-FR-055 |
+| SRS-FR-PRAC-008 | Practice shall offer a **Techniques** collection. Each technique detail shall show its name, one-line idea, why it works, steps, tips, the linked exercises/activities with a single "Practise it" primary action, and a "Watch the original lesson" link where provenance exists. Activities shall reference their technique(s). The plan engine shall include technique-linked activities in Today's speaking steps, preferring techniques the user has not yet practised and techniques whose tips match recent issues, and each step card shall name its technique | PRD-FR-056 |
+| SRS-FR-PRAC-009 | Technique, activity and tip records shall carry provenance (specific source video ID/URL and timestamp, technique name as taught, verified-by, verified-on) and `licenceStatus`. The "Watch the original lesson" link shall open the specific video in the YouTube app or browser through an outbound intent, with no API key, scraping or embedded download (SRS-BR-028). When offline, the link stays visible with "Needs an internet connection"; when no app can open it, the app shows "No app available to open this link". The app cannot detect a removed video, so broken links found in content QA are fixed in the next content version | PRD-FR-057 |
 
 ### 6.7 Words (WORD) — CAP-07, FS-07
 
@@ -195,6 +199,7 @@ Architecture detail: ARC-01.
 | SRS-FR-WORD-011 | The word bank shall be bundled in the content pack with ≥ 300 entries for R1, each with level, track tags, meaning, examples and licensing provenance | PRD-FR-065 |
 | SRS-FR-WORD-012 (R2) | Notebook: save a word from a transcript or feedback, add notes and tags, edit, delete, favourite, search | PRD-FR-066 |
 | SRS-FR-WORD-013 (R2) | Quiz: generate deterministic question sets (meaning, fill-in-the-blank, sentence choice, listening recognition) from the bank using a seeded generator; labelled "Quiz" | PRD-FR-067 |
+| SRS-FR-WORD-014 | After every submitted word-stage or review attempt, the result shall state pass, fail or Inconclusive, list the specific mistakes detected (e.g. word not recognised, wrong form recognised as "{heard}", target word missing, sentence too short, possible grammar issue) with evidence, and give **one** coach tip for the next try. SRS-FR-EVAL-015 applies to the mistakes list. For word results this requirement overrides the "up to 3 tips" of SRS-FR-EVAL-016. When no tip trigger matches, the fallback is the general tip for the current stage (content pack) | PRD-FR-047, PRD-FR-062 |
 
 ### 6.8 Progress & streak (PROG) — CAP-08, FS-08
 
@@ -213,7 +218,7 @@ Architecture detail: ARC-01.
 
 | ID | Requirement | Trace |
 |---|---|---|
-| SRS-FR-REM-001 | When reminders are enabled, the system shall schedule one daily reminder near the chosen local time (ADR-005) | PRD-FR-080 |
+| SRS-FR-REM-001 | When reminders are enabled, the system shall schedule one daily reminder within a window of ±15 min † of the chosen local time (inexact scheduling, ADR-005). The reminder time and on/off state are device preferences in the `settings` DataStore and are not synced † | PRD-FR-080 |
 | SRS-FR-REM-002 | The reminder shall not be posted if a valid attempt exists for today's dateKey (SRS-BR-019) | PRD-FR-082 |
 | SRS-FR-REM-003 | Reminder text shall mention due word reviews when present; tapping it opens Today | PRD-FR-081 |
 | SRS-FR-REM-004 | Reminders shall use a dedicated notification channel "Practice reminders"; the system shall not post any other notification category in R1 | PRD-FR-080 |
@@ -225,11 +230,11 @@ Architecture detail: ARC-01.
 
 | ID | Requirement | Trace |
 |---|---|---|
-| SRS-FR-SET-001 | Profile shall show and allow editing of display name, level, track/goal, daily minutes; and show member-since date and key statistics | PRD-FR-090 |
+| SRS-FR-SET-001 | Profile shall show and allow editing of display name, level, track/goal, daily minutes; and show member-since date and key statistics | PRD-FR-090, PRD-FR-014 |
 | SRS-FR-SET-002 | Settings shall contain sections: Learning, Reminders, Speech & privacy, Appearance, Data & privacy, Account, About | PRD-FR-091 |
-| SRS-FR-SET-003 | Speech & privacy shall show: tier and status, recognition language, offline pack status/install (where supported), online-transcription consent toggle (T3 devices), recording retention selector, link to privacy information | PRD-FR-092 |
-| SRS-FR-SET-004 | Export shall produce a JSON file (schema in ARC-03 §10) containing profile, preferences, attempts (metrics, transcripts if present), word progress, plans and events, shared via the system share sheet; recordings optionally included as a ZIP | PRD-FR-093 |
-| SRS-FR-SET-005 | Clear history shall offer: recordings only; attempts and transcripts; word progress; everything; each with confirmation stating consequences; signed-in deletions propagate to Firestore | PRD-FR-094 |
+| SRS-FR-SET-003 | Speech & privacy shall show: tier and status, recognition language, offline pack status/install (where supported), online-transcription consent toggle (T3 devices), a link to the recording-retention setting (which lives in Data & privacy, SCR-SET-06, per DES-02), and a link to privacy information | PRD-FR-092 |
+| SRS-FR-SET-004 | Export shall produce a JSON file (schema in ARC-03 §10) containing profile, preferences, attempts (metrics, detected mistakes, transcripts if present), accuracy ratings and self-check answers (ENT-13), saved activities (ENT-12), word progress, plans and events. The file is saved through the system "save to" dialog (Storage Access Framework, `ACTION_CREATE_DOCUMENT`), so the user chooses the destination (SEC-01 §9.1). Recordings may be included as a separate, off-by-default ZIP **subject to D-22** | PRD-FR-093 |
+| SRS-FR-SET-005 | Clear history shall offer: recordings only; attempts and transcripts; word progress; everything; each with confirmation stating consequences; signed-in deletions propagate to Firestore. Data & privacy shall also offer "Delete transcripts when recordings expire" **subject to D-24** (default off) | PRD-FR-094 |
 | SRS-FR-SET-006 | Privacy information shall describe exactly what is stored locally, what syncs (if signed in), what never leaves the device, and the current tier's behaviour; content shall be generated from the same configuration constants that drive behaviour | PRD-FR-095 |
 | SRS-FR-SET-007 | Appearance shall offer Light / Dark / System (default System) and Reduce motion (default follows system); text size follows system font scale | PRD-FR-096 |
 | SRS-FR-SET-008 | About shall show version name/code, open-source licences, privacy policy, terms, help/contact, and "Share diagnostics" (PII-free log, ADR-007) | PRD-FR-097 |
@@ -244,7 +249,7 @@ Architecture detail: ARC-01.
 | SRS-FR-DATA-004 | On sign-in and on app start (when online), the system shall download documents changed since the last pull watermark and merge per ADR-014 | PRD-FR-102 |
 | SRS-FR-DATA-005 | Sync status (Up to date / Syncing / Waiting for connection / Error with retry) shall be visible in Settings → Account | PRD-FR-101 |
 | SRS-FR-DATA-006 | Audio, file paths and (by default) transcripts shall never be included in uploaded documents | PRD-NFR-002 |
-| SRS-FR-DATA-007 | On first launch of the redesigned version, for a signed-in legacy user the system shall import profile (name, level, goal, daily minutes) and vocabulary progress from legacy collections, mark migration complete, and leave legacy documents untouched (D-19) | PRD-FR-103 |
+| SRS-FR-DATA-007 | On first launch of the redesigned version, for a signed-in legacy user the system shall import profile (name, level, goal, daily minutes) and vocabulary progress from legacy collections using the field mapping in ARC-03 §9 (authoritative), mark migration complete, and leave legacy documents untouched during the migration window. Retirement of legacy documents after the window, and the treatment of the reused `users/{uid}` document, follow D-19 (RD-99 §8) | PRD-FR-103 |
 | SRS-FR-DATA-008 | Legacy migration failures shall not block use; the system shall retry on next launch and log a PII-free diagnostic | PRD-FR-103 |
 | SRS-FR-DATA-009 | Retained recordings shall be stored under `noBackupFilesDir/recordings/<profileId>/` and deleted per retention (SRS-BR-022) by a daily cleanup job | ADR-015 |
 
@@ -268,7 +273,7 @@ Architecture detail: ARC-01.
 | ID | Requirement | Trace |
 |---|---|---|
 | SRS-FR-PLAT-001 | The build shall not include: Firebase AI Logic, MediaPipe, TensorFlow Lite, CameraX, the YouTube client, the self-updater, the admin console, the AI Mentor, the conversation simulator, the tutorial overlay system, or creator-branded content (subject to ADR approvals) | PRD-FR-120 |
-| SRS-FR-PLAT-002 | The manifest shall declare only permissions used: INTERNET, RECORD_AUDIO, POST_NOTIFICATIONS (Android 13+); plus `<queries>` for `android.speech.RecognitionService` | PRD-FR-120 |
+| SRS-FR-PLAT-002 | The app manifest shall declare only permissions used: INTERNET, RECORD_AUDIO, POST_NOTIFICATIONS (Android 13+); plus `<queries>` for `android.speech.RecognitionService` and for the `android.intent.action.TTS_SERVICE` intent (text-to-speech engine visibility on API 30+). Permissions merged in by approved libraries are allowed only if they are listed in the merged-manifest allow-list (TC-SEC-011); for WorkManager (ADR-005) these are expected to include RECEIVE_BOOT_COMPLETED, WAKE_LOCK, ACCESS_NETWORK_STATE and FOREGROUND_SERVICE, to be confirmed from the merged manifest | PRD-FR-120 |
 | SRS-FR-PLAT-003 | Distributed builds shall be release builds, R8-minified, release-signed; debug-only code (App Check debug provider) shall be in the debug source set | PRD-FR-121 |
 
 ## 7. Non-functional requirements
@@ -287,7 +292,8 @@ Measurable NFRs are specified in `docs/requirements/NFR.md` (NFR-PERF, NFR-REL, 
 | Cloud data | Cloud Firestore (existing named database), per-user documents only (ARC-04) |
 | Background work | WorkManager (ADR-005) |
 | Notifications | `NotificationCompat`, channel "Practice reminders" |
-| Sharing | Android share sheet for export (via FileProvider limited to an `exports/` directory) |
+| Export destination | Storage Access Framework "save to" dialog (`ACTION_CREATE_DOCUMENT`); no FileProvider sharing (SEC-01 §9.1) |
+| Outbound links | `ACTION_VIEW` intent for "Watch the original lesson" (SRS-FR-PRAC-009); no YouTube API |
 
 ## 9. Data requirements
 
@@ -295,13 +301,16 @@ Measurable NFRs are specified in `docs/requirements/NFR.md` (NFR-PERF, NFR-REL, 
 |---|---|---|---|---|
 | Profile & learning preferences | Room + DataStore (UI prefs) | Until deleted | Yes (signed in) | ENT-01 |
 | Attempts (metrics, feedback, rating) | Room | Until deleted | Metrics yes; transcript no (default) | ENT-03 |
-| Transcripts | Room | Until deleted | No (R2 opt-in, D-16) | ENT-03 |
+| Transcripts | Room — separate `sensitive.db`, excluded from backup (SEC-01 §3.2) | Until deleted (D-24 option) | No (R2 opt-in, D-16) | Keyed by ENT-03 `attemptId` (ARC-03 §3) |
 | Recordings | `noBackupFilesDir` | Per retention (default 30 days †) | Never | ADR-015 |
 | Session plans | Room | 90 days † | Yes | ENT-05 |
 | Word progress & reviews | Room | Until deleted | Yes | ENT-07/08 |
 | Events | Room | Until deleted | Yes | ENT-09 |
-| Content pack | Assets (read-only) | App version | N/A | ARC-03 §6 |
-| Diagnostics log | App-private file, rolling 1 MB † | Rolling | Only via user share | ADR-007 |
+| Detected mistakes (issue codes + evidence) | Room (`attempt_issue`, child of ENT-03) | With the attempt | Issue codes and counts only (ARC-03 §8) | ARC-03 §3 |
+| Accuracy rating and self-check answers | Room (ENT-13; self-check labelled self-reported) | With the attempt | No | ARC-03 §3 |
+| Saved activities | Room (ENT-12) | Until removed | No in R1 † | ARC-03 §3 |
+| Content pack (tracks, templates, activities, techniques, tips, words; provenance and `licenceStatus`) | Assets (read-only) | App version | N/A | ARC-03 §6 |
+| Diagnostics log | `noBackupFilesDir/diagnostics/`, rolling 2 × 256 KB † (SEC-01 §10.2) | 7 days † | Only via user share | ADR-007 |
 
 Full model: ARC-03.
 
@@ -321,7 +330,7 @@ SEC-REQ-01… in SEC-01 §12 are binding. Key points: per-user Firestore isolati
 
 ## 12. Performance requirements
 
-NFR-PERF-001…010 (startup, navigation, recording start latency, evaluation latency, plan generation, database queries, memory, battery, APK size).
+NFR-PERF-001…012 (startup, navigation, recording start latency, evaluation latency, plan generation, database queries, memory, battery, APK size and the remaining targets in NFR §2).
 
 ## 13. Availability requirements
 
@@ -366,7 +375,7 @@ All user-facing error messages shall be plain language with no exception text, e
 | SRS-BR-008 | Inconclusive attempts do not count as completion, failure, streak days or practice time |
 | SRS-BR-009 | A session step is complete when it has a valid attempt (speaking or word-stage steps) or when its review set is finished |
 | SRS-BR-010 | **Streak day** = a dateKey with ≥ 1 valid speaking attempt from any source (Today, Practice, Words stages 2–4, reviews with spoken recall) |
-| SRS-BR-011 | **Current streak** = number of consecutive streak days ending today or yesterday; otherwise 0. **Longest streak** = maximum ever. History is never deleted by a missed day. Days use the dateKey recorded at attempt time (time-zone changes do not rewrite history) |
+| SRS-BR-011 | **Current streak** = number of consecutive streak days ending today or yesterday; otherwise 0. **Longest streak** = maximum ever. History is never deleted by a missed day. Days use the dateKey recorded at attempt time (time-zone changes do not rewrite history). A latest streak day that is *later* than today's dateKey (after a west-bound time-zone change) counts as "today" for this rule (FS-08 §5.2) |
 | SRS-BR-012 | Session completion is not required for a streak day |
 | SRS-BR-013 | A plan is generated once per dateKey; regeneration changes only incomplete steps; completed steps are never removed or reordered |
 | SRS-BR-014 | **Recovery**: if the last valid attempt is ≥ 2 local days old, today's session is min(chosen, 10) minutes, prioritises due reviews and a familiar template, and adds no backlog |
@@ -379,10 +388,11 @@ All user-facing error messages shall be plain language with no exception text, e
 | SRS-BR-021 | Conflict resolution per ADR-014 (facts append-only; mutable docs last-writer-wins; word state merges by most advanced stage and later schedule) |
 | SRS-BR-022 | Recording retention default 30 days † (D-10); options: delete after feedback, 7 days, 30 days, keep until deleted; discarded/interrupted/inconclusive recordings are deleted immediately |
 | SRS-BR-023 | Online transcription only when tier T3a and consent = true; revocation immediate |
-| SRS-BR-024 | Trend lines require ≥ 3 valid attempts in the template family; changes smaller than the metric's noise band are reported as "no clear change" |
+| SRS-BR-024 | Trend lines require ≥ 3 valid attempts in the template family; changes smaller than the metric's noise band are reported as "no clear change". The change is computed as Δ = mean(latest k) − mean(earliest k), k = min(5, ⌊n/2⌋) † (FS-08 §5.5) |
 | SRS-BR-025 | Changing level or track never resets progress or history |
 | SRS-BR-026 | Attempts reference `activityId` + `contentVersion`; retired content remains readable in history |
 | SRS-BR-027 | New-word goal default: 2 per day † (range 0–5); review set max 10 words per session step |
+| SRS-BR-028 | **Creator-derived content (D-08, decided 2026-11-21).** Content derived from the @askvinh channel shall be original re-expression (`licenceStatus = ORIGINAL_REEXPRESSION`): own wording and examples, no verbatim transcript text, and no creator name, likeness or branding in the UI, content, notifications or store listing. Provenance shall point to a specific video, never the channel root. Items with `licenceStatus = PENDING_REVIEW` or without verified provenance shall not ship in a release build (build-time validation, SRS-ERR-008). Content shall be gathered by hand; no YouTube scraping, caption download or API ingestion (ADR-011). Provenance fields (source video ID/URL, timestamp, technique name as taught, verifier) are internal metadata: they are never displayed except as the outbound "Watch the original lesson" link, so the no-creator-name rule applies to all displayed text and the store listing, not to provenance metadata. Distinctive framework names coined by the creator are replaced in displayed text by plain original names (DES-05 §12.3); widely used generic names (e.g. STAR, PREP) may be used. `licenceStatus` values: ORIGINAL (written from scratch), ORIGINAL_REEXPRESSION (channel-derived, D-08), LICENSED (reserved; none in R1), PENDING_REVIEW (never ships) |
 
 ## 17. Constraints
 

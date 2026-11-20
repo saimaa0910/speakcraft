@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-16 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: technique curriculum and after-attempt mistakes/tips added per Product Owner direction; creator content disposition changed per D-08 decision) |
+| Date | 2026-11-21 |
 | Status | Draft — **Recommendation**, awaiting Product Owner approval |
 | Owner (role) | Product Manager |
 | Approval | Pending — Product Owner |
@@ -28,8 +28,8 @@
 | CAP-02 | **Onboarding & personalisation** | P-1 | R1 | FS-02 | Goal, level (self-selected + optional short speaking check), daily minutes, reminder time, microphone permission and privacy choices; first speaking attempt inside onboarding |
 | CAP-03 | **Today — daily session** | P-1 | R1 | FS-03 | A deterministic daily session (≈5/10/15 min) of 3–4 steps built from goal, level, weakest measured skill and due vocabulary; stable within the day; gentle recovery after missed days |
 | CAP-04 | **Speaking practice session** | P-2 | R1 | FS-04 | Prompt → optional preparation → record → evidence check → transcript → feedback → retry/compare; handles interruptions and permission denial |
-| CAP-05 | **Honest feedback & evaluation** | P-2 | R1 | FS-05 | Measured and estimated metrics per template; one strength + one focus; *Inconclusive* state; "Was this accurate?" rating; versioned rule sets |
-| CAP-06 | **Practice library** | P-1 | R1 (5 tracks, 5 templates); R2 (role-play) | FS-06 | Tracks: Everyday conversation, Workplace, Interviews, Presentations & storytelling, Clear speech. Templates R1: Read aloud, Listen & repeat, Answer a question, Structured answer, Tell a story. R2: Scripted role-play |
+| CAP-05 | **Honest feedback & evaluation** | P-2 | R1 | FS-05 | Measured and estimated metrics per template; one strength + one focus; **mistakes found and coach tips after every submitted attempt** (deterministic and on-device; PRD-FR-047); *Inconclusive* state; "Was this accurate?" rating; versioned rule sets |
+| CAP-06 | **Practice library** | P-1 | R1 (5 tracks, 5 templates); R2 (role-play) | FS-06 | Tracks: Everyday conversation, Workplace, Interviews, Presentations & storytelling, Clear speech. Templates R1: Read aloud, Listen & repeat, Answer a question, Structured answer, Tell a story. **Techniques collection**: the frameworks, techniques, exercises and tips taught on the @askvinh channel, re-expressed in our own words with links to the specific source videos (PRD-FR-056/057, D-08). R2: Scripted role-play |
 | CAP-07 | **Words — vocabulary lifecycle** | P-3 | R1 (lifecycle + spoken review); R2 (notebook, quiz) | FS-07 | Learn → Say it → Use it (given sentences) → Make your own → Review (spaced repetition); daily word goal; R2 notebook and deterministic quiz |
 | CAP-08 | **Progress & streak** | P-4 | R1 (metrics, history, streak); R2 (check-ins) | FS-08 | Trends of measured metrics, attempt history with local replay, one streak definition, weekly calendar, milestones; R2 repeatable benchmark check-ins |
 | CAP-09 | **Reminders & inbox** | P-1 | R1 (OS reminders); R2 (in-app inbox) | FS-09 | Daily practice reminder at the user's chosen time, review reminders, respectful frequency caps; R2 learning inbox (no software-update notifications) |
@@ -59,7 +59,7 @@ Platform/engineering capabilities without a user-facing feature spec (covered in
 | NG-05 | **Teaching English from zero** (grammar curriculum, alphabet, A1 vocabulary) | Different product; Duolingo-class content investment |
 | NG-06 | **Social features** (leaderboards, friends, sharing recordings, communities) | Privacy positioning; manipulation risk (PP-7) |
 | NG-07 | **Automated body-language / facial analysis scoring** | Models absent, heuristics weak, privacy-sensitive; video self-review without scoring is deferred to R3 |
-| NG-08 | **Content scraped from third parties** (YouTube or otherwise) | Legal and fragility risk (PP-8) |
+| NG-08 | **Content scraped from third parties** (YouTube or otherwise) | Legal and fragility risk (PP-8). Hand-curated re-expression of the channel's techniques with source-video links is in scope (PRD-FR-056/057) — only automated scraping, caption download and verbatim copying are excluded |
 | NG-09 | **Web, desktop or iOS clients** | Android-native constraint (PO-REQ-1119) |
 | NG-10 | **In-app admin console** in R1–R2 | Content ships with the app; no server-side authorisation backend exists; insecure admin would violate PO-REQ-1119 Phase 7 rules |
 | NG-11 | **Self-updating APK installer** (subject to D-03) | Incompatible with Google Play; security risk (RD-03 FND-OPS-04) |
@@ -71,7 +71,8 @@ Platform/engineering capabilities without a user-facing feature spec (covered in
 
 | Current feature | Disposition | Replaced by |
 |---|---|---|
-| `@askvinh` tab / YouTube Intelligence / creator knowledge base | Remove | Original content in CAP-06 |
+| `@askvinh` tab / YouTube Intelligence (channel ingestion, per-user seeded copies) | Remove | Techniques collection in CAP-06 (SCR-PRAC-01/04) |
+| Creator-derived techniques, frameworks, 30-day plan, challenges, shadowing scripts (`CurriculumCatalog.kt`) | **Keep — verify, re-express in our own words, link to the specific source video** (D-08 decided 2026-11-21; CNT-01) | CAP-06 techniques and activities; CAP-03 Today |
 | AI Mentor chat | Remove | Focus tips in CAP-05; tips library in CAP-06 |
 | Conversation simulator (template replies) | Remove | Scripted role-play (CAP-06, R2) |
 | Speaking Lab, Challenges, Articulation, Pronunciation, Voice Training, Listening, Grammar Speaking, Public Speaking, Real-world Tasks labs | Merge | CAP-06 tracks and templates; CAP-04 session engine |

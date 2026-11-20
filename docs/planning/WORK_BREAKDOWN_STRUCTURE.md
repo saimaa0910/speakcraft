@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | PLN-02 |
-| Version | 0.1 — Draft for review |
-| Date | 2026-11-20 |
+| Version | 0.2 — Draft for review (2026-11-21: T-04.1.1 narrowed; T-07.8, T-09.6…T-09.8, T-10.2 added for the Product Owner direction — totals in §2 not yet re-summed, see note in §2) |
+| Date | 2026-11-21 |
 | Status | Draft — **estimates preliminary**, awaiting engineering review and Product Owner approval (G4) |
 | Owner (role) | Project Manager / Android Technical Lead |
 | Approval | Pending — Product Owner |
@@ -49,6 +49,8 @@
 | | EP-27 Recognition research (SPK-03) | R3 | — | 6–10 d | ADR-009 |
 
 **Totals (preliminary):** R0 ≈ 38–55 d · R1 ≈ 101–146 d · R2 ≈ 31–46 d.
+
+> **Note (2026-11-21).** The Product Owner's direction adds work that these totals do not yet include: T-07.8 issue detection and tip selection (M ≈ 2–3 d), T-10.2 Techniques collection and SCR-PRAC-04 (M ≈ 2–3 d), T-09.7 technique records and tips (M ≈ 2–4 d), and the content-verification tasks T-09.6 and T-09.8. Engineering additions are ≈ +6–10 d on R1 (Proposed). **Content verification (T-09.6) is ≈ 38 person-days (CNT-01 §6.3)**, mostly the Product Owner watching source videos and approving rewrites. It runs in parallel with engineering but is on the R1 critical path for content freeze (RSK-04, RSK-17). Cataloguing further videos (T-09.8) is sized from the CNT-01 template once the Product Owner chooses the R1 technique set. EP-09 depends on D-08 (decided) and DEP-10.
 
 ## 3. Detailed breakdown — R0 Foundation
 
@@ -107,7 +109,7 @@
 | ID | Item | Type | Size | Delivers |
 |---|---|---|---|---|
 | F-04.1 | Removals (behind flags first, then deletion) | | | PRD-FR-120 |
-| T-04.1.1 | Remove YouTube Intelligence, creator knowledge base and branding | ENG | M | ADR-011, GAP-02/03 |
+| T-04.1.1 | Remove YouTube Intelligence (ingestion, per-user seeded technique copies) and creator branding; keep the catalogue content for re-expression in EP-09 (D-08) | ENG | M | ADR-011, GAP-02/03 |
 | T-04.1.2 | Remove cloud AI (firebase-ai, services, settings keys, false-assurance tests) | ENG/TST | S | ADR-003, GAP-08 |
 | T-04.1.3 | Remove updater, update screens, release collections & publish script | ENG | S | ADR-004, GAP-07 |
 | T-04.1.4 | Remove admin console, MediaPipe/TFLite/CameraX, mentor, conversation sim, tutorial systems | ENG | M | ADR-010, RD-16 §5 |
@@ -153,6 +155,7 @@
 | T-07.3 | `ReferenceMatcher` (port alignment; relabel) | ENG/TST | S |
 | T-07.4 | `RuleEngine` with qualified rules only (from SPK-02) | ENG/TST | M |
 | T-07.5 | `FeedbackComposer` (priority table, strength/focus, quoting) | ENG/TST | M |
+| T-07.8 | Issue detection + `TipSelector`: ISSUE_* catalogue, deterministic tip selection, empty state, self-check (ARC-05 §8.4; PRD-FR-047) with golden tests | ENG/TST | M |
 | T-07.6 | Versioning, golden fixtures, "how we measured" text generation | ENG/TST | S |
 | T-07.7 | `WordStageEvaluator` (stages 2–4) | ENG/TST | M |
 
@@ -175,10 +178,14 @@
 | T-09.3 | Write ≥ 15 activities per track (gap fill) incl. onboarding `onb-intro` | CNT | M |
 | T-09.4 | Word bank ≥ 300 entries (meaning, examples, inflections, level, track, provenance) | CNT | L |
 | T-09.5 | Content QA (duplicates, level consistency, licence check) | CNT/TST | S |
+| T-09.6 | Verify every creator-derived item in the current app against its specific video; re-express in our own words; record provenance; set `licenceStatus` (CNT-01 workflow; D-08). CNT-01 found 307 items, none with specific-video provenance; programmes are retired and their day content reused | CNT (Product Owner verifies and acts as reviewer; agent drafts rewrites) | ≈ 38 person-days † (CNT-01 §6.3, ≈ 300 h) |
+| T-09.7 | Technique records: idea, steps, tips with triggers (≥ 1 tip per ISSUE_* code), linked activities | CNT | M |
+| T-09.8 | Catalogue further channel videos with the CNT-01 template (R1: highest-value techniques; rest in R2 content updates — RSK-17) | CNT | L † |
 
 ### EP-10 Practice library (FS-06)
 
 | T-10.1 | Practice home, track list with filters, activity detail, saved | ENG/TST | M |
+| T-10.2 | Techniques collection and technique detail SCR-PRAC-04 (SRS-FR-PRAC-008/009; outbound video link) | ENG/TST | M |
 
 ### EP-11 Words lifecycle (FS-07)
 
@@ -205,7 +212,7 @@
 ### EP-14 Settings, privacy & data rights (FS-10)
 
 | T-14.1 | Profile + 7 settings sections | ENG/TST | M |
-| T-14.2 | Export (JSON + optional recordings ZIP) via share sheet | ENG/TST | M |
+| T-14.2 | Export (JSON; recordings ZIP subject to D-22) through the system "save to" dialog (SAF, SRS-FR-SET-004) | ENG/TST | M |
 | T-14.3 | Clear history options (local + cloud) | ENG/TST | S |
 | T-14.4 | Privacy information generated from policy constants + snapshot tests | ENG/TST | S |
 | T-14.5 | About, licences, diagnostics log share (ADR-007) | ENG | S |
@@ -224,7 +231,7 @@
 ### EP-17 Design system & accessibility foundation (DES-05, DES-07)
 
 | T-17.1 | Tokens (colour, type, shape, spacing, motion) and fonts | DES/ENG | M |
-| T-17.2 | Core components (buttons, cards, MetricTile, FeedbackCard, InconclusiveCard, RecordButton, state templates) | ENG/TST | L |
+| T-17.2 | Core components (buttons, cards, MetricTile, FeedbackCard, InconclusiveCard, RecordButton, MistakeList, CoachTipCard, SelfCheckList, state templates — DES-05 §11) | ENG/TST | L |
 | T-17.3 | Accessibility test utilities (font scale 2.0, semantics checks) | TST | S |
 
 ### EP-18 Quality, beta & release readiness (TST-01, ENG-01)
