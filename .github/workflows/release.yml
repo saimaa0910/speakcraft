@@ -1,0 +1,335 @@
+name: Release (Tag-Driven, Release-Signed Only)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-release:
+    name: Verify, Build & Draft Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is reachable from main and valid SemVer
+        id: meta
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF_FULL: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_FULL" != refs/tags/v* ]]; then
+            echo "::error::Release workflow may only run on refs/tags/v* tags."
+            exit 1
+          fi
+
+          if git show-ref --verify --quiet refs/remotes/origin/main; then
+            if ! git merge-base --is-ancestor HEAD origin/main; then
+              echo "::error::Tag '${REF_NAME}' is not reachable from origin/main."
+              exit 1
+            fi
+          fi
+
+          VERSION_NAME="${REF_NAME#v}"
+          if ! [[ "$VERSION_NAME" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-beta\.([1-9][0-9]?))?$ ]]; then
+            echo "::error::Tag '${REF_NAME}' must follow vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N (N=1..98)."
+            exit 1
+          fi
+
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          BETA_NUM="${BASH_REMATCH[5]:-}"
+
+          if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
+            echo "::error::MINOR ($MINOR) and PATCH ($PATCH) must be <= 99 for deterministic versionCode."
+            exit 1
+          fi
+
+          if [ -n "$BETA_NUM" ]; then
+            if [ "$BETA_NUM" -gt 98 ]; then
+              echo "::error::Beta number ($BETA_NUM) must be <= 98."
+              exit 1
+            fi
+            CHANNEL="beta"
+            IS_PRERELEASE="true"
+            B_VAL="$BETA_NUM"
+          else
+            CHANNEL="stable"
+            IS_PRERELEASE="false"
+            B_VAL="99"
+          fi
+
+          VERSION_CODE=$((MAJOR * 1000000 + MINOR * 10000 + PATCH * 100 + B_VAL))
+          COMMIT_MSG="$(git log -1 --pretty=%s 2>/dev/null | tr '\r\n' ' ' | tr -cd '[:print:]' | sed "s/\`/'/g" | cut -c1-180 || true)"
+          if [ -z "$COMMIT_MSG" ]; then
+            COMMIT_MSG="Tagged release ${REF_NAME}"
+          fi
+
+          {
+            echo "tag_name=$REF_NAME"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "channel=$CHANNEL"
+            echo "is_prerelease=$IS_PRERELEASE"
+            echo "apk_filename=speakcraft_${VERSION_NAME}.apk"
+            echo "aab_filename=speakcraft_${VERSION_NAME}.aab"
+            echo "commit_msg<<EOF_COMMIT_MSG"
+            echo "$COMMIT_MSG"
+            echo "EOF_COMMIT_MSG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0 cmdline-tools;latest"
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Restore & validate production Firebase configuration
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON_PROD || secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GOOGLE_SERVICES_JSON:-}" ]; then
+            echo "::error::Missing required GOOGLE_SERVICES_JSON_PROD (or GOOGLE_SERVICES_JSON) secret in release environment."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          chmod 600 app/google-services.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path('app/google-services.json').read_text())
+          clients = config.get('client', [])
+          matching = [
+              client for client in clients
+              if client.get('client_info', {}).get('android_client_info', {}).get('package_name')
+              == 'com.aistudio.speakcraft.qxmvkp'
+          ]
+          if not matching:
+              raise SystemExit('google-services.json has no Android client for com.aistudio.speakcraft.qxmvkp')
+          web_client_ids = [
+              oauth.get('client_id')
+              for client in matching
+              for oauth in client.get('oauth_client', [])
+              if oauth.get('client_type') == 3 and oauth.get('client_id')
+          ]
+          if not web_client_ids:
+              raise SystemExit('google-services.json is missing Web OAuth client (client_type 3)')
+          print('Production Firebase Android configuration validated.')
+          PY
+
+      - name: Run Unit & Robolectric Verification Gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          GRADLE_CMD="gradle"
+          if [ -x "./gradlew" ]; then
+            GRADLE_CMD="./gradlew"
+          fi
+          "$GRADLE_CMD" :app:testDebugUnitTest --no-daemon
+
+      - name: Restore & validate release signing keystore (fail-closed, no debug fallback)
+        id: sign
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 || secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD || secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS || 'upload' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            echo "::error::Missing required release signing secrets (RELEASE_KEYSTORE_BASE64 / RELEASE_STORE_PASSWORD / RELEASE_KEY_PASSWORD). Refusing to build."
+            exit 1
+          fi
+
+          KEYSTORE_FILE="${RUNNER_TEMP}/speakcraft-release.jks"
+          if ! printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$KEYSTORE_FILE" 2>/dev/null || [ ! -s "$KEYSTORE_FILE" ]; then
+            echo "::error::Failed to decode release keystore base64."
+            exit 1
+          fi
+          chmod 600 "$KEYSTORE_FILE"
+
+          if ! KEYTOOL_OUT="$(LC_ALL=C keytool -list -v -keystore "$KEYSTORE_FILE" -alias "$KEY_ALIAS" -storepass:env STORE_PASSWORD 2>/dev/null)"; then
+            echo "::error::Release keystore validation failed for alias '${KEY_ALIAS}'."
+            exit 1
+          fi
+
+          EXPECTED_CERT_SHA256="$(printf '%s\n' "$KEYTOOL_OUT" | grep -m1 -E '^\s*SHA256:' | awk '{print $NF}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          if ! [[ "$EXPECTED_CERT_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "::error::Failed to extract SHA-256 certificate fingerprint from release keystore."
+            exit 1
+          fi
+
+          {
+            echo "keystore_path=$KEYSTORE_FILE"
+            echo "expected_cert_sha256=$EXPECTED_CERT_SHA256"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build release-signed APK and AAB
+        shell: bash
+        env:
+          KEYSTORE_PATH: ${{ steps.sign.outputs.keystore_path }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD || secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          BUILD_CHANNEL: ${{ steps.meta.outputs.channel }}
+        run: |
+          set -euo pipefail
+          GRADLE_CMD="gradle"
+          if [ -x "./gradlew" ]; then
+            GRADLE_CMD="./gradlew"
+          fi
+          "$GRADLE_CMD" :app:assembleRelease :app:bundleRelease \
+            -PversionCodeOverride="$VERSION_CODE" \
+            -PversionNameOverride="$VERSION_NAME" \
+            -PbuildChannelOverride="$BUILD_CHANNEL" \
+            --no-daemon
+
+      - name: Verify release signatures, non-debuggable manifest & checksums
+        id: pkg
+        shell: bash
+        env:
+          EXPECTED_CERT_SHA256: ${{ steps.sign.outputs.expected_cert_sha256 }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          CHANNEL: ${{ steps.meta.outputs.channel }}
+          APK_FILENAME: ${{ steps.meta.outputs.apk_filename }}
+          AAB_FILENAME: ${{ steps.meta.outputs.aab_filename }}
+        run: |
+          set -euo pipefail
+          SRC_APK="app/build/outputs/apk/release/app-release.apk"
+          SRC_AAB="app/build/outputs/bundle/release/app-release.aab"
+
+          if [ ! -s "$SRC_APK" ] || [ ! -s "$SRC_AAB" ]; then
+            echo "::error::Expected release APK or AAB not found."
+            exit 1
+          fi
+
+          OUT_DIR="build-release-artifacts"
+          mkdir -p "$OUT_DIR"
+          APK_FILE="${OUT_DIR}/${APK_FILENAME}"
+          AAB_FILE="${OUT_DIR}/${AAB_FILENAME}"
+          cp "$SRC_APK" "$APK_FILE"
+          cp "$SRC_AAB" "$AAB_FILE"
+
+          SDK_BASE="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          APKSIGNER_BIN="$(find "$SDK_BASE/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "$APKSIGNER_BIN" ] || [ ! -x "$APKSIGNER_BIN" ]; then
+            echo "::error::apksigner binary not found under '$SDK_BASE/build-tools'."
+            exit 1
+          fi
+
+          VERIFY_OUT="$("$APKSIGNER_BIN" verify --print-certs "$APK_FILE")"
+          CERT_SHA256="$(printf '%s\n' "$VERIFY_OUT" | grep -m1 "SHA-256 digest:" | awk '{print $NF}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          if [ "$CERT_SHA256" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error::Built APK certificate ($CERT_SHA256) does not match expected release keystore ($EXPECTED_CERT_SHA256)."
+            exit 1
+          fi
+
+          jarsigner -verify -strict "$AAB_FILE" >/dev/null
+
+          # Assert manifest is NOT debuggable
+          AAPT2_BIN="$(find "$SDK_BASE/build-tools" -name aapt2 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -n "$AAPT2_BIN" ] && [ -x "$AAPT2_BIN" ]; then
+            if "$AAPT2_BIN" dump badging "$APK_FILE" | grep -qi "application-debuggable"; then
+              echo "::error::Release APK has android:debuggable=true! Aborting release."
+              exit 1
+            fi
+          fi
+
+          (
+            cd "$OUT_DIR"
+            sha256sum "$APK_FILENAME" "$AAB_FILENAME" > SHA256SUMS
+          )
+          APK_SHA256="$(sha256sum "$APK_FILE" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+
+          {
+            echo "apk_file=$APK_FILE"
+            echo "aab_file=$AAB_FILE"
+            echo "sha_sums=${OUT_DIR}/SHA256SUMS"
+            echo "apk_sha256=$APK_SHA256"
+            echo "cert_sha256=$CERT_SHA256"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload AAB and verification artefacts (90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ steps.meta.outputs.version_name }}
+          path: |
+            ${{ steps.pkg.outputs.aab_file }}
+            ${{ steps.pkg.outputs.sha_sums }}
+          retention-days: 90
+
+      - name: Generate release notes
+        shell: bash
+        env:
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          CHANNEL: ${{ steps.meta.outputs.channel }}
+          COMMIT_MSG: ${{ steps.meta.outputs.commit_msg }}
+          APK_SHA256: ${{ steps.pkg.outputs.apk_sha256 }}
+          CERT_SHA256: ${{ steps.pkg.outputs.cert_sha256 }}
+        run: |
+          set -euo pipefail
+          cat > release_notes.md <<EOF
+          ## SpeakCraft v${VERSION_NAME} (${CHANNEL})
+
+          - Summary: ${COMMIT_MSG}
+          - Version code: \`${VERSION_CODE}\`
+          - Signing certificate SHA-256: \`${CERT_SHA256}\`
+          - APK SHA-256: \`${APK_SHA256}\`
+
+          Verify the downloaded APK before installing:
+          \`apksigner verify --print-certs speakcraft_${VERSION_NAME}.apk\`
+          EOF
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: SpeakCraft v${{ steps.meta.outputs.version_name }}
+          body_path: release_notes.md
+          prerelease: ${{ steps.meta.outputs.is_prerelease }}
+          make_latest: ${{ steps.meta.outputs.channel == 'stable' && 'true' || 'false' }}
+          files: |
+            ${{ steps.pkg.outputs.apk_file }}
+            ${{ steps.pkg.outputs.sha_sums }}
+
+      - name: Clean up temporary signing & credential files
+        if: always()
+        shell: bash
+        run: |
+          rm -f "${RUNNER_TEMP}/speakcraft-release.jks" app/google-services.json release_notes.md

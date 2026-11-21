@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Document ID | RD-99 |
-| Version | 0.1 — Draft for review |
+| Version | 0.2 — Approved (2026-11-21: Gates G1–G4 and decisions D-01…D-36 approved with recommended defaults) |
 | Date | 2026-11-21 |
-| Status | Draft — **approval package**, awaiting Product Owner review (gates G1–G4) |
+| Status | **Approved — Gates G1–G4 approved; awaiting explicit "Start Stage B" instruction (GR-01)** |
 | Owner (role) | Chief Product Officer / Project Manager |
-| Approval | Pending — Product Owner (final approver) |
+| Approval | **Approved — Product Owner (2026-11-21)** |
 | Related | All Stage A documents (GOV-02 §5 index); GOV-01 RTM; PLN-05 governance; `working_papers/CONSISTENCY_LOG.md` |
 
 > **What this document is.** It is the single summary the Product Owner reviews before deciding whether Stage B (implementation) may start. It does not introduce requirements. Every statement points to the authoritative document. **No application code, configuration, rules or workflows were changed in Stage A, and no build or test was executed** (GOV-02 DC-4). No implementation starts before gate G4 and an explicit "start Stage B" instruction (PLN-05 GR-01).
@@ -180,42 +180,42 @@ Record each decision as **Approved / Rejected / Deferred** with the date in PLN-
 
 | ID | Decision | Options | Recommendation | Gate | Affects | Status |
 |---|---|---|---|---|---|---|
-| D-01 | Primary segment | S1 B1–B2 professionals & job seekers · S2 students · S3 general learners | **S1 primary, S2 secondary** | G1 | RD-13/14, PRD §6–7 | Pending |
-| D-02 | Evaluation philosophy | Measured-first with labels and Inconclusive · composite scores | **Measured-first, labelled, Inconclusive over guessing** | G1 | ARC-05, FS-05 | Pending |
-| D-03 | Distribution and in-app updater | Play testing tracks · GitHub APKs with installer · GitHub APKs without installer | **Play tracks when the account exists; until then release-signed GitHub downloads without any in-app installer** (ADR-004) | G1 | ENG-01, NG-11 | Pending |
-| D-04 | Cloud AI | Keep (Firebase AI Logic) · remove | **Remove** (ADR-003). Feedback by deterministic and on-device logic (PRD-FR-047) | G1 | ADR-003, NG-01 | Pending |
-| D-05 | Account model | Account required · optional | **Optional** (local profile; Google sign-in to back up) | G1 | FS-01, FS-02 | Pending |
-| D-06 | Composite "overall score" for free speaking | Show · do not show | **Do not show in R1**; revisit after beta (RSK-14) | G1 | FS-05, DES-05 | Pending |
-| D-07 | Monetisation | In R1 · out of scope until after R1 | **Out of scope until after R1** (NG-13) | G1 | BRD §10 | Pending |
+| D-01 | Primary segment | S1 B1–B2 professionals & job seekers · S2 students · S3 general learners | **S1 primary, S2 secondary** | G1 | RD-13/14, PRD §6–7 | **Approved 2026-11-21** |
+| D-02 | Evaluation philosophy | Measured-first with labels and Inconclusive · composite scores | **Measured-first, labelled, Inconclusive over guessing** | G1 | ARC-05, FS-05 | **Approved 2026-11-21** |
+| D-03 | Distribution and in-app updater | Play testing tracks · GitHub APKs with installer · GitHub APKs without installer | **Play tracks when the account exists; until then release-signed GitHub downloads without any in-app installer** (ADR-004) | G1 | ENG-01, NG-11 | **Approved 2026-11-21** |
+| D-04 | Cloud AI | Keep (Firebase AI Logic) · remove | **Remove** (ADR-003). Feedback by deterministic and on-device logic (PRD-FR-047) | G1 | ADR-003, NG-01 | **Approved 2026-11-21** |
+| D-05 | Account model | Account required · optional | **Optional** (local profile; Google sign-in to back up) | G1 | FS-01, FS-02 | **Approved 2026-11-21** |
+| D-06 | Composite "overall score" for free speaking | Show · do not show | **Do not show in R1**; revisit after beta (RSK-14) | G1 | FS-05, DES-05 | **Approved 2026-11-21** |
+| D-07 | Monetisation | In R1 · out of scope until after R1 | **Out of scope until after R1** (NG-13) | G1 | BRD §10 | **Approved 2026-11-21** |
 | D-08 | Creator-derived content | (A) seek licence · (B) original wording, link out · (C) generic curriculum | **(B)** | G1 | PRD-FR-056/057, SRS-BR-028 | **DECIDED 2026-11-21 — Approved (B)** |
-| D-09 | Success measurement | (A) no analytics SDK; structured beta + user-shared local summary · (B) opt-in minimal analytics | **(A) for R1 beta**; revisit (B) before a public launch (ADR-013) | G1 | BRD §8, ADR-013 | Pending |
-| D-10 | Recording retention default | Delete after feedback · 7 days · 30 days · keep | **30 days**, user-changeable (ADR-015) | G3 | SRS-BR-022, FS-10 | Pending |
-| D-11 | Room as local source of truth | Approve · reject | **Approve** incl. `room-testing` (ADR-002) | G3 | ARC-03, EP-03 | Pending |
-| D-12 | WorkManager for reminders, sync and cleanup | Approve · reject | **Approve** (ADR-005) | G3 | FS-09, FS-11 | Pending |
-| D-13 | Crash reporting | Local diagnostic log + Play vitals · Crashlytics | **Local PII-free log (user shares) + Play vitals**; Crashlytics only with a separate approval (ADR-007) | G3 | ENG-01, SEC-01 §10 | Pending |
-| D-14 | Minimum Android version and tier policy | Keep minSdk 24 + add core-library desugaring (new dependency) · raise minSdk to 26 · raise further | **Raise minSdk to 26.** It removes the `java.time` crash risk (CL-72) without a new dependency; API 24–25 devices would only get the T3 tiers anyway. Check the share of current users on Android 7.x first, if any data exists. Keep tiers T1/T2/T3a/T3b with consented online transcription (ADR-009) | G3 | ADR-009, NFR-COMP, TST-01 §5 | Pending |
-| D-15 | applicationId / namespace | Change both · namespace only · neither | **Namespace to `app.speakcraft` only**; keep applicationId `com.aistudio.speakcraft.qxmvkp` (existing installs and Firebase registration) unless a new Play listing makes a change free | G3 | ADR-012, ENG-01 | Pending |
-| D-16 | Transcript cloud sync | Never · R2 opt-in | **R2 opt-in, default off** | G3 | ARC-03 §8, SEC-01 §7.5 | Pending |
-| D-17 | Level taxonomy | CEFR codes · 5 plain levels | **5 plain levels** with "can do" lines | G1 | SRS-FR-ONB-003 | Pending |
-| D-18 | Brand palette | Current navy/ivory · Calm Indigo (DES-05) | **Calm Indigo** | G2 | DES-05 | Pending |
-| D-19 | Legacy data migration scope and retirement | Profile + vocabulary only · full migration · none | **Profile + vocabulary only.** Legacy documents stay untouched for a migration window (R1 + 90 days †), then an operator script deletes them; account deletion covers legacy locations during the window (CL-16, CL-68) | G1 | SRS-FR-DATA-007, ARC-03 §9, SEC-01 §5.6 | Pending |
-| D-20 | Words tab in R1 | R1 · R2 | **R1** | G1 | PLN-01/02 | Pending |
-| D-21 | Sign-out default | Remove pre-selected · Keep pre-selected · depends on sync state | **Remove when everything is synced; Keep (with warning) when not** | G1 | SRS-FR-ACC-006, SEC-REQ-04, FS-01 | Pending |
-| D-22 | Audio in the data export | JSON only in R1 · optional ZIP in R1 | **Optional, off-by-default recordings ZIP in R1** with a voice warning (PRD-FR-093 "all personal data"); security alternative: JSON only in R1 | G1 | SRS-FR-SET-004, FS-10, ARC-03 §10 | Pending |
-| D-23 | Backup policy | Include-only (`learning.db` + `settings`) · disable backup | **Include-only** | G3 | SEC-01 §6 | Pending |
-| D-24 | Local transcript retention | Keep with the attempt · follow recording retention | **Keep with the attempt**, plus an option "Delete transcripts when recordings expire" | G3 | SRS-FR-SET-005, FS-10 | Pending |
-| D-25 | Data-safety declaration for online transcription (T3a) | Declare audio shared (optional) · not collected | **Declare "shared, optional"** (conservative), subject to policy review | G3 | SEC-01 §9.6 | Pending |
-| D-26 | App Check enforcement | Enforce now · when Play-only and ≥ 98 % verified for 14 days † | **Enforce when Play-only and the threshold holds** | G3 | ADR-008 | Pending |
-| D-27 | Firebase projects | Single · dev + prod · dev + staging + prod | **dev + prod** (prod = existing project) | G4 | ENG-01 | Pending |
-| D-28 | Signing key | Project-owned key uploaded to Play App Signing · Play-generated | **Project-owned key** | G4 | ENG-01 | Pending |
-| D-29 | Security-rules deployment | Manual with recorded evidence · CI with federation | **Manual in R0–R1**, re-evaluate for R2 | G4 | ENG-01, SEC-01 | Pending |
-| D-30 | Privacy and deletion page hosting | GitHub Pages · other | **GitHub Pages** (if the repository is public) | G4 | ENG-01, SEC-01 §9.4 | Pending |
-| D-31 | Firestore point-in-time recovery | Enable · disable | **Your choice on cost.** If enabled, disclose the 7-day window | G4 | ENG-01, SEC-01 §9.3 | Pending |
-| D-32 | Word practice without transcription (T3b) | Block stages 2–4 · "Needs a transcript" with ways to enable recognition · count as Inconclusive | **"Needs a transcript"** (neither failed nor Inconclusive) with options to install the offline pack or allow online transcription; Today swaps word speaking tasks for Learn + a delivery-metric speaking task; the streak counts valid delivery-only attempts (CL-32) | G1 | FS-03, FS-07, SRS-FR-WORD-006 | Pending |
-| D-33 | TalkBack speech captured by the microphone (OQ-A11Y-2) | Delay capture until announcements end (conflicts NFR-PERF-004) · announce "Recording" before capture, then no announcements until Stop · both | **Announce before capture starts; no announcements while recording; announce the result after Stop** | G2 | DES-07, FS-04, NFR-PERF-004 | Pending |
-| D-34 | Users who cannot complete a speaking step (OQ-A11Y-1) | Keep SRS-BR-010 (streak needs a valid attempt) · accessibility exception | **Keep SRS-BR-010; Skip never penalises; revisit after beta feedback** | G2 | DES-07, SRS-BR-010/012 | Pending |
-| D-35 | Legal opinion on creator-derived techniques | Before R1 beta · before a public store launch · none | **Before a public store launch (R3)**; the D-08 rules apply from R0 | G4 | RSK-05, ENG-01 | Pending |
-| D-36 | R1 technique set | All 37 found techniques · a curated subset · only fully measurable ones | **A curated subset of about 15 †**: the 3 fully checkable (PREP, silence instead of fillers, STAR) plus the most valuable partly checkable ones (CNT-01 §4), each with verified provenance; the rest follow in R2 content updates | G1 | FS-06, CNT-01, T-09.6/T-09.8 | Pending |
+| D-09 | Success measurement | (A) no analytics SDK; structured beta + user-shared local summary · (B) opt-in minimal analytics | **(A) for R1 beta**; revisit (B) before a public launch (ADR-013) | G1 | BRD §8, ADR-013 | **Approved 2026-11-21** |
+| D-10 | Recording retention default | Delete after feedback · 7 days · 30 days · keep | **30 days**, user-changeable (ADR-015) | G3 | SRS-BR-022, FS-10 | **Approved 2026-11-21** |
+| D-11 | Room as local source of truth | Approve · reject | **Approve** incl. `room-testing` (ADR-002) | G3 | ARC-03, EP-03 | **Approved 2026-11-21** |
+| D-12 | WorkManager for reminders, sync and cleanup | Approve · reject | **Approve** (ADR-005) | G3 | FS-09, FS-11 | **Approved 2026-11-21** |
+| D-13 | Crash reporting | Local diagnostic log + Play vitals · Crashlytics | **Local PII-free log (user shares) + Play vitals**; Crashlytics only with a separate approval (ADR-007) | G3 | ENG-01, SEC-01 §10 | **Approved 2026-11-21** |
+| D-14 | Minimum Android version and tier policy | Keep minSdk 24 + add core-library desugaring (new dependency) · raise minSdk to 26 · raise further | **Raise minSdk to 26.** It removes the `java.time` crash risk (CL-72) without a new dependency; API 24–25 devices would only get the T3 tiers anyway. Check the share of current users on Android 7.x first, if any data exists. Keep tiers T1/T2/T3a/T3b with consented online transcription (ADR-009) | G3 | ADR-009, NFR-COMP, TST-01 §5 | **Approved 2026-11-21** |
+| D-15 | applicationId / namespace | Change both · namespace only · neither | **Namespace to `app.speakcraft` only**; keep applicationId `com.aistudio.speakcraft.qxmvkp` (existing installs and Firebase registration) unless a new Play listing makes a change free | G3 | ADR-012, ENG-01 | **Approved 2026-11-21** |
+| D-16 | Transcript cloud sync | Never · R2 opt-in | **R2 opt-in, default off** | G3 | ARC-03 §8, SEC-01 §7.5 | **Approved 2026-11-21** |
+| D-17 | Level taxonomy | CEFR codes · 5 plain levels | **5 plain levels** with "can do" lines | G1 | SRS-FR-ONB-003 | **Approved 2026-11-21** |
+| D-18 | Brand palette | Current navy/ivory · Calm Indigo (DES-05) | **Calm Indigo** | G2 | DES-05 | **Approved 2026-11-21** |
+| D-19 | Legacy data migration scope and retirement | Profile + vocabulary only · full migration · none | **Profile + vocabulary only.** Legacy documents stay untouched for a migration window (R1 + 90 days †), then an operator script deletes them; account deletion covers legacy locations during the window (CL-16, CL-68) | G1 | SRS-FR-DATA-007, ARC-03 §9, SEC-01 §5.6 | **Approved 2026-11-21** |
+| D-20 | Words tab in R1 | R1 · R2 | **R1** | G1 | PLN-01/02 | **Approved 2026-11-21** |
+| D-21 | Sign-out default | Remove pre-selected · Keep pre-selected · depends on sync state | **Remove when everything is synced; Keep (with warning) when not** | G1 | SRS-FR-ACC-006, SEC-REQ-04, FS-01 | **Approved 2026-11-21** |
+| D-22 | Audio in the data export | JSON only in R1 · optional ZIP in R1 | **Optional, off-by-default recordings ZIP in R1** with a voice warning (PRD-FR-093 "all personal data"); security alternative: JSON only in R1 | G1 | SRS-FR-SET-004, FS-10, ARC-03 §10 | **Approved 2026-11-21** |
+| D-23 | Backup policy | Include-only (`learning.db` + `settings`) · disable backup | **Include-only** | G3 | SEC-01 §6 | **Approved 2026-11-21** |
+| D-24 | Local transcript retention | Keep with the attempt · follow recording retention | **Keep with the attempt**, plus an option "Delete transcripts when recordings expire" | G3 | SRS-FR-SET-005, FS-10 | **Approved 2026-11-21** |
+| D-25 | Data-safety declaration for online transcription (T3a) | Declare audio shared (optional) · not collected | **Declare "shared, optional"** (conservative), subject to policy review | G3 | SEC-01 §9.6 | **Approved 2026-11-21** |
+| D-26 | App Check enforcement | Enforce now · when Play-only and ≥ 98 % verified for 14 days † | **Enforce when Play-only and the threshold holds** | G3 | ADR-008 | **Approved 2026-11-21** |
+| D-27 | Firebase projects | Single · dev + prod · dev + staging + prod | **dev + prod** (prod = existing project) | G4 | ENG-01 | **Approved 2026-11-21** |
+| D-28 | Signing key | Project-owned key uploaded to Play App Signing · Play-generated | **Project-owned key** | G4 | ENG-01 | **Approved 2026-11-21** |
+| D-29 | Security-rules deployment | Manual with recorded evidence · CI with federation | **Manual in R0–R1**, re-evaluate for R2 | G4 | ENG-01, SEC-01 | **Approved 2026-11-21** |
+| D-30 | Privacy and deletion page hosting | GitHub Pages · other | **GitHub Pages** (if the repository is public) | G4 | ENG-01, SEC-01 §9.4 | **Approved 2026-11-21** |
+| D-31 | Firestore point-in-time recovery | Enable · disable | **Your choice on cost.** If enabled, disclose the 7-day window | G4 | ENG-01, SEC-01 §9.3 | **Approved 2026-11-21 (deferred on cost)** |
+| D-32 | Word practice without transcription (T3b) | Block stages 2–4 · "Needs a transcript" with ways to enable recognition · count as Inconclusive | **"Needs a transcript"** (neither failed nor Inconclusive) with options to install the offline pack or allow online transcription; Today swaps word speaking tasks for Learn + a delivery-metric speaking task; the streak counts valid delivery-only attempts (CL-32) | G1 | FS-03, FS-07, SRS-FR-WORD-006 | **Approved 2026-11-21** |
+| D-33 | TalkBack speech captured by the microphone (OQ-A11Y-2) | Delay capture until announcements end (conflicts NFR-PERF-004) · announce "Recording" before capture, then no announcements until Stop · both | **Announce before capture starts; no announcements while recording; announce the result after Stop** | G2 | DES-07, FS-04, NFR-PERF-004 | **Approved 2026-11-21** |
+| D-34 | Users who cannot complete a speaking step (OQ-A11Y-1) | Keep SRS-BR-010 (streak needs a valid attempt) · accessibility exception | **Keep SRS-BR-010; Skip never penalises; revisit after beta feedback** | G2 | DES-07, SRS-BR-010/012 | **Approved 2026-11-21** |
+| D-35 | Legal opinion on creator-derived techniques | Before R1 beta · before a public store launch · none | **Before a public store launch (R3)**; the D-08 rules apply from R0 | G4 | RSK-05, ENG-01 | **Approved 2026-11-21** |
+| D-36 | R1 technique set | All 37 found techniques · a curated subset · only fully measurable ones | **A curated subset of about 15 †**: the 3 fully checkable (PREP, silence instead of fillers, STAR) plus the most valuable partly checkable ones (CNT-01 §4), each with verified provenance; the rest follow in R2 content updates | G1 | FS-06, CNT-01, T-09.6/T-09.8 | **Approved 2026-11-21** |
 
 ### 8.1 Future AI decisions (added 2026-11-21 at the Product Owner's request; decided at the R3 scope review — not needed for G4)
 
@@ -292,3 +292,4 @@ One epic at a time, on a feature branch, with tests written alongside the code a
 | Version | Date | Change | Author (role) |
 |---|---|---|---|
 | 0.1 | 2026-11-21 | Approval package: assessment, root causes, direction, design changes, architecture, risks, completeness and consistency review, decisions D-01…D-36 (D-08 decided), execution sequence, approval checklist | CPO / Project Manager |
+| 0.2 | 2026-11-21 | Recorded Product Owner approval of Gates G1–G4 and decisions D-01…D-36 with all recommended defaults (mirrored in PLN-05 §7) | CPO / Project Manager |

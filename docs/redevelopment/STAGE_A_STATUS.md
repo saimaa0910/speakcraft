@@ -4,7 +4,7 @@
 |---|---|
 | Document ID | RD-STATUS |
 | Date | 2026-11-20 (paused) · 2026-11-21 (resumed) |
-| Status | **All Stage A deliverables written (2026-11-21)** — items 1–24 in §2 exist, including GOV-01 (RTM), RD-99 (approval package, decisions D-01…D-36) and CNT-01. Consistency review C-6 done (log: `working_papers/CONSISTENCY_LOG.md`, CL-01…CL-92: 68 fixed, 7 accepted, 6 decisions in RD-99 §8, 11 Stage B refinements, including the G4 plan re-baseline). Two PDF books produced under `docs/books/`: Book 1 Product Planning (85 pages) and Book 2 System Design & Delivery (169 pages, including Chapter 20 on future AI); rebuild with `docs/books/src/build_books.ps1`. A future AI design was added on the Product Owner's request: ARC-06 `docs/architecture/AI_FUTURE_ARCHITECTURE.md` and ADR-016. It is an optional R3+ layer, on-device first and never mandatory, with decisions D-37…D-41 in RD-99 §8.1. These decisions are not needed for G1–G4. **Stage A is complete. Next: Product Owner review and approval (G1–G4, RD-99 §10); no implementation before G4 and an explicit "start Stage B".** |
+| Status | **Stage A Approved — Gates G1–G4 and decisions D-01…D-36 approved with recommended defaults on 2026-11-21** (recorded in `PLN-05 §7` and `RD-99 §8`). All Stage A deliverables (items 1–24 in §2), consistency review C-6 (`CL-01`–`CL-92`), PDF books under `docs/books/`, and optional R3+ AI design (`ARC-06` / `ADR-016`, decisions `D-37`–`D-41` deferred to R3) are complete. **Next: explicit `"Start Stage B"` instruction to begin R0 Sprint 1 (GR-01).** |
 | Owner (role) | Project Manager |
 
 Stage A is **documentation only**. No product code, configuration, rules or workflow has been changed. Nothing has been built, run, committed or pushed.

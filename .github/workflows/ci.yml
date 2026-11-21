@@ -1,0 +1,107 @@
+name: CI Quality Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build, Unit/Robolectric Tests & Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Build Debug, Compile Release Kotlin, Run Tests & Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          GRADLE_CMD="gradle"
+          if [ -x "./gradlew" ]; then
+            GRADLE_CMD="./gradlew"
+          fi
+          "$GRADLE_CMD" :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug \
+            --no-daemon \
+            --stacktrace
+
+      - name: Upload Test & Lint Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/**
+            app/build/test-results/testDebugUnitTest/**
+            app/build/reports/lint-results-debug.*
+          retention-days: 7
+          if-no-files-found: warn
+
+  security-static:
+    name: Static Security & Workflow Policy Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify workflow permissions, release hygiene & secret-free PR CI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 1. Legacy push-to-release workflow must stay deleted
+          if [ -e ".github/workflows/release_on_push.yml" ]; then
+            echo "::error::Legacy .github/workflows/release_on_push.yml must not exist."
+            exit 1
+          fi
+
+          # 2. Release workflow must never fall back to debug signing
+          if grep -Eq 'DEBUG_KEYSTORE_BASE64|assembleDebug|debug\.keystore' .github/workflows/release.yml; then
+            echo "::error::.github/workflows/release.yml contains prohibited debug-signing references."
+            exit 1
+          fi
+
+          # 3. PR CI workflow must not use unsafe trigger or repository secrets
+          if grep -Eq '^[[:space:]]*[p]ull_request_target[[:space:]]*:|\$\{\{[[:space:]]*[s]ecrets\.' .github/workflows/ci.yml; then
+            echo "::error::.github/workflows/ci.yml must not use unsafe PR target triggers or repository secrets."
+            exit 1
+          fi
+
+          # 4. Guard against accidentally committed private keys in app source
+          if grep -rnE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' app/src; then
+            echo "::error::Private key material detected in app/src."
+            exit 1
+          fi
+
+          echo "All static security and workflow hygiene checks passed."

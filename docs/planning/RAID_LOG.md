@@ -55,13 +55,13 @@ Scales — **Probability**: Low / Medium / High. **Impact**: Low / Medium / High
 | ID | Issue | Impact | Owner | Action | Status |
 |---|---|---|---|---|---|
 | ISS-01 | Speaking-session saves rejected by Firestore rules at HEAD (FND-DATA-06) | High — sessions not persisted | Android Tech Lead | Fix in R0 (EP-04) or retire path with new data layer | Open |
-| ISS-02 | CI may ship debug-signed, debuggable beta builds (FND-SEC-02) | Critical if keystore secret unset | Release Engineer | Disable auto-release on push immediately after approval (EP-01) | Open |
+| ISS-02 | CI may ship debug-signed, debuggable beta builds (FND-SEC-02) | Critical if keystore secret unset | Release Engineer | `release_on_push.yml` deleted; replaced with tag-driven, release-signed-only `release.yml` (T-01.3.1) | Mitigating |
 | ISS-03 | Privacy text contradicts behaviour (FND-SEC-05) | High | Security Engineer | Correct text / stop transcript upload (EP-04) | Open |
 | ISS-04 | Account deletion unreachable (FND-SEC-03) | High | Android Tech Lead | Wire with re-auth (EP-04) | Open |
 | ISS-05 | Creator-branded tab and creator names in content (FND-UI-03, DOM-09) | High (legal) | Product Owner | Remove the tab, ingestion tool and branding in R0 (EP-04); keep and re-express the techniques (EP-09, D-08 decided) | Open |
 | ISS-06 | Local builds require undocumented `google-services.json`; no wrapper (FND-OPS-02) | Medium | Release Engineer | EP-01 | Open |
 | ISS-07 | 54 documentation conflicts (RD-05) | Medium | Technical Writer | Archive superseded docs after approval | Open |
-| ISS-08 | No test has been executed in CI; claimed pass counts unverifiable | Medium | QA Architect | EP-01 CI test gate | Open |
+| ISS-08 | No test has been executed in CI; claimed pass counts unverifiable | Medium | QA Architect | Added PR quality-gate workflow `.github/workflows/ci.yml` running build, unit/Robolectric tests, lint, and static security checks (T-01.2.1); awaiting first GitHub Actions PR run | Mitigating |
 
 ## 4. Dependencies
 

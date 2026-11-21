@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Document ID | PLN-05 |
-| Version | 0.2 — Draft for review (2026-11-21: first decision recorded in §7 — D-08) |
+| Version | 0.3 — Approved (2026-11-21: Gates G1–G4 and decisions D-01…D-36 approved with recommended defaults) |
 | Date | 2026-11-21 |
-| Status | Draft — awaiting Product Owner approval |
+| Status | **Approved — Gates G1–G4 recorded; awaiting explicit "Start Stage B" instruction (GR-01)** |
 | Owner (role) | Project Manager |
-| Approval | Pending — Product Owner |
+| Approval | **Approved — Product Owner (2026-11-21)** |
 | Related | GOV-02 Document Control, PLN-01 Roadmap, PLN-04 RAID, TST-01, ENG-01, RD-99 |
 
 ---
@@ -80,12 +80,47 @@ Gates G1–G3 may be reviewed in one sitting; each must be recorded separately i
 
 | Gate / Decision | Date | Outcome | Notes |
 |---|---|---|---|
-| G1 Product approval | — | Pending | |
-| G2 UX approval | — | Pending | |
-| G3 Architecture & security approval | — | Pending | |
-| G4 Implementation approval | — | Pending | |
-| D-08 Creator-derived content | 2026-11-21 | **Approved — Option "original wording, link out"** | Product Owner's answer in the Stage A session. The curriculum is built from the @askvinh channel's frameworks, techniques, exercises, activities and tips, re-expressed in our own words, each linked to its specific source video, with no creator name, likeness or branding (PRD-FR-056/057, SRS-BR-028). Recorded together with the Product Owner's direction that every submitted attempt gets mistakes found + coach tips (PRD-FR-047). Under GR-06 this changes RD-16 §4/§5 and RD-14; the affected documents were updated on 2026-11-21 |
-| D-01…D-07, D-09…D-36 | — | Pending | See RD-99 §8 (gate per decision in RD-99 §10) |
+| G1 Product approval | 2026-11-21 | **Approved** | Product direction, primary segment (S1 B1–B2 professionals & job seekers; S2 secondary), scope, non-goals, and G1 decisions (`D-01`–`D-09`, `D-17`, `D-19`–`D-22`, `D-32`, `D-36`) approved with recommended defaults |
+| G2 UX approval | 2026-11-21 | **Approved** | IA (4 tabs: Today, Practice, Words, Progress), Calm Indigo design system (`D-18`), flows, screen specs, accessibility guidelines, and `D-33`/`D-34` approved with recommended defaults |
+| G3 Architecture & security approval | 2026-11-21 | **Approved** | Solution/technical/DB/local-intelligence architecture, `ADR-001`–`ADR-015`, `SEC-01`, and G3 decisions (`D-10`–`D-16`, `D-23`–`D-26`) approved with recommended defaults. Note: `D-15` keeps `applicationId` unchanged (`com.aistudio.speakcraft.qxmvkp`); platform signing configs preserved |
+| G4 Implementation approval | 2026-11-21 | **Approved — Stage B Started** | Roadmap, WBS, sprint plan, RAID, governance, DevOps/test strategy, and G4 decisions (`D-27`–`D-31`, `D-35`) approved with recommended defaults. Product Owner issued explicit `"Start Stage B"` (incremental one-task-at-a-time execution) on 2026-11-21 |
+| D-01 Primary segment | 2026-11-21 | **Approved — S1 primary, S2 secondary** | Recommended default |
+| D-02 Evaluation philosophy | 2026-11-21 | **Approved — Measured-first, labelled, Inconclusive over guessing** | Recommended default |
+| D-03 Distribution & in-app updater | 2026-11-21 | **Approved — Remove in-app updater; Play tracks / release-signed GitHub downloads** | Recommended default (ADR-004) |
+| D-04 Cloud AI | 2026-11-21 | **Approved — Remove Cloud AI for R1–R2** | Recommended default (ADR-003); deterministic & on-device logic only |
+| D-05 Account model | 2026-11-21 | **Approved — Optional account (local profile; Google Sign-In to back up)** | Recommended default |
+| D-06 Composite overall score (free speaking) | 2026-11-21 | **Approved — Do not show in R1** | Recommended default; revisit after beta (RSK-14) |
+| D-07 Monetisation | 2026-11-21 | **Approved — Out of scope until after R1** | Recommended default |
+| D-08 Creator-derived content | 2026-11-21 | **Approved — Option B ("original wording, link out")** | Techniques re-expressed in original wording with specific source video links and zero creator branding (PRD-FR-056/057, SRS-BR-028) |
+| D-09 Success measurement | 2026-11-21 | **Approved — Option A (no analytics SDK in R1 beta)** | Recommended default (ADR-013) |
+| D-10 Recording retention default | 2026-11-21 | **Approved — 30 days, user-changeable** | Recommended default (ADR-015) |
+| D-11 Room as local source of truth | 2026-11-21 | **Approved (incl. `room-testing`)** | Recommended default (ADR-002) |
+| D-12 WorkManager | 2026-11-21 | **Approved** | Recommended default (ADR-005) |
+| D-13 Crash reporting | 2026-11-21 | **Approved — Local PII-free diagnostic log + Play vitals** | Recommended default (ADR-007) |
+| D-14 Minimum Android version & tiers | 2026-11-21 | **Approved — Raise `minSdk` to 26; keep T1/T2/T3a/T3b tiers** | Recommended default (ADR-009) |
+| D-15 `applicationId` / `namespace` | 2026-11-21 | **Approved — Keep `applicationId` `com.aistudio.speakcraft.qxmvkp`** | Recommended default (ADR-012); note platform constraint to preserve `com.example` R-class/source layout if needed |
+| D-16 Transcript cloud sync | 2026-11-21 | **Approved — R2 opt-in, default off** | Recommended default |
+| D-17 Level taxonomy | 2026-11-21 | **Approved — 5 plain levels with "can do" lines** | Recommended default |
+| D-18 Brand palette | 2026-11-21 | **Approved — Calm Indigo (fixed, no dynamic colour)** | Recommended default (DES-05) |
+| D-19 Legacy data migration | 2026-11-21 | **Approved — Profile + vocabulary only (90-day window)** | Recommended default |
+| D-20 Words tab in R1 | 2026-11-21 | **Approved — Include in R1** | Recommended default |
+| D-21 Sign-out default | 2026-11-21 | **Approved — Remove when synced; Keep (with warning) when unsynced** | Recommended default |
+| D-22 Audio in data export | 2026-11-21 | **Approved — Optional, off-by-default recordings ZIP in R1** | Recommended default |
+| D-23 Backup policy | 2026-11-21 | **Approved — Include-only (`learning.db` + `settings`)** | Recommended default (SEC-01 §6) |
+| D-24 Local transcript retention | 2026-11-21 | **Approved — Keep with attempt + optional delete with recordings** | Recommended default |
+| D-25 Data-safety declaration (T3a) | 2026-11-21 | **Approved — Declare "shared, optional"** | Recommended default |
+| D-26 App Check enforcement | 2026-11-21 | **Approved — Enforce when Play-only and >= 98% verified for 14 days** | Recommended default (ADR-008) |
+| D-27 Firebase projects | 2026-11-21 | **Approved — `dev` + `prod` (`prod` = existing project)** | Recommended default (ENG-01) |
+| D-28 Signing key | 2026-11-21 | **Approved — Project-owned key uploaded to Play App Signing** | Recommended default (ENG-01) |
+| D-29 Security-rules deployment | 2026-11-21 | **Approved — Manual in R0–R1** | Recommended default (ENG-01) |
+| D-30 Privacy & deletion page hosting | 2026-11-21 | **Approved — GitHub Pages** | Recommended default (ENG-01) |
+| D-31 Firestore PITR | 2026-11-21 | **Approved — Deferred / Product Owner choice on cost** | Disclose 7-day window if enabled |
+| D-32 Word practice without transcription (T3b) | 2026-11-21 | **Approved — "Needs a transcript" state + Today swap** | Recommended default |
+| D-33 TalkBack mic capture | 2026-11-21 | **Approved — Announce before capture, silent during recording, announce after Stop** | Recommended default |
+| D-34 Streak accessibility | 2026-11-21 | **Approved — Keep SRS-BR-010; Skip never penalises; revisit post-beta** | Recommended default |
+| D-35 Legal opinion on techniques | 2026-11-21 | **Approved — Before public store launch (R3)** | D-08 rules enforced from R0 |
+| D-36 R1 technique set | 2026-11-21 | **Approved — Curated subset (~15 techniques) in R1** | Recommended default; rest in R2 content updates |
+| D-37…D-41 Future AI layer (R3+) | — | Deferred to R3 scope review | Not required for G1–G4 |
 
 ## 8. Reporting cadence (Stage B)
 

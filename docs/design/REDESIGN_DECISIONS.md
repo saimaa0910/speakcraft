@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Document ID | DES-08 |
-| Version | 0.1 — Draft for review |
+| Version | 0.2 — Approved (2026-11-21: Gate G2 and RDD-01…RDD-24 approved with recommended defaults) |
 | Date | 2026-11-21 |
-| Status | Draft — awaiting Product Owner approval |
+| Status | **Approved — Gate G2 approved (2026-11-21)** |
 | Owner (role) | UX Strategist |
-| Approval | Pending — Product Owner |
+| Approval | **Approved — Product Owner (2026-11-21)** |
 | Related | RD-13 Product Vision, RD-14 Product Strategy, RD-15 Product Principles, RD-16 Scope and Non-Goals, DES-01 UX Audit, DES-02 Information Architecture, DES-03 Screen Inventory, DES-04 User Flows, DES-05 Design System, DES-06 UI/UX Specifications, DES-07 Accessibility Guidelines; PRD, SRS, ARC-05 |
 
 > **Status of everything in this log.** Each entry (`RDD-nn`) is a **RECOMMENDATION** (GOV-02 DC-3) with approval status **Pending — Product Owner**. Where an entry depends on a Product Owner decision (`D-nn`, RD-99 §8), the link is stated with that decision's current status. A decided `D-nn` does not by itself approve the design that implements it: the RDD stays Pending until the redesign is approved (PLN-05 gate G2).
@@ -405,14 +405,14 @@
 
 | D-nn | Decision | Status (2026-11-21) | RDD entries |
 |---|---|---|---|
-| D-02 | Evaluation philosophy: measured-first, labelled, Inconclusive over guessing | Pending | RDD-09, RDD-10 |
-| D-03 | Distribution channel; remove the in-app updater (ADR-004) | Pending | RDD-22 |
-| D-04 | Remove cloud AI (ADR-003) | Pending | RDD-07, RDD-16 |
-| D-05 | Account optional | Pending | RDD-12 |
-| D-06 | No composite score for free speaking | Pending | RDD-06, RDD-08 |
+| D-02 | Evaluation philosophy: measured-first, labelled, Inconclusive over guessing | **Approved 2026-11-21** | RDD-09, RDD-10 |
+| D-03 | Distribution channel; remove the in-app updater (ADR-004) | **Approved 2026-11-21** | RDD-22 |
+| D-04 | Remove cloud AI (ADR-003) | **Approved 2026-11-21** | RDD-07, RDD-16 |
+| D-05 | Account optional | **Approved 2026-11-21** | RDD-12 |
+| D-06 | No composite score for free speaking | **Approved 2026-11-21** | RDD-06, RDD-08 |
 | D-08 | Creator-derived content | **DECIDED 2026-11-21 — Option B, "original wording, link out"** (PRD-FR-057; SRS-BR-028) | RDD-02, RDD-07, RDD-17 |
-| D-18 | Brand palette | Pending | RDD-20, RDD-21 |
-| D-20 | R1 includes the Words tab | Pending | RDD-01, RDD-18 |
+| D-18 | Brand palette | **Approved 2026-11-21 (Calm Indigo)** | RDD-20, RDD-21 |
+| D-20 | R1 includes the Words tab | **Approved 2026-11-21** | RDD-01, RDD-18 |
 
 If the Product Owner rejects a pending decision, the dependent RDD entries must be revisited before Stage B UI build, and the DES-06 sections and AC-DES items they cite updated in the same change (GOV-02 §7).
 
