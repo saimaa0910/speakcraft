@@ -126,7 +126,7 @@ The architecture must also absorb these technical risks (detail in §6):
 | `product/` | PRD (v0.2), BRD (v0.2), USER_STORIES (75), FEATURE_SPECIFICATIONS FS-00…FS-12; **plus** CNT-01 Technique Catalogue Audit (Product Owner request) | ✔ |
 | `requirements/` | SRS (v0.2), NFR (63 NFRs), USE_CASES (22) | ✔ |
 | `design/` | UX_AUDIT, INFORMATION_ARCHITECTURE (v0.2), SCREEN_INVENTORY, USER_FLOWS, DESIGN_SYSTEM (v0.2), UI_UX_SPECIFICATIONS, ACCESSIBILITY_GUIDELINES, REDESIGN_DECISIONS | ✔ |
-| `architecture/` | SOLUTION_ARCHITECTURE (v0.2), TECHNICAL_DESIGN, DATABASE_DESIGN, API_AND_INTEGRATION_SPEC, LOCAL_INTELLIGENCE_ARCHITECTURE (v0.2), ADR-001…015 | ✔ |
+| `architecture/` | SOLUTION_ARCHITECTURE (v0.2), TECHNICAL_DESIGN, DATABASE_DESIGN, API_AND_INTEGRATION_SPEC, LOCAL_INTELLIGENCE_ARCHITECTURE (v0.2), ADR-001…015; **plus** AI_FUTURE_ARCHITECTURE (ARC-06) and ADR-016 for an optional R3+ AI layer (Product Owner request) | ✔ |
 | `security/`, `testing/`, `engineering/` | SECURITY_DESIGN, TEST_STRATEGY, DEVOPS_AND_RELEASE_PLAN | ✔ |
 | `planning/` | PROJECT_ROADMAP, WORK_BREAKDOWN_STRUCTURE, SPRINT_PLAN, RAID_LOG, PROJECT_GOVERNANCE | ✔ |
 | `governance/` | REQUIREMENT_TRACEABILITY_MATRIX, DOCUMENT_CONTROL | ✔ |
@@ -217,6 +217,18 @@ Record each decision as **Approved / Rejected / Deferred** with the date in PLN-
 | D-35 | Legal opinion on creator-derived techniques | Before R1 beta · before a public store launch · none | **Before a public store launch (R3)**; the D-08 rules apply from R0 | G4 | RSK-05, ENG-01 | Pending |
 | D-36 | R1 technique set | All 37 found techniques · a curated subset · only fully measurable ones | **A curated subset of about 15 †**: the 3 fully checkable (PREP, silence instead of fillers, STAR) plus the most valuable partly checkable ones (CNT-01 §4), each with verified provenance; the rest follow in R2 content updates | G1 | FS-06, CNT-01, T-09.6/T-09.8 | Pending |
 
+### 8.1 Future AI decisions (added 2026-11-21 at the Product Owner's request; decided at the R3 scope review — not needed for G4)
+
+The design for optional future AI is ARC-06, with ADR-016 (both **Proposed — R3+, conditional**). R1 and R2 ship without AI, and the app works fully without it (NG-01…03 stay non-goals for R1–R2).
+
+| ID | Decision | Options | Recommendation | Gate | Status |
+|---|---|---|---|---|---|
+| D-37 | Pursue an optional AI layer in R3? | No AI ever · optional on-device-first layer · defer until R2 beta data | **Yes in principle, evidence first:** approve the spikes (SPK-03 re-scoped, SPK-04) at the R3 scope review; the build decision follows the spike results | G1 for R3 | Pending |
+| D-38 | On-device only vs hybrid with cloud | On-device only · hybrid (Firebase AI Logic) · cloud only | **On-device first** (ADR-016 B); hybrid only after value is shown, SPK-05 passes, a privacy review and D-39; cloud-only rejected | G3 for R3 | Pending |
+| D-39 | Cloud access path | Firebase AI Logic + enforced App Check · approved backend proxy | **Firebase AI Logic + App Check** if cloud is approved (needs Play distribution); a proxy only if server-side redaction becomes a requirement | G3 for R3 | Pending |
+| D-40 | Which AI use cases first | Better on-device transcripts, tip rewording and proofreading (on-device) · answer-content feedback (cloud) · none | **On-device first**: better transcripts (SPK-03), then tip rewording and proofreading; answer-content feedback later | G1 for R3 | Pending |
+| D-41 | AI in no-account mode | No AI without an account · on-device AI after opt-in · on-device and cloud after consent | **On-device AI after opt-in; no cloud** (keeps no-account mode free of network calls) | G1 for R3 | Pending |
+
 ## 9. Recommended execution sequence
 
 ```mermaid
@@ -273,6 +285,7 @@ One epic at a time, on a feature branch, with tests written alongside the code a
 | 4 | **G4 Implementation** | PLN-01…05, ENG-01, TST-01, GOV-01, this document | Plan and governance accepted; D-27…D-31, D-35 recorded; **explicit instruction "start Stage B"** | PLN-05 §7 |
 | 5 | Archive superseded documents | RD-01 dispositions | Approve moving superseded pre-existing documents to `docs/archive/` in a separate commit (T-04.3) | PLN-05 §7 |
 | 6 | Commit the Stage A documentation | `git status` (new `docs/` folders, untracked) | Instruct a commit when ready (PLN-05 GR-10) | Git history |
+| 7 | Future AI layer (ARC-06, ADR-016) | ARC-06, §8.1 | **Not needed for G1–G4.** Read for direction; D-37…D-41 are decided at the R3 scope review | PLN-05 §7 (later) |
 
 ## 11. Change log
 

@@ -1,0 +1,697 @@
+<!-- ===================================================================
+     Book 2 — SpeakCraft System Design & Delivery
+     Fragment: Part V (Chapter 20) — Future AI implementation (design)
+     Inserted before Appendix A by build_books.ps1. Uses book.css classes
+     only. Inline SVG only. No scripts, no external resources.
+     Status: Stage A documentation. Proposed for R3+ only; nothing
+     described here is in R1/R2 scope or has been built, run or tested.
+     Source document: docs/architecture/AI_FUTURE_ARCHITECTURE.md (ARC-06)
+     and docs/architecture/ADR/ADR-016_optional_ai_augmentation_layer.md.
+     =================================================================== -->
+
+<section class="part-title" id="part5">
+  <div class="eyebrow">Part V</div>
+  <h1>Future evolution</h1>
+  <p>How SpeakCraft could add artificial intelligence later — optionally, on the device first, and without weakening the two principles the product is built on: honest feedback and private by default. This part is a design for decision, not a plan. Releases R1 and R2 ship with no AI.</p>
+</section>
+
+
+<!-- =============================== CHAPTER 20 =============================== -->
+<section class="chapter" id="ch20">
+<h1><span class="chno">Chapter 20</span>Future AI implementation (design)</h1>
+
+<p class="lead">The Product Owner asked for a system design for future AI. This chapter summarises it. The design adds an optional AI layer after the deterministic feedback pipeline. That layer can only add a separate, clearly labelled suggestion. It never changes a metric, a mistake found, a coach tip, a pass mark, a streak or progress. It starts on the device, and it uses the cloud only after a separate consent, a privacy review and two further decisions.</p>
+
+<div class="callout warn">
+  <span class="title">Status: proposed for R3+ — not in R1/R2; the app works fully without AI</span>
+  Everything in this chapter is <span class="tag proposed">Proposed</span> and <span class="tag r3">R3+ conditional</span>. It becomes eligible for planning only after the new decisions <strong>D-37…D-41</strong> are recorded, <strong>ADR-016</strong> is approved, a <strong>privacy review under SEC-01 §9.7</strong> is completed and the <strong>data-safety inputs</strong> are updated. D-04 still recommends removing cloud AI from R1 (ADR-003), and the non-goals NG-01 (cloud AI or LLM generation), NG-02 (AI tutor or chatbot) and NG-03 (phoneme scoring) stay in force for R1 and R2. Every new dependency named here needs its own ADR. Values marked † are placeholders to be tuned by spikes.
+</div>
+<p class="src">ARC-06 v0.1 header and §1; ADR-016; ADR-003; RD-16 §4; Stage A brief ("Do not make large LLMs mandatory"; "Cloud AI must not be introduced without explicit product authorization, privacy review and a secure implementation design").</p>
+
+<h2>20.1 What this design is, and what it is not</h2>
+
+<p>ADR-003 removes the dormant cloud-AI code from the current app and says that any future AI feature needs a new ADR, a privacy review and explicit authorisation. ARC-06 is the <strong>secure implementation design</strong> that such an authorisation would review. It answers three questions: which AI features would be worth having, how they could be added without breaking honesty or privacy, and what cheap preparations R1 and R2 could make so that adding AI later is not a rebuild.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>ARC-06 is</h4>
+    <ul>
+      <li>A conditional target architecture for R3 and later</li>
+      <li>An optional <strong>augmentation layer</strong> after the deterministic pipeline</li>
+      <li>Advisory text labelled <strong>"AI suggestion"</strong> that the user can ignore</li>
+      <li>On-device first; cloud only after consent, review and D-38/D-39</li>
+      <li>The owner of proposed IDs until other documents adopt them</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>ARC-06 is not</h4>
+    <ul>
+      <li>A plan, an R1/R2 epic or a commitment</li>
+      <li>A replacement for ARC-05 local intelligence</li>
+      <li>A source of metrics, scores, pass/fail, streaks or progress</li>
+      <li>A mandatory large-language-model dependency</li>
+      <li>A change to any existing document (amendments follow approval)</li>
+    </ul>
+  </div>
+</div>
+<p class="src">ARC-06 §1.2, §1.4.</p>
+
+<h3>Binding constraints</h3>
+
+<table class="compact">
+  <thead><tr><th>#</th><th>Constraint</th><th>Source</th><th>How the design enforces it</th></tr></thead>
+  <tbody>
+    <tr><td class="id">C-1</td><td>The app works fully without AI; the default provider is "no AI"; every feature falls back to the ARC-05 output</td><td>Brief; PP-6</td><td><code>NoAiProvider</code> default; result rendered before any AI call</td></tr>
+    <tr><td class="id">C-2</td><td>No large LLM is mandatory</td><td>Brief</td><td>No core-loop step depends on a model beyond the ADR-009 recogniser</td></tr>
+    <tr><td class="id">C-3</td><td>AI never produces or changes metrics, scores, pass/fail, streaks or progress</td><td>PP-1, D-02, D-06</td><td>No write path; import rule forbids evaluation code from using the AI package</td></tr>
+    <tr><td class="id">C-4</td><td>AI output is always labelled "AI suggestion", says it may be wrong, and is rated</td><td>PP-1; DES-05 §12.3</td><td>Separate card with badge, caveat and "Was this accurate?"</td></tr>
+    <tr><td class="id">C-5</td><td>Every quote must exist in the user's transcript</td><td>PP-1</td><td>Mechanical grounding check; output dropped on failure</td></tr>
+    <tr><td class="id">C-6</td><td>Audio never leaves the device for AI</td><td>PP-2</td><td>No provider accepts audio</td></tr>
+    <tr><td class="id">C-7</td><td>Cloud receives minimised text only, after separate per-feature consent and a D-25-style disclosure</td><td>SEC-01 §7.3, §9.6</td><td>Allow-listed prompt slots; consent sheet CA-1…CA-13</td></tr>
+    <tr><td class="id">C-8</td><td>No personal identifiers; no training on user data</td><td>PP-2</td><td>Payload tests; provider terms checklist PT-1</td></tr>
+    <tr><td class="id">C-9</td><td>No AI in no-account mode unless the user opts in</td><td>SEC-REQ-02; D-05</td><td>D-41 recommendation: on-device after opt-in; no cloud</td></tr>
+    <tr><td class="id">C-10</td><td>Never use AI to copy creator transcripts (D-08)</td><td>D-08 <span class="tag decided">Decided</span></td><td>Internal drafting aid from the Product Owner's own notes only; human verification</td></tr>
+    <tr><td class="id">C-11</td><td>No API keys in the app</td><td>SEC-01 §8.1</td><td>Firebase AI Logic with enforced App Check, or an approved proxy</td></tr>
+    <tr><td class="id">C-12</td><td>Threat model with schema output, validation, quotas, kill switch, rate limits, PII-free logs</td><td>Brief</td><td>THR-23…38; AI-SEC-01…23</td></tr>
+    <tr><td class="id">C-13</td><td>Each new dependency needs its own ADR</td><td>PO-REQ-1120 §2</td><td>Dependency table in §20.5</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §1.3.</p>
+
+<h3>Principles AI-P1…AI-P10</h3>
+
+<p>The ten AI principles rank <em>below</em> the product principles PP-1…PP-8. When an AI idea conflicts with a product principle, the AI idea loses.</p>
+
+<table class="compact">
+  <thead><tr><th>ID</th><th>Principle</th><th>Rule in one line</th></tr></thead>
+  <tbody>
+    <tr><td class="id">AI-P1</td><td>Optional</td><td>Every feature off by default and individually switchable; the default provider is "no AI"</td></tr>
+    <tr><td class="id">AI-P2</td><td>Honest</td><td>Advisory text only; no numbers, scores, levels or measurement claims the pipeline did not produce</td></tr>
+    <tr><td class="id">AI-P3</td><td>Private</td><td>No audio to any provider; on-device first; cloud only signed in and consented</td></tr>
+    <tr><td class="id">AI-P4</td><td>Deterministic fallback</td><td>Any failure leaves the result exactly as ARC-05 defines it</td></tr>
+    <tr><td class="id">AI-P5</td><td>Labelled</td><td>Only in the "AI suggestion" card; deterministic features are never called AI</td></tr>
+    <tr><td class="id">AI-P6</td><td>Grounded</td><td>Quotes exist in the transcript; issues are ones the checks raised; ungrounded output is dropped, never repaired</td></tr>
+    <tr><td class="id">AI-P7</td><td>Minimised</td><td>Smallest input that works; redaction of e-mail, phone and long digit strings</td></tr>
+    <tr><td class="id">AI-P8</td><td>Consented</td><td>Opt-in on device; separate revocable consent per cloud feature</td></tr>
+    <tr><td class="id">AI-P9</td><td>Measurable</td><td>Golden sets, rubric, validator and grounding metrics, latency and battery budgets, beta ratings</td></tr>
+    <tr><td class="id">AI-P10</td><td>Reversible</td><td>A kill switch returns the app to "no AI" without data migration</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §2.</p>
+
+<h2>20.2 Candidate use cases</h2>
+
+<p>Eight candidates were assessed for value, risk, feasibility on the device (OD) or in the cloud (CL), dependencies and effect on the non-goals. Three are recommended first, all on-device. One is worth having later in the cloud. Three are not recommended. The content-authoring assistant is a team process, not an app feature.</p>
+
+<table class="compact">
+  <thead><tr><th>UC</th><th>Use case</th><th>Value</th><th>Main risk</th><th>OD</th><th>CL</th><th>Non-goal effect</th><th>Priority</th></tr></thead>
+  <tbody>
+    <tr><td class="id">UC-AI-1</td><td>Better transcripts with on-device ASR (ML Kit GenAI speech recognition, or a Whisper-class model; SPK-03)</td><td>High</td><td>Model "corrects" grammar or drops "um", hiding real mistakes; locale gaps</td><td>✔</td><td>—</td><td>None (ADR-009 option B)</td><td><span class="tag proposed">P1</span></td></tr>
+    <tr><td class="id">UC-AI-2</td><td>Coach-tip rewording and personalisation, grounded in the deterministic issue codes</td><td>Medium</td><td>Meaning drift; invented quotes</td><td>✔</td><td>✔</td><td>NG-01 (R3 revision)</td><td><span class="tag proposed">P1</span></td></tr>
+    <tr><td class="id">UC-AI-3</td><td>High-recall grammar and word-choice suggestions, labelled "Possible", never counted in M-GRAM</td><td>Medium–High</td><td>False positives</td><td>✔</td><td>✔</td><td>NG-01</td><td><span class="tag proposed">P1</span></td></tr>
+    <tr><td class="id">UC-AI-4</td><td>Answer-content feedback: relevance, STAR/PREP depth, a better-phrasing example</td><td>High</td><td>Hallucination; privacy if cloud</td><td>◐</td><td>✔</td><td>NG-01</td><td><span class="tag pending">P2</span></td></tr>
+    <tr><td class="id">UC-AI-5</td><td>Dynamic role-play partner</td><td>Medium</td><td>Open-ended chat; safety; multi-turn not supported on-device</td><td>✗</td><td>✔</td><td>Revises NG-02</td><td><span class="tag risk">Not recommended</span></td></tr>
+    <tr><td class="id">UC-AI-6</td><td>Phoneme-level pronunciation</td><td>Medium</td><td>Needs validated acoustic models</td><td colspan="2">Research</td><td>NG-03</td><td><span class="tag notrun">Research only</span></td></tr>
+    <tr><td class="id">UC-AI-7</td><td>Internal content-authoring assistant for D-08 re-expression</td><td>Medium</td><td>Copying creator wording</td><td colspan="2">Team tool, outside the app</td><td>None</td><td><span class="tag pending">P2 (process)</span></td></tr>
+    <tr><td class="id">UC-AI-8</td><td>Plan personalisation</td><td>Low</td><td>Opaque, untestable plans</td><td>✔</td><td>✔</td><td>—</td><td><span class="tag risk">Keep deterministic</span></td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §3.1. ◐ = possible with the Prompt API (beta) on few devices.</p>
+
+<div class="callout note">
+  <span class="title">Recommended order (D-40)</span>
+  UC-AI-1 first, inside a re-scoped SPK-03, because every metric and mistake depends on the transcript. Then UC-AI-2 and UC-AI-3 on the device. UC-AI-4 only after spike SPK-05, a privacy review and decisions D-38/D-39. UC-AI-7 may run as a team process after D-37, because it never ships in the app.
+</div>
+
+<h3>Why UC-AI-1 is not "AI judging the user"</h3>
+
+<p>Transcription is input, not judgement. The platform recogniser already plays that role (ADR-009). An on-device AI recogniser would plug into the existing recognition session as one more backend (CMP-92). It would feed the same evidence gate, metric engine and rule engine, which stay deterministic. Two conditions keep it honest. First, it must return <strong>verbatim</strong> recognition: any formatting or "clean-up" mode stays off, because a model that turns "he don't" into "he doesn't", or drops "um", would hide exactly the mistakes the coach exists to find. Second, the attempt records which engine produced the transcript (<code>transcript_source</code>), so a trend change caused by an engine switch can be recognised. SPK-03 therefore measures an <strong>error-preservation rate</strong> and a filler-retention rate as well as word-error rate. On 2026-11-21 the GenAI speech-recognition page listed en-US, but not en-GB, en-IN or en-AU, among its English locales. SpeakCraft offers all four, so this is risk RSK-27.</p>
+<p class="src">ARC-06 §3.2 UC-AI-1; ADR-009; VERIFIED on the ML Kit GenAI speech-recognition page, 2026-11-21 (alpha API; basic mode on API 31+, advanced mode on Gemini Nano devices).</p>
+
+<h3>UC-AI-3: "Possible" means possible</h3>
+
+<p>The deterministic rule engine ships only rules with precision of at least 0.90 (NFR-QUAL-003), so it misses many errors. An on-device proofreading model catches more, but with less certainty. The design keeps the two apart. The transcript is proofread, punctuation and capitalisation changes are discarded, and each remaining change becomes a "Possible wording" item in the AI card. These items never enter "Mistakes found", are never counted in M-GRAM, never raise ISSUE_GRAMMAR_POSSIBLE and never affect word-stage 4. Where a deterministic rule already flagged the same span, the deterministic item wins and the AI item is removed.</p>
+<p class="src">ARC-06 §3.2 UC-AI-3; ARC-05 §8.1, §9.</p>
+
+<h2>20.3 Target architecture</h2>
+
+<p>The existing pipeline runs first and completely. Its <code>EvaluationResult.Valid</code> is saved and the result screen is rendered before any AI work starts. The AI layer receives a read-only copy through a seam called <code>FeedbackEnhancer</code>. In R1 and R2 that seam is a no-op. The layer can do one thing only: add a separately labelled card. No arrow returns from the AI layer into the pipeline.</p>
+
+<figure>
+<svg viewBox="0 0 680 466" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI" role="img" aria-label="Layered architecture: the deterministic pipeline runs first and is authoritative; the optional AI layer sits after it and can only add a labelled card">
+  <defs>
+    <marker id="m20a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5A5D72"/></marker>
+    <marker id="m20b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#74546F"/></marker>
+  </defs>
+  <!-- UC-AI-1 optional recogniser backend -->
+  <rect x="96" y="8" width="250" height="34" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="221" y="22" font-size="9.5" font-weight="600" fill="#74546F" text-anchor="middle">UC-AI-1 · AiTranscriptionBackend CMP-92 (optional)</text>
+  <text x="221" y="35" font-size="9" fill="#5A5D72" text-anchor="middle">verbatim on-device ASR · input, not judgement · SPK-03</text>
+  <!-- Band 1: deterministic pipeline -->
+  <rect x="10" y="52" width="660" height="150" rx="8" fill="#DEE1FF" stroke="#4054A6"/>
+  <line x1="178" y1="42" x2="178" y2="78" stroke="#74546F" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#m20b)"/>
+  <text x="658" y="69" font-size="10.5" font-weight="600" fill="#142166" text-anchor="end">Existing deterministic pipeline (ARC-05) — authoritative, always runs</text>
+  <rect x="22" y="80" width="96" height="48" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="70" y="100" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Capture</text>
+  <text x="70" y="115" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-26 · 16 kHz PCM</text>
+  <rect x="130" y="80" width="96" height="48" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="178" y="100" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Recognition</text>
+  <text x="178" y="115" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-28 · T1–T3b</text>
+  <rect x="238" y="80" width="96" height="48" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="286" y="100" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Evidence gate</text>
+  <text x="286" y="115" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-31</text>
+  <rect x="346" y="80" width="96" height="48" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="394" y="100" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Metrics · rules</text>
+  <text x="394" y="115" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-32 · 33 · 34</text>
+  <rect x="454" y="80" width="96" height="48" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="502" y="100" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Feedback</text>
+  <text x="502" y="115" font-size="9" fill="#5A5D72" text-anchor="middle">composer · CMP-35</text>
+  <rect x="562" y="80" width="96" height="48" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="610" y="100" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Coach tips</text>
+  <text x="610" y="115" font-size="9" fill="#5A5D72" text-anchor="middle">TipSelector CMP-75</text>
+  <line x1="118" y1="104" x2="129" y2="104" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <line x1="226" y1="104" x2="237" y2="104" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <line x1="334" y1="104" x2="345" y2="104" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <line x1="442" y1="104" x2="453" y2="104" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <line x1="550" y1="104" x2="561" y2="104" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <rect x="22" y="142" width="200" height="46" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="122" y="161" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Result screen shown first</text>
+  <text x="122" y="176" font-size="9" fill="#5A5D72" text-anchor="middle">transcript · metrics · mistakes · tips</text>
+  <rect x="246" y="142" width="200" height="46" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="346" y="161" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Saved: learning.db ENT-03/04</text>
+  <text x="346" y="176" font-size="9" fill="#5A5D72" text-anchor="middle">transcript in sensitive.db</text>
+  <rect x="470" y="142" width="188" height="46" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="564" y="161" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">EvaluationResult.Valid</text>
+  <text x="564" y="176" font-size="9" fill="#5A5D72" text-anchor="middle">evaluationVersion + contentVersion</text>
+  <line x1="610" y1="128" x2="610" y2="141" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <line x1="470" y1="165" x2="447" y2="165" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <line x1="246" y1="165" x2="223" y2="165" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <!-- Read-only hand-off -->
+  <polyline points="564,188 564,212 79,212 79,257" fill="none" stroke="#74546F" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#m20b)"/>
+  <text x="330" y="226" font-size="9" fill="#74546F" text-anchor="middle">read-only copy of the saved result (no path back)</text>
+  <!-- Band 2: optional AI layer -->
+  <rect x="10" y="232" width="660" height="196" rx="8" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="6 4"/>
+  <text x="658" y="249" font-size="10.5" font-weight="600" fill="#74546F" text-anchor="end">Optional AI augmentation layer — R3+, conditional, off by default</text>
+  <rect x="22" y="258" width="114" height="46" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="79" y="277" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">FeedbackEnhancer</text>
+  <text x="79" y="292" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-89 · NoOp R1/R2</text>
+  <rect x="152" y="258" width="110" height="46" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="207" y="277" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">AiOrchestrator</text>
+  <text x="207" y="292" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-79 · timeouts</text>
+  <rect x="278" y="258" width="142" height="46" rx="6" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="349" y="277" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">AiPolicyGate CMP-78</text>
+  <text x="349" y="292" font-size="9" fill="#5A5D72" text-anchor="middle">opt-in · consent · quota</text>
+  <rect x="436" y="258" width="104" height="46" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="488" y="277" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">PromptBuilder</text>
+  <text x="488" y="292" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-84 · minimised</text>
+  <rect x="556" y="258" width="102" height="46" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="607" y="277" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">AiProvider</text>
+  <text x="607" y="292" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-80 (NoAi default)</text>
+  <line x1="136" y1="281" x2="151" y2="281" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <line x1="262" y1="281" x2="277" y2="281" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <line x1="420" y1="281" x2="435" y2="281" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <line x1="540" y1="281" x2="555" y2="281" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <rect x="22" y="330" width="240" height="46" rx="6" fill="#DEE1FF" stroke="#142166"/>
+  <text x="142" y="349" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Deterministic fallback</text>
+  <text x="142" y="364" font-size="9" fill="#5A5D72" text-anchor="middle">result exactly as ARC-05 · no AI card</text>
+  <rect x="278" y="330" width="142" height="46" rx="6" fill="#FFFFFF" stroke="#74546F"/>
+  <text x="349" y="349" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">AI suggestion card</text>
+  <text x="349" y="364" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-91 · below Coach tips</text>
+  <rect x="436" y="330" width="104" height="46" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="488" y="349" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Suggestion store</text>
+  <text x="488" y="364" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-86 · ENT-19</text>
+  <rect x="556" y="330" width="102" height="46" rx="6" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="607" y="349" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">OutputValidator</text>
+  <text x="607" y="364" font-size="9" fill="#5A5D72" text-anchor="middle">CMP-85 · grounding</text>
+  <line x1="607" y1="304" x2="607" y2="329" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <line x1="556" y1="353" x2="541" y2="353" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <line x1="436" y1="353" x2="421" y2="353" stroke="#74546F" stroke-width="1.4" marker-end="url(#m20b)"/>
+  <polyline points="300,304 300,316 200,316 200,329" fill="none" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <text x="245" y="326" font-size="9" fill="#5A5D72" text-anchor="middle">Deny</text>
+  <polyline points="607,376 607,394 142,394 142,377" fill="none" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20a)"/>
+  <text x="380" y="408" font-size="9" fill="#5A5D72" text-anchor="middle">Rejected, failed, busy or timed out → dropped (never repaired)</text>
+  <text x="340" y="446" font-size="9.5" fill="#5A5D72" text-anchor="middle">Solid blue boxes: authoritative or controlling. Dashed: optional, off by default. Validator and gate checks are mechanical.</text>
+  <text x="340" y="459" font-size="9.5" fill="#5A5D72" text-anchor="middle">Nothing in the AI layer writes ENT-01…18 or is read by metric, rule, feedback, plan, progress or pass/fail code.</text>
+</svg>
+<figcaption><b>Figure 20.1 — Layered architecture with the AI layer after the deterministic pipeline.</b> The ARC-05 pipeline runs to completion, saves the attempt and renders the result. Only then does the AI layer receive a read-only copy. UC-AI-1 is the one AI element in the input path, as an optional verbatim recogniser backend gated by SPK-03.</figcaption>
+</figure>
+<p class="src">ARC-06 §4.1–§4.2; ARC-02 §3.2 pipeline order; ARC-05 §2.</p>
+
+<h3>Components</h3>
+
+<p>Sixteen components are proposed, numbered after ARC-02's last component (CMP-76). ARC-02 adopts them only after approval.</p>
+
+<table class="compact">
+  <thead><tr><th>CMP</th><th>Component</th><th>Responsibility</th></tr></thead>
+  <tbody>
+    <tr><td class="id">CMP-77</td><td><code>AiCapabilityService</code></td><td>Per-feature availability from four separate facts: user choice, model status (unavailable · downloadable · downloading · available), device capability and runtime state. Never shows "ready" until verified</td></tr>
+    <tr><td class="id">CMP-78</td><td><code>AiPolicyGate</code></td><td>The only place that decides <em>whether</em> and <em>where</em> a call runs; re-checked before every call; forces on-device-only mode unless a valid cloud consent exists</td></tr>
+    <tr><td class="id">CMP-79</td><td><code>AiOrchestrator</code></td><td>Runs enabled features in a fixed order with timeouts and cancellation; records usage; never writes ENT-01…18</td></tr>
+    <tr><td class="id">CMP-80</td><td><code>AiProvider</code> + <code>NoAiProvider</code></td><td>One interface for every backend: single turn, schema-constrained JSON, no tools. <code>NoAiProvider</code> is the default binding</td></tr>
+    <tr><td class="id">CMP-81</td><td><code>OnDeviceAiProvider</code></td><td>ML Kit GenAI through AICore (Rewriting, Proofreading, Prompt API); handles download, warm-up, <code>BUSY</code>, background and battery-quota errors</td></tr>
+    <tr><td class="id">CMP-82</td><td><code>HybridFirebaseAiProvider</code></td><td>Option C only: Firebase AI Logic with enforced App Check and a pinned model</td></tr>
+    <tr><td class="id">CMP-83</td><td><code>ProxyAiProvider</code></td><td>Option D, future: an approved backend proxy (the project's first backend)</td></tr>
+    <tr><td class="id">CMP-84</td><td><code>PromptBuilder</code></td><td>Versioned templates shipped in the APK; allow-listed slots only; redaction; input fingerprint</td></tr>
+    <tr><td class="id">CMP-85</td><td><code>OutputValidator</code></td><td>Schema, grounding, number, issue, banned-term, safety, length and language rules; drop on failure</td></tr>
+    <tr><td class="id">CMP-86</td><td><code>AiSuggestionStore</code></td><td>ENT-19 persistence, ratings and reports; deletion with every relevant wipe</td></tr>
+    <tr><td class="id">CMP-87</td><td><code>AiKillSwitch</code></td><td>Compile-time flags, local switches with a known-good model list, and a remote or provider-side switch</td></tr>
+    <tr><td class="id">CMP-88</td><td><code>AiQuotaManager</code></td><td>Per-attempt, per-minute, per-day and per-month limits; reacts to provider quota errors</td></tr>
+    <tr><td class="id">CMP-89</td><td><code>FeedbackEnhancer</code></td><td>The R1/R2 hook: a seam called after a valid result is saved; a no-op until AI is approved</td></tr>
+    <tr><td class="id">CMP-90</td><td><code>PurposeConsentStore</code></td><td>The T3a consent store generalised to one record per purpose (online transcription; each cloud AI feature)</td></tr>
+    <tr><td class="id">CMP-91</td><td>AI card + AI settings</td><td>The labelled card under Coach tips and the "AI suggestions" settings sub-screen</td></tr>
+    <tr><td class="id">CMP-92</td><td><code>AiTranscriptionBackend</code></td><td>UC-AI-1 recogniser backend behind the existing recognition factory; verbatim output; no network path</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §4.2–§4.3 (Kotlin signatures are illustrative and PROPOSED).</p>
+
+<p>A package rule makes constraint C-3 structural rather than procedural. The new <code>app.speakcraft.ai</code> package may read the domain model, but the domain, analysis, rules, feedback and repository packages may never import it. The existing CI import check (WBS T-02.2.3) enforces this, and test TC-AI-010 verifies it. With every AI flag off, the code shrinker can remove the AI package entirely.</p>
+
+<h2>20.4 Provider chain and fallback</h2>
+
+<p>For each call the policy gate walks a fixed chain. "No AI" is the starting point and the default. On-device AI is tried only if the user opted in and the model is ready. The cloud is reached only in option C, only for a signed-in user who consented to that specific feature, within quota and with an attested app. Whatever path is taken, the output passes the validator or is dropped. In every case the deterministic result is already on the screen.</p>
+
+<figure>
+<svg viewBox="0 0 680 425" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI" role="img" aria-label="Provider fallback chain: no AI by default, then on-device, then cloud with consent, then deterministic fallback">
+  <defs>
+    <marker id="m20c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5A5D72"/></marker>
+  </defs>
+  <text x="10" y="14" font-size="11" font-weight="600" fill="#142166">Provider chain chosen by AiPolicyGate (CMP-78) before every call</text>
+  <!-- start -->
+  <rect x="20" y="24" width="280" height="36" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="160" y="39" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Valid attempt saved; result already shown</text>
+  <text x="160" y="53" font-size="9" fill="#5A5D72" text-anchor="middle">ARC-05 metrics · mistakes found · coach tips</text>
+  <line x1="160" y1="60" x2="160" y2="83" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <!-- D1 -->
+  <rect x="20" y="84" width="280" height="44" rx="22" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="160" y="102" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">1 · Feature opted in, flag on, kill switch off?</text>
+  <text x="160" y="117" font-size="9" fill="#5A5D72" text-anchor="middle">evaluated fresh for every call</text>
+  <line x1="300" y1="106" x2="379" y2="106" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="340" y="100" font-size="9" fill="#5A5D72" text-anchor="middle">No</text>
+  <rect x="380" y="84" width="280" height="44" rx="6" fill="#FFFFFF" stroke="#5A5D72"/>
+  <text x="520" y="102" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">No AI — NoAiProvider (default)</text>
+  <text x="520" y="117" font-size="9" fill="#5A5D72" text-anchor="middle">nothing added; the result is already complete</text>
+  <line x1="160" y1="128" x2="160" y2="151" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="168" y="143" font-size="9" fill="#5A5D72">Yes</text>
+  <!-- D2 -->
+  <rect x="20" y="152" width="280" height="44" rx="22" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="160" y="170" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">2 · On-device model ready?</text>
+  <text x="160" y="185" font-size="9" fill="#5A5D72" text-anchor="middle">AICore status · foreground · not BUSY · quota left</text>
+  <line x1="300" y1="174" x2="379" y2="174" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="340" y="168" font-size="9" fill="#5A5D72" text-anchor="middle">Yes</text>
+  <rect x="380" y="152" width="280" height="44" rx="6" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="520" y="170" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">On-device AI — OnDeviceAiProvider</text>
+  <text x="520" y="185" font-size="9" fill="#5A5D72" text-anchor="middle">ML Kit GenAI · nothing leaves the phone</text>
+  <line x1="160" y1="196" x2="160" y2="219" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="168" y="211" font-size="9" fill="#5A5D72">No</text>
+  <!-- D3 -->
+  <rect x="20" y="220" width="280" height="44" rx="22" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="160" y="238" font-size="10" font-weight="600" fill="#74546F" text-anchor="middle">3 · Cloud allowed? (option C only)</text>
+  <text x="160" y="253" font-size="9" fill="#5A5D72" text-anchor="middle">signed in · consent for this feature · quota · App Check</text>
+  <line x1="300" y1="242" x2="379" y2="242" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="340" y="236" font-size="9" fill="#5A5D72" text-anchor="middle">Yes</text>
+  <rect x="380" y="220" width="280" height="44" rx="6" fill="#FFFFFF" stroke="#74546F" stroke-dasharray="5 3"/>
+  <text x="520" y="238" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Cloud AI with consent — Firebase AI Logic</text>
+  <text x="520" y="253" font-size="9" fill="#5A5D72" text-anchor="middle">redacted transcript text only · never audio</text>
+  <!-- to validator -->
+  <polyline points="660,174 672,174 672,310 661,310" fill="none" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <line x1="520" y1="264" x2="520" y2="289" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <rect x="380" y="290" width="280" height="40" rx="6" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="520" y="306" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">OutputValidator CMP-85</text>
+  <text x="520" y="321" font-size="9" fill="#5A5D72" text-anchor="middle">schema · grounding · numbers · banned terms · safety</text>
+  <!-- outcomes -->
+  <line x1="160" y1="264" x2="160" y2="351" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="168" y="300" font-size="9" fill="#5A5D72">No</text>
+  <polyline points="380,310 330,310 330,372 301,372" fill="none" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="355" y="304" font-size="9" fill="#5A5D72" text-anchor="middle">Rejected</text>
+  <line x1="520" y1="330" x2="520" y2="351" stroke="#5A5D72" stroke-width="1.4" marker-end="url(#m20c)"/>
+  <text x="528" y="344" font-size="9" fill="#5A5D72">Passed</text>
+  <rect x="20" y="352" width="280" height="40" rx="6" fill="#DEE1FF" stroke="#142166"/>
+  <text x="160" y="368" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">Deterministic fallback</text>
+  <text x="160" y="383" font-size="9" fill="#5A5D72" text-anchor="middle">ARC-05 output exactly · no AI card · no nag</text>
+  <rect x="380" y="352" width="280" height="40" rx="6" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="520" y="368" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">"AI suggestion" card</text>
+  <text x="520" y="383" font-size="9" fill="#5A5D72" text-anchor="middle">labelled · may be wrong · "Was this accurate?"</text>
+  <text x="340" y="410" font-size="9.5" fill="#5A5D72" text-anchor="middle">Pills are policy checks. Option B stops at check 2; check 3 exists only if D-38 and D-39 approve the cloud.</text>
+</svg>
+<figcaption><b>Figure 20.2 — Provider fallback chain.</b> No AI → on-device → cloud with consent → deterministic fallback. Hybrid modes that could reach the cloud are used only when check 3 passes, so a missing on-device model can never cause a silent cloud call (threat THR-33).</figcaption>
+</figure>
+<p class="src">ARC-06 §4.4, §4.5, AI-SEC-04; Firebase AI Logic hybrid inference modes VERIFIED on the get-started page, 2026-11-21.</p>
+
+<h3>Cloud access path (decision D-39)</h3>
+
+<table class="compact">
+  <thead><tr><th>Path</th><th>How</th><th>For</th><th>Against</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>Firebase AI Logic + enforced App Check</td><td>Client SDK → Firebase AI Logic → Gemini; App Check token with Play Integrity; no provider key in the app</td><td>No backend to run; App Check is set per service; fits the stack</td><td>Re-adds a cloud-AI SDK (amends SEC-REQ-28, TC-SEC-010, NFR-SEC-006); hybrid inference is experimental with no SLA; sideloaded builds cannot attest, so cloud AI needs Play distribution (D-03)</td><td><span class="tag proposed">Recommended if cloud</span></td></tr>
+    <tr><td>Approved backend proxy</td><td>Client → SpeakCraft function holding credentials → model provider</td><td>Full server-side control of quotas, redaction and provider choice</td><td>The project's first backend (ARC-04 P-1): new ADR, threat model, CI/CD, on-call, cost</td><td><span class="tag pending">Future option</span></td></tr>
+    <tr><td>Provider key in the app</td><td>Direct model API calls</td><td>—</td><td>Keys are extractable; cost abuse</td><td><span class="tag risk">Forbidden</span></td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §4.5. The hybrid page says console setup enforces App Check for AI Logic automatically but gives no date; other Firebase pages state enforcement dates differently, so the dates must be verified in SPK-05.</p>
+
+<h3>New dependencies (each needs its own ADR)</h3>
+
+<table class="compact">
+  <thead><tr><th>Dependency</th><th>For</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>ML Kit GenAI Rewriting / Proofreading / Prompt API</td><td>UC-AI-2, 3, 4 on-device (option B)</td><td>On-device only. Option B uses ML Kit directly rather than Firebase AI Logic, so no cloud SDK enters the classpath. TC-SEC-010 needs an allow-list</td></tr>
+    <tr><td><code>genai-speech-recognition</code> (alpha)</td><td>UC-AI-1</td><td>minSdk 26, which matches the D-14 recommendation; ADR-009 revision after SPK-03</td></tr>
+    <tr><td>TFLite + Whisper-class model</td><td>UC-AI-1 alternative</td><td>+40–75 MB; hash-pinned delivery; licence review</td></tr>
+    <tr><td><code>firebase-ai</code> + <code>firebase-ai-ondevice</code></td><td>UC-AI-4 cloud (option C)</td><td>Reverses ADR-003's removal for R3+ only; the on-device artifact is not in the Firebase BoM</td></tr>
+    <tr><td>Firebase Remote Config</td><td>Remote kill switch</td><td>Conflicts with ARC-02 §9.1 F-1 and, in no-account mode, SEC-REQ-02; fetch only when signed in, or rely on release-based switches</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §4.6; artifact names and versions VERIFIED on the cited pages, 2026-11-21, except the ML Kit Rewriting/Proofreading/Prompt artifact names (to verify).</p>
+
+<h2>20.5 Honesty mechanics: how the validator keeps AI truthful</h2>
+
+<p>Prompt instructions ask the model to be honest, but the design does not trust them. Every output is checked mechanically. If one rule fails, the whole output is dropped — never edited into shape.</p>
+
+<table class="compact">
+  <thead><tr><th>Rule</th><th>Check</th><th>Example rejected</th></tr></thead>
+  <tbody>
+    <tr><td>Schema</td><td>Output parses against the feature's JSON schema (for tip rewording: <code>tipText</code> ≤ 280 chars †, <code>basedOnIssue</code>, at most one quote)</td><td>Free text, extra fields</td></tr>
+    <tr><td>Grounding</td><td>After normalising case and punctuation, every quote is a contiguous run of the transcript's tokens; any quoted text outside the quote field is rejected</td><td>"You said 'I basically managed it'" when the user said "I managed it"</td></tr>
+    <tr><td>Numbers</td><td>Any digit or number word must already appear in the deterministic evidence shown to the user</td><td>"You used 'um' 9 times" when the evidence said 7</td></tr>
+    <tr><td>Issue</td><td><code>basedOnIssue</code> must be one of the issues the deterministic checks raised</td><td>Inventing a pace problem the checks did not find</td></tr>
+    <tr><td>Banned terms</td><td>score, %, pronunciation, accent, fluency, band, level names, CEFR/IELTS/TOEFL, "perfect", "measured", "verified", creator names and borrowed framework names</td><td>"Your fluency is now B2"</td></tr>
+    <tr><td>Safety, length, language</td><td>Safety lexicon; maximum length; English output</td><td>Offensive or off-topic text</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §4.2 CMP-85, §4.3 grounding algorithm, §4.8 prompt rules.</p>
+
+<h2>20.6 Data model</h2>
+
+<p>The augmentation layer leaves the eighteen existing entities untouched; the attempt record stays immutable and deterministic. AI data goes into two new local entities in <code>sensitive.db</code>, which is excluded from backup. AI suggestions can quote the transcript, so they are treated like the transcript itself (class C1).</p>
+
+<table class="compact">
+  <thead><tr><th>ID</th><th>Entity</th><th>Holds</th><th>Synced</th><th>Backup</th></tr></thead>
+  <tbody>
+    <tr><td class="id">ENT-19</td><td>AiSuggestion (<code>ai_suggestion</code>)</td><td>Feature, <code>feedback_source</code> (AI on-device or cloud), provider, <code>ai_model_version</code> as reported (never guessed), prompt template and version, evaluation and content version, input fingerprint, validation result, output text (only when passed), latency, rating and report</td><td>Never</td><td>Excluded</td></tr>
+    <tr><td class="id">ENT-20</td><td>AiUsageDay (<code>ai_usage_day</code>)</td><td>Daily counters per feature and provider: requests, passes, rejections by reason, fallbacks, latency buckets, ratings, estimated tokens</td><td>Never</td><td>Excluded</td></tr>
+    <tr><td class="id">ENT-03 (+)</td><td>Attempt — UC-AI-1 only</td><td>Two nullable provenance columns: <code>transcript_source</code> and <code>recogniser_model_version</code></td><td>No</td><td>Included</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Export.</strong> The ARC-03 export gains optional fields only, so <code>formatVersion</code> stays 1. Every deterministic feedback item carries <code>source: "DETERMINISTIC"</code>, which makes the honesty boundary visible in the file. Passed AI suggestions are exported under <code>aiSuggestions[]</code> with their label, source, provider and model version. The "not included" list adds the exact prompts (only a fingerprint is kept) and rejected outputs (only the reason is kept).</p>
+<p><strong>Deletion.</strong> AI suggestions are deleted with their attempt, with the attempt's transcript (because they may quote it), by "Delete AI suggestions", by Clear history, by sign-out with "Remove from this device", and by account or local-data deletion. Turning a feature off offers to delete its past suggestions, and this option is on by default.</p>
+<p class="src">ARC-06 §5.1–§5.10; ARC-03 §3.0, §8.4, §10.7; SEC-01 §3.1, §6.4.</p>
+
+<h2>20.7 Privacy design</h2>
+
+<table class="compact">
+  <thead><tr><th>Use case</th><th>What is processed</th><th>Leaves the device?</th><th>To whom</th><th>Account mode</th></tr></thead>
+  <tbody>
+    <tr><td>UC-AI-1 on-device ASR</td><td>Audio → transcript</td><td><strong>No</strong> (model download only)</td><td>AICore model delivery, or an approved model host</td><td>Both, after opt-in</td></tr>
+    <tr><td>UC-AI-2/3, UC-AI-4 on-device</td><td>Tip text, issue codes, transcript</td><td><strong>No</strong> — "processed locally" (VERIFIED, ML Kit GenAI)</td><td>—</td><td>Both, after opt-in</td></tr>
+    <tr><td>UC-AI-4 cloud (option C)</td><td>Activity prompt, <strong>redacted transcript text</strong>, framework, issue codes</td><td><strong>Yes — text only, never audio</strong></td><td>Google via Firebase AI Logic and the Gemini API, under verified terms</td><td><strong>Signed-in only</strong></td></tr>
+    <tr><td>UC-AI-7 authoring</td><td>The Product Owner's own notes</td><td>No app data involved</td><td>The approved tool's provider</td><td>n/a</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Never sent to any AI provider:</strong> audio in any form, account identifiers (uid, e-mail, name, device id), profile fields, history and other attempts, metric values (only bands and numbers already shown), file paths, consent records, location and advertising ID.</p>
+
+<div class="callout note">
+  <span class="title">No-account mode (D-41 recommendation)</span>
+  On-device features are available after the user opts in, because they make no SpeakCraft network call and keep SEC-REQ-02 true. Cloud AI is not offered without an account, for four reasons: the no-account mode promises network silence; per-user quotas and abuse controls need an identity; a cloud call would also start Firebase traffic (App Check, Installations); and the user who chose the most private mode should keep it. The deterministic feedback is complete without AI anyway.
+</div>
+
+<h3>Cloud consent (modelled on the T3a disclosure)</h3>
+
+<p>Cloud use needs its own consent for each feature, separate from the on-device opt-in. It follows SEC-01 §7.3 element by element. The thirteen mandatory elements (CA-1…CA-13) cover: <strong>what</strong> is sent (the transcript text, the question and the names of the checks; never audio or account data); <strong>to whom</strong> (the provider, whose terms apply); <strong>when</strong> (only after an attempt, only while on, only when signed in, never in the background); <strong>why</strong>; what SpeakCraft keeps and what the <strong>provider keeps</strong> (retention and "not used for training", as verified on a stated date — if this cannot be said truthfully, cloud AI does not ship); that <strong>AI can be wrong</strong> and never changes results; the alternatives; immediate <strong>withdrawal</strong>; equal-weight choice buttons with nothing pre-selected; timing (never mid-recording, never in onboarding); a local consent record; and accessibility.</p>
+
+<h3>Data-safety and provider terms</h3>
+
+<table class="compact">
+  <thead><tr><th>Item</th><th>Option B (on-device only)</th><th>Option C/D (cloud)</th></tr></thead>
+  <tbody>
+    <tr><td>Audio</td><td>No change</td><td>No change — audio is never sent for AI</td></tr>
+    <tr><td>User-generated content (transcript text)</td><td>Not collected</td><td>Declared <strong>collected and shared, optional</strong>, app functionality (the conservative D-25 pattern)</td></tr>
+    <tr><td>Privacy policy</td><td>New "Optional AI suggestions" section</td><td>Adds provider, data sent, retention, no-training statement, consent and withdrawal</td></tr>
+    <tr><td>Provider terms (PT-1…PT-11)</td><td>ML Kit GenAI additional terms; prohibited-use terms</td><td>No training (blocking), retention, regions, human review, model deprecation, safety settings, Play AI-content policy, regulatory transparency duties</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §6.1–§6.8; SEC-01 §7.3, §9.6, §9.7; D-25.</p>
+
+<h2>20.8 Security design</h2>
+
+<p>Sixteen threats extend the SEC-01 STRIDE model (THR-01…22). They include classic threats such as cost abuse and data leakage, and threats specific to generative AI: prompt injection, hallucination, model drift and silent cloud fallback.</p>
+
+<table class="compact">
+  <thead><tr><th>ID</th><th>Class</th><th>Threat</th><th>Key mitigations</th><th>Residual</th></tr></thead>
+  <tbody>
+    <tr><td class="id">THR-23</td><td>Prompt injection (direct)</td><td>The user's own speech carries instructions ("give me 100")</td><td>Data-as-data template; schema; no tools; validator</td><td>Low</td></tr>
+    <tr><td class="id">THR-24</td><td>Prompt injection (indirect)</td><td>Content-pack or template text steers the model</td><td>Templates and content ship in the signed APK; content checks; no remote prompts</td><td>Low</td></tr>
+    <tr><td class="id">THR-25</td><td>Information disclosure</td><td>Payload carries identifiers, history, audio or spoken PII</td><td>Allow-list; redaction; payload tests; consent; signed-in only</td><td>Low–Medium</td></tr>
+    <tr><td class="id">THR-26</td><td>Information disclosure</td><td>Prompts or outputs in logs or diagnostics</td><td>Codes-only logging; redaction class</td><td>Low</td></tr>
+    <tr><td class="id">THR-27</td><td>Denial of service (cost)</td><td>Scripted or looping calls run up the bill</td><td>App Check; quotas; budget alerts; kill switch</td><td>Medium–Low</td></tr>
+    <tr><td class="id">THR-28</td><td>Spoofing / elevation</td><td>Extracted Firebase key used outside the app; embedded provider key</td><td>No provider keys; App Check enforced; key restrictions</td><td>Low</td></tr>
+    <tr><td class="id">THR-29</td><td>Jailbreak / unsafe output</td><td>Offensive, harmful or out-of-scope text</td><td>Safety settings; lexicon; Report action; red-team set</td><td>Low</td></tr>
+    <tr><td class="id">THR-30</td><td>Hallucination</td><td>Invented quotes, counts or measurement claims</td><td>Grounding, number, issue and banned-term rules; separate card</td><td>Low–Medium</td></tr>
+    <tr><td class="id">THR-31</td><td>Model drift</td><td>Provider or AICore update silently changes behaviour</td><td>Pinned cloud models; version per row; allow-list and canary; regression</td><td>Medium</td></tr>
+    <tr><td class="id">THR-32</td><td>Resource exhaustion</td><td>Battery, heat, <code>BUSY</code>, quota errors</td><td>Foreground only; one call per feature; timeouts; no retry loops</td><td>Low</td></tr>
+    <tr><td class="id">THR-33</td><td>Silent cloud fallback</td><td>A "prefer on-device" mode falls back to the cloud without consent</td><td>On-device-only mode unless consent is valid; no cloud SDK in option B</td><td>Low</td></tr>
+    <tr><td class="id">THR-34</td><td>Stale consent</td><td>Call after withdrawal, sign-out or disclosure change</td><td>Re-check before each call; versioned records; cancel in-flight calls</td><td>Low</td></tr>
+    <tr><td class="id">THR-35</td><td>Privacy misrepresentation</td><td>Disclosures drift from behaviour; provider terms change</td><td>Privacy facts from flags; per-release terms check</td><td>Low</td></tr>
+    <tr><td class="id">THR-36</td><td>D-08 breach</td><td>AI paraphrases creator transcripts into content</td><td>Notes-only input; human verification; PENDING_REVIEW</td><td>Low</td></tr>
+    <tr><td class="id">THR-37</td><td>Tampered model file</td><td>Downloaded ASR model replaced</td><td>Bundle or SHA-256-pinned download; fail closed</td><td>Low</td></tr>
+    <tr><td class="id">THR-38</td><td>Repudiation</td><td>No record of which model and prompt produced an output</td><td>ENT-19 provenance fields</td><td>Low</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §7.1–§7.2; SEC-01 §11.</p>
+
+<p>The threats map to twenty-three testable requirements, <strong>AI-SEC-01…AI-SEC-23</strong>. SEC-01 would adopt them as SEC-REQ-41 onward. The most important are: "no AI" is the default (01); no provider keys, and App Check enforced before any cloud build (02, 03); cloud-capable modes only with valid consent (04); allow-listed payloads (05) and never audio (06); schema output and mechanical validation (07, 08); no write or read path into evaluation, plan, progress or pass/fail code (09); labelling (10); per-feature consent (11); no cloud in no-account mode (12); quotas, kill switch and PII-free logging (13–15); pinned model versions (16); single turn with no tools (17); model-file integrity (19); and classpath control (20).</p>
+
+<table class="compact">
+  <thead><tr><th>Control</th><th>Operating design</th></tr></thead>
+  <tbody>
+    <tr><td>App Check</td><td>Enforced for Firebase AI Logic from the first cloud build, with Play Integrity. Enforcement is per service, so D-26's Firestore criteria need not block it</td></tr>
+    <tr><td>Quotas †</td><td>1 call per feature per attempt; ≤ 4 per minute; ≤ 40 per day on-device and ≤ 20 per day in the cloud per user; monthly cloud cap; budget alerts at 50/90/100 %</td></tr>
+    <tr><td>Kill switch</td><td>(1) compile-time <code>FEATURE_AI_*</code> flags; (2) local switches and a shipped known-good model list, with a three-prompt canary for unknown on-device model versions; (3) Remote Config (if its ADR is approved) or a provider-side switch for cloud features</td></tr>
+    <tr><td>Logging</td><td>Codes only (<code>AI_REJECTED{feature, reason}</code> and similar); prompts, transcripts and outputs are never logged</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §7.3–§7.4.</p>
+
+<h2>20.9 User experience</h2>
+
+<table class="compact">
+  <thead><tr><th>Topic</th><th>Proposal</th></tr></thead>
+  <tbody>
+    <tr><td>Placement</td><td>One "AI suggestion" card <strong>directly below Coach tips</strong>, above the optional self-check and the actions. It never replaces, hides or reorders the deterministic sections. When AI is off, the card does not exist</td></tr>
+    <tr><td>Late arrival</td><td>A compact "Preparing an AI suggestion…" placeholder for at most 4 s † on-device or 8 s † in the cloud. Then the card appears, or one quiet line says it is not available this time. Nothing blocks the actions</td></tr>
+    <tr><td>Label and badge (DES-05)</td><td>New badge variant "AI suggestion" with an outline and the sparkle icon, which is reserved for genuine AI only (DES-05 already forbids it on coach tips). Caveat line: "Made by an AI model on this phone. It can be wrong and doesn't change your results"</td></tr>
+    <tr><td>Wording</td><td>UC-AI-3 items start with "Possible"; UC-AI-4 uses plain categories ("Answers the question: partly") and an example marked "Example:"; no numbers</td></tr>
+    <tr><td>Rating</td><td>"Was this accurate?" on the card, separate from the result-level question; "Report" hides the card for that attempt</td></tr>
+    <tr><td>Settings</td><td>A new "AI suggestions" sub-screen: a master switch, a toggle per feature with truthful availability, online consent status, and "Delete AI suggestions"</td></tr>
+    <tr><td>Onboarding</td><td>Stays AI-free. Discovery is through Settings, plus at most one dismissible first-use tip after the fifth valid attempt † on capable devices</td></tr>
+    <tr><td>Accessibility</td><td>Merged semantics with the label read first (A11Y-07); a polite live region announces late arrival without moving focus (A11Y-08, A11Y-09); 200 % font (A11Y-13); 48 dp targets (A11Y-19); badge text mandatory (A11Y-23)</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §8; DES-05 §11.14–§11.15b, §12.2–§12.3, §13.4 G-7.</p>
+
+<h2>20.10 Quality, evaluation and rollout</h2>
+
+<p>AI is kept only if it measurably helps. Each feature has golden sets and a human rubric, and must pass explicit gates before it reaches the next audience.</p>
+
+<table class="compact">
+  <thead><tr><th>Golden set</th><th>Content</th><th class="num">Size †</th></tr></thead>
+  <tbody>
+    <tr><td>GS-AI-TIP</td><td>Attempts with deterministic issues and tips (UC-AI-2)</td><td class="num">≥ 200</td></tr>
+    <tr><td>GS-AI-LANG</td><td>SPK-02 rule corpus plus annotated unpunctuated transcripts (UC-AI-3)</td><td class="num">≥ 300</td></tr>
+    <tr><td>GS-AI-CONTENT</td><td>Prompt and answer pairs with relevance and depth labels (UC-AI-4)</td><td class="num">≥ 150</td></tr>
+    <tr><td>RT-AI</td><td>Red-team transcripts: injection, score requests, offensive and personal content</td><td class="num">≥ 120</td></tr>
+    <tr><td>ASR-EP</td><td>SPK-01 utterances plus error-bearing utterances (UC-AI-1)</td><td class="num">80</td></tr>
+  </tbody>
+</table>
+
+<table class="compact">
+  <thead><tr><th>Check</th><th>Target †</th></tr></thead>
+  <tbody>
+    <tr><td>Rubric</td><td>Faithfulness, groundedness, helpfulness, tone, honesty and safety. Any groundedness, honesty or safety failure fails the item</td></tr>
+    <tr><td>Schema compliance / validator pass rate</td><td>≥ 98 % / ≥ 85 % (below this, the call is not worth making)</td></tr>
+    <tr><td>Ungrounded quotes or scores shown to users</td><td><strong>0</strong></td></tr>
+    <tr><td>UC-AI-3 precision of shown "Possible" items</td><td>≥ 0.70 (deterministic rules keep ≥ 0.90)</td></tr>
+    <tr><td>UC-AI-1 error preservation</td><td>≥ 90 %; filler retention at least the platform recogniser's</td></tr>
+    <tr><td>Latency p50 / p95</td><td>On-device ≤ 1.5 s / ≤ 3 s; cloud ≤ 3 s / ≤ 6 s</td></tr>
+    <tr><td>Battery</td><td>≤ 1 % per 10 attempts with all on-device features on</td></tr>
+  </tbody>
+</table>
+
+<figure>
+<svg viewBox="0 0 680 318" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI" role="img" aria-label="Rollout timeline: no AI in R1 and R2; R3 decision point; on-device lane through gates AG-0 to AG-3; conditional cloud lane later">
+  <defs>
+    <marker id="m20d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4054A6"/></marker>
+    <marker id="m20e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#74546F"/></marker>
+  </defs>
+  <!-- release bands -->
+  <rect x="10" y="10" width="140" height="26" rx="5" fill="#FFFFFF" stroke="#C6C5D0"/>
+  <text x="80" y="27" font-size="10" font-weight="600" fill="#5A5D72" text-anchor="middle">R1 · no AI · hooks only</text>
+  <rect x="156" y="10" width="140" height="26" rx="5" fill="#FFFFFF" stroke="#C6C5D0"/>
+  <text x="226" y="27" font-size="10" font-weight="600" fill="#5A5D72" text-anchor="middle">R2 · no AI</text>
+  <rect x="302" y="10" width="368" height="26" rx="5" fill="#DEE1FF" stroke="#4054A6"/>
+  <text x="486" y="27" font-size="10" font-weight="600" fill="#142166" text-anchor="middle">R3+ · conditional (ADR-016 · D-37…D-41)</text>
+  <!-- lane 1 -->
+  <text x="10" y="62" font-size="10" font-weight="600" fill="#142166">On-device lane (option B)</text>
+  <line x1="20" y1="104" x2="300" y2="104" stroke="#C6C5D0" stroke-width="2" stroke-dasharray="6 4"/>
+  <line x1="300" y1="104" x2="668" y2="104" stroke="#4054A6" stroke-width="2" marker-end="url(#m20d)"/>
+  <text x="160" y="124" font-size="9" fill="#5A5D72" text-anchor="middle">deterministic coach only; optional seams H-1…H-8</text>
+  <circle cx="300" cy="104" r="6" fill="#142166"/>
+  <text x="300" y="80" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">R3 decision point</text>
+  <text x="300" y="91" font-size="9" fill="#5A5D72" text-anchor="middle">D-37 · D-40 · D-41 (G1)</text>
+  <rect x="374" y="98" width="12" height="12" fill="#4054A6" transform="rotate(45 380 104)"/>
+  <text x="380" y="128" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-0 spikes</text>
+  <text x="380" y="139" font-size="9" fill="#5A5D72" text-anchor="middle">SPK-03 · SPK-04</text>
+  <rect x="464" y="98" width="12" height="12" fill="#4054A6" transform="rotate(45 470 104)"/>
+  <text x="470" y="80" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-1 internal</text>
+  <text x="470" y="91" font-size="9" fill="#5A5D72" text-anchor="middle">ADR-016 (B) · §9.7 review</text>
+  <rect x="554" y="98" width="12" height="12" fill="#4054A6" transform="rotate(45 560 104)"/>
+  <text x="560" y="128" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-2 beta opt-in</text>
+  <text x="560" y="139" font-size="9" fill="#5A5D72" text-anchor="middle">UC-AI-1 · 2 · 3</text>
+  <rect x="638" y="98" width="12" height="12" fill="#4054A6" transform="rotate(45 644 104)"/>
+  <text x="664" y="80" font-size="9" font-weight="600" fill="#142166" text-anchor="end">AG-3 general opt-in</text>
+  <text x="664" y="91" font-size="9" fill="#5A5D72" text-anchor="end">still default off</text>
+  <!-- lane 2 -->
+  <text x="10" y="166" font-size="10" font-weight="600" fill="#74546F">Cloud lane (option C — only after the on-device lane shows value)</text>
+  <line x1="380" y1="206" x2="668" y2="206" stroke="#74546F" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#m20e)"/>
+  <circle cx="400" cy="206" r="6" fill="#FFFFFF" stroke="#74546F" stroke-width="2"/>
+  <text x="400" y="186" font-size="9" font-weight="600" fill="#74546F" text-anchor="middle">Value shown</text>
+  <text x="400" y="197" font-size="9" fill="#5A5D72" text-anchor="middle">ARC-06 §9.6</text>
+  <circle cx="480" cy="206" r="6" fill="#FFFFFF" stroke="#74546F" stroke-width="2"/>
+  <text x="480" y="230" font-size="9" font-weight="600" fill="#74546F" text-anchor="middle">SPK-05 · privacy review</text>
+  <text x="480" y="241" font-size="9" fill="#5A5D72" text-anchor="middle">provider terms PT-1…PT-11</text>
+  <circle cx="560" cy="206" r="6" fill="#FFFFFF" stroke="#74546F" stroke-width="2"/>
+  <text x="560" y="186" font-size="9" font-weight="600" fill="#74546F" text-anchor="middle">D-38 · D-39 (G3)</text>
+  <text x="560" y="197" font-size="9" fill="#5A5D72" text-anchor="middle">Play distribution live</text>
+  <circle cx="644" cy="206" r="6" fill="#FFFFFF" stroke="#74546F" stroke-width="2"/>
+  <text x="664" y="230" font-size="9" font-weight="600" fill="#74546F" text-anchor="end">AG-1 → AG-3</text>
+  <text x="664" y="241" font-size="9" fill="#5A5D72" text-anchor="end">UC-AI-4 online</text>
+  <!-- gate criteria strip -->
+  <rect x="10" y="256" width="160" height="40" rx="5" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="90" y="272" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-0 exit</text>
+  <text x="90" y="286" font-size="9" fill="#5A5D72" text-anchor="middle">spike targets and budgets met</text>
+  <rect x="180" y="256" width="160" height="40" rx="5" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="260" y="272" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-1 exit</text>
+  <text x="260" y="286" font-size="9" fill="#5A5D72" text-anchor="middle">TC-AI pass · red-team 0 shown</text>
+  <rect x="350" y="256" width="160" height="40" rx="5" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="430" y="272" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-2 exit</text>
+  <text x="430" y="286" font-size="9" fill="#5A5D72" text-anchor="middle">≥ 4 weeks · "No" ≤ 10 % †</text>
+  <rect x="520" y="256" width="150" height="40" rx="5" fill="#FFFFFF" stroke="#4054A6"/>
+  <text x="595" y="272" font-size="9" font-weight="600" fill="#142166" text-anchor="middle">AG-3 ongoing</text>
+  <text x="595" y="286" font-size="9" fill="#5A5D72" text-anchor="middle">monthly review · auto-kill Sev-1</text>
+  <text x="340" y="312" font-size="9.5" fill="#5A5D72" text-anchor="middle">The kill switch can return any stage to "no AI" at any time, with no data migration (AI-P10).</text>
+</svg>
+<figcaption><b>Figure 20.3 — Rollout and gates timeline.</b> R1 and R2 carry no AI. At the R3 decision point the Product Owner decides whether to start spikes. On-device features move through gates AG-0 to AG-3. The cloud lane starts only after the on-device lane has shown value and D-38/D-39 are approved. No timescale is implied.</figcaption>
+</figure>
+<p class="src">ARC-06 §9.5, §12.1, §12.6. AG gates are approved at G5 epic reviews (PLN-05).</p>
+
+<table class="compact">
+  <thead><tr><th>Gate</th><th>Audience</th><th>Entry</th><th>Exit (all must hold)</th></tr></thead>
+  <tbody>
+    <tr><td class="id">AG-0</td><td>Lab only</td><td>D-37 approved</td><td>Golden-set targets, latency and battery budgets, device-coverage estimate; go/no-go recorded</td></tr>
+    <tr><td class="id">AG-1</td><td>Developer and Product Owner builds</td><td>ADR-016 and dependency ADRs; SEC-01 §9.7 review</td><td>All applicable TC-AI pass; red-team 0 failures; fresh rubric sample passes</td></tr>
+    <tr><td class="id">AG-2</td><td>Beta testers, feature default off</td><td>Disclosures updated; kill switch tested; for cloud: App Check enforced, budget alerts, provider terms recorded</td><td>≥ 4 weeks †; AI-card "No" ≤ 10 % †; reports ≤ 0.5 % †; no Sev-1; no drop in deterministic-feedback ratings vs control</td></tr>
+    <tr><td class="id">AG-3</td><td>All capable devices, still default off</td><td>G6/G7 release approval</td><td>Monthly review; automatic kill on a Sev-1 incident</td></tr>
+  </tbody>
+</table>
+
+<p>ARC-06 proposes thirty-two test cases, <strong>TC-AI-001…TC-AI-032</strong> <span class="tag notrun">Not run</span>. Among them: core loop with all AI off; byte-identical results with and without AI; hybrid-mode gating; payload allow-list; grounding, number and banned-term rules; the separation import check; label placement; consent sheet; no-account network silence; timeout and <code>BUSY</code> fallback; kill-switch layers; quotas; logs; model-version canary; red-team; model-file integrity; classpath; export and deletion; UC-AI-3 isolation from M-GRAM; UC-AI-1 error preservation; and accessibility of the card. TST-01 adopts them after approval.</p>
+<p class="src">ARC-06 §9.1–§9.7.</p>
+
+<h2>20.11 Cost and operations</h2>
+
+<p>On-device inference has no per-call server cost (VERIFIED on the ML Kit GenAI page). Its costs are battery, model storage, device fragmentation and the churn of alpha and beta APIs. Cloud cost depends on tokens. The design states a formula, not prices, which are taken from the provider's price list at decision time.</p>
+
+<pre>Monthly cloud cost ≈ U × A × r × [ (T_in × P_in) + (T_out × P_out) ] + C_fixed
+
+U  = signed-in users with the cloud feature consented      A = eligible valid attempts per user per month
+r  = share of eligible attempts that call the cloud (≤ 1)  T_in ≈ template (~400 †) + transcript (~1.3 tokens/word †) + context (~50 †)
+T_out ≤ max output tokens (~200 †)                          P_in, P_out = prices of the pinned model at D-39
+C_fixed = proxy infrastructure (option D only) + monitoring
+
+Upper bound per user per month = daily cloud quota (20 †) × 30 × [(T_in × P_in) + (T_out × P_out)]</pre>
+
+<table class="compact">
+  <thead><tr><th>Operations topic</th><th>Design</th></tr></thead>
+  <tbody>
+    <tr><td>Monitoring without an analytics SDK (ADR-013)</td><td>ENT-20 counters on each device, shared only in the user-initiated, previewed "Share my beta summary"; aggregate provider-console metrics (to verify); GCP budget alerts. No prompts, transcripts or outputs are ever collected centrally</td></tr>
+    <tr><td>Incident response</td><td>Sev-1 (harmful output, ungrounded quote or score shown, adverse provider-terms change): kill the feature, fix the template or validator, add a regression test, re-enter at AG-1. Sev-2 (cost spike, model drift): lower quotas or remove the model version from the allow-list. Sev-3 (API deprecation): feature off until updated</td></tr>
+    <tr><td>Model updates and pinning</td><td>Cloud models pinned by explicit version name with no "latest" aliases. AICore updates on-device models outside the app, so the app records the reported version, checks the allow-list and runs a canary for unknown versions. Prompt templates are versioned in the APK; each change re-runs the golden sets</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §10.1–§10.5.</p>
+
+<h2>20.12 Hooks R1 and R2 can include at near-zero cost</h2>
+
+<p>These preparations add no dependency, network call, data flow or visible behaviour, so they need no ADR, privacy review or D-37. Each still amends a design document, so it goes through that document's normal approval: G3 for ARC-02, ARC-03 and ARC-04, and G2 for DES-05. The Product Owner can decline them; the cost would then be a small refactor in R3.</p>
+
+<table class="compact">
+  <thead><tr><th>Hook</th><th>What</th><th class="num">Cost †</th><th>Approval</th></tr></thead>
+  <tbody>
+    <tr><td class="id">H-1</td><td><code>FeedbackEnhancer</code> seam with a no-op binding (CMP-89)</td><td class="num">0.5 d</td><td>ARC-02 amendment (G3)</td></tr>
+    <tr><td class="id">H-2</td><td>Reserved enum values (<code>FeedbackSource</code>, <code>TranscriptSource</code>, <code>ConsentPurpose</code>); export carries <code>source: "DETERMINISTIC"</code>; no new tables or columns</td><td class="num">0.25 d</td><td>ARC-03 §11 amendment (G3)</td></tr>
+    <tr><td class="id">H-3</td><td>"AI suggestion" reserved, unused, in the DES-05 vocabulary</td><td class="num">0 d</td><td>DES-05 amendment (G2)</td></tr>
+    <tr><td class="id">H-4</td><td>T3a consent store generalised to one record per purpose; T3a behaviour unchanged</td><td class="num">1 d</td><td>ARC-04 §5.20 and ARC-02 amendment (G3)</td></tr>
+    <tr><td class="id">H-5</td><td><code>evaluationVersion</code> and <code>contentVersion</code> — already in the design</td><td class="num">0 d</td><td>None (existing)</td></tr>
+    <tr><td class="id">H-6</td><td>Import rule: evaluation packages may never import <code>app.speakcraft.ai</code></td><td class="num">0.1 d</td><td>ARC-02 §2.2 amendment (G3)</td></tr>
+    <tr><td class="id">H-7, H-8</td><td>Privacy facts keyed by flag; log redaction by text class — already implied</td><td class="num">0 d</td><td>None (existing)</td></tr>
+  </tbody>
+</table>
+<p>Deliberately <strong>not</strong> included in R1/R2: any ML Kit, Firebase AI or Remote Config dependency, <code>FEATURE_AI_*</code> flags, the ENT-19/20 tables and any AI string resource. Including them would conflict with ADR-003, SEC-REQ-28 and RD-16 change control.</p>
+<p class="src">ARC-06 §11.</p>
+
+<h2>20.13 Roadmap, spikes and the proposed epic</h2>
+
+<table class="compact">
+  <thead><tr><th>Spike</th><th>Question</th><th>Go criteria †</th><th class="num">Size †</th></tr></thead>
+  <tbody>
+    <tr><td class="id">SPK-03 (re-scoped)</td><td>Can an on-device AI recogniser (GenAI basic/advanced, or Whisper-class) improve transcripts without hiding errors?</td><td>WER at least 3 points better than the platform recogniser; error preservation ≥ 90 %; no network traffic; locale coverage beyond en-US</td><td class="num">6–10 d</td></tr>
+    <tr><td class="id">SPK-04</td><td>Is on-device tip rewording and proofreading good, fast and widely available enough?</td><td>Validator pass ≥ 85 %; rubric targets; latency and battery budgets; zero red-team failures shown</td><td class="num">5–8 d</td></tr>
+    <tr><td class="id">SPK-05</td><td>Is cloud content feedback accurate, safe, affordable and private?</td><td>Rubric; "no training" and retention confirmed in writing; App Check enforced; cost bound within budget</td><td class="num">6–9 d</td></tr>
+  </tbody>
+</table>
+
+<p><strong>EP-28 "Optional AI augmentation (R3+, conditional)"</strong> <span class="tag proposed">Proposed</span> has fifteen tasks (T-28.1…T-28.15). They cover decisions and ADRs, the privacy review, the spikes, the core layer, the on-device provider, prompts, the validator, storage and migration, UI, tests, disclosures, rollout, UC-AI-1 integration, the conditional cloud work and the authoring-assistant process. Preliminary totals †: about <strong>37–53 days</strong> for option B, plus 6–9 days for UC-AI-1 and 10–15 days for option C. This competes with the other R3 epics (EP-25 store launch, EP-26 video self-review, EP-27 recognition research) and with single-developer capacity (RSK-06).</p>
+<p class="src">ARC-06 §12.2–§12.6; PLN-02 (EP-25…27).</p>
+
+<h2>20.14 Decisions the Product Owner would need to make</h2>
+
+<table class="compact">
+  <thead><tr><th>ID</th><th>Decision</th><th>Options</th><th>Recommendation</th><th>Gate</th></tr></thead>
+  <tbody>
+    <tr><td class="id">D-37</td><td>Pursue an optional AI layer in R3?</td><td>No AI ever · yes, optional and gated · defer</td><td><strong>Yes in principle, evidence first:</strong> approve the spikes; build only after AG-0. R1/R2 unchanged</td><td>G1 for R3, after R2 GA</td></tr>
+    <tr><td class="id">D-38</td><td>On-device only, or hybrid with cloud?</td><td>On-device only · hybrid · cloud only</td><td><strong>On-device only first</strong> (ADR-016 option B); hybrid only after value is shown, SPK-05, a privacy review and D-39; cloud-only rejected</td><td>G3 for R3</td></tr>
+    <tr><td class="id">D-39</td><td>Cloud access path</td><td>Firebase AI Logic + enforced App Check · backend proxy</td><td><strong>Firebase AI Logic + App Check</strong> if cloud is approved; requires Play distribution and confirmed provider terms</td><td>G3 for R3, after SPK-05</td></tr>
+    <tr><td class="id">D-40</td><td>Which use cases first?</td><td>UC-AI-1/2/3 on-device · UC-AI-4 first · none</td><td><strong>UC-AI-1, then UC-AI-2 and UC-AI-3, on-device</strong>; UC-AI-4 later; UC-AI-5, 6 and 8 not pursued</td><td>G1 for R3</td></tr>
+    <tr><td class="id">D-41</td><td>AI in no-account mode</td><td>None · on-device after opt-in, no cloud · both with consent</td><td><strong>On-device after opt-in; no cloud</strong></td><td>G1 for R3, with the SEC-01 review</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §13; ADR-016 Decision. All decisions <span class="tag pending">Pending — Product Owner</span>.</p>
+
+<h2>20.15 Risks</h2>
+
+<table class="compact">
+  <thead><tr><th>ID</th><th>Risk</th><th>Prob.</th><th>Impact</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td class="id">RSK-19</td><td>AI suggestions wrong or ungrounded, eroding trust in the whole coach</td><td>Medium</td><td>High</td><td>Grounding and number rules; separate card; AG gates; kill switch</td></tr>
+    <tr><td class="id">RSK-20</td><td>Users read AI text as measured results</td><td>Medium</td><td>High</td><td>Badge and caveat; no numbers; placement; copy testing</td></tr>
+    <tr><td class="id">RSK-21</td><td>Few target-segment devices support AICore/Gemini Nano</td><td>High</td><td>Medium</td><td>Honest availability; complete deterministic path; coverage estimate before building</td></tr>
+    <tr><td class="id">RSK-22</td><td>Alpha, beta and experimental APIs change or disappear</td><td>High</td><td>Medium</td><td>One provider interface; flags; no core dependency</td></tr>
+    <tr><td class="id">RSK-23</td><td>Cloud cost overrun or abuse</td><td>Medium</td><td>High</td><td>App Check; signed-in only; quotas; budget alerts</td></tr>
+    <tr><td class="id">RSK-24</td><td>Provider terms or regulation change</td><td>Medium</td><td>High</td><td>Terms check every release; disable on adverse change</td></tr>
+    <tr><td class="id">RSK-25</td><td>AI work displaces core-loop quality or R3 priorities</td><td>High</td><td>High</td><td>Nothing before the R3 decision point; spikes first</td></tr>
+    <tr><td class="id">RSK-26</td><td>Silent model drift</td><td>Medium</td><td>Medium</td><td>Version recording; allow-list and canary; pinned cloud models</td></tr>
+    <tr><td class="id">RSK-27</td><td>GenAI speech recognition lacks en-GB, en-IN and en-AU coverage</td><td>High</td><td>Medium</td><td>Per-locale SPK-03 tests; keep platform tiers per locale</td></tr>
+    <tr><td class="id">RSK-28</td><td>Store-policy non-compliance for AI-generated content</td><td>Low</td><td>High</td><td>In-app Report action; policy check before any AI release</td></tr>
+  </tbody>
+</table>
+<p class="src">ARC-06 §14 (proposed additions to the PLN-04 RAID log, which ends at RSK-18).</p>
+
+<div class="callout ok">
+  <span class="title">In one paragraph</span>
+  SpeakCraft can add AI later without becoming a different product. The deterministic coach stays the source of truth, and AI may only add a separate, labelled, grounded and rateable suggestion. The order is on-device first, starting with better transcripts, then reworded tips and "Possible" wording suggestions. Cloud content feedback comes only after a separate consent, a privacy review, verified provider terms and an attested Play build. Every step has a gate and a kill switch. Nothing changes in R1 or R2 except, if the Product Owner agrees, a few no-cost seams.
+</div>
+<p class="src">ARC-06 v0.1; ADR-016. External facts checked on 2026-11-21 at developers.google.com/ml-kit/genai, developers.google.com/ml-kit/genai/speech-recognition/android and firebase.google.com/docs/ai-logic/hybrid/android/get-started; also cited: developer.android.com/ai/hybrid. Re-verify at spike time.</p>
+
+</section>
+<!-- APPEND-HERE -->

@@ -22,6 +22,15 @@ $part = [System.IO.File]::ReadAllText($frag, [System.Text.Encoding]::UTF8)
 $part = $part -replace "<!-- APPEND-HERE -->", ""
 if ($main -notmatch "<!-- PART-III-IV-HERE -->") { throw "Marker PART-III-IV-HERE missing in book2_system_design.html" }
 $main = $main.Replace("<!-- PART-III-IV-HERE -->", $part).Replace("<!-- APPEND-HERE -->", "")
+# Insert Part V (future AI design, Chapter 20) before Appendix A, if present.
+$ai = Join-Path $src "book2_part5_ai_fragment.html"
+if (Test-Path $ai) {
+  $aiHtml = [System.IO.File]::ReadAllText($ai, [System.Text.Encoding]::UTF8) -replace "<!-- APPEND-HERE -->", ""
+  $anchor = '<section class="chapter" id="appA">'
+  $pos = $main.IndexOf($anchor)
+  if ($pos -lt 0) { throw "Appendix A anchor not found for Part V insertion" }
+  $main = $main.Insert($pos, $aiHtml + "`n")
+}
 [System.IO.File]::WriteAllText($b2full, $main, (New-Object System.Text.UTF8Encoding($false)))
 
 # 2. Render.

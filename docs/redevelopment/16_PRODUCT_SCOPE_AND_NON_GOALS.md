@@ -52,7 +52,7 @@ Platform/engineering capabilities without a user-facing feature spec (covered in
 
 | NG | Non-goal | Reason |
 |---|---|---|
-| NG-01 | **Cloud AI or LLM-based evaluation, chat or generation** | Product Owner constraint (PO-REQ-1119 §"Critical architecture requirements" 3, 4, 7; PO-REQ-1120 §9.5). Any future proposal needs an ADR, privacy review and explicit authorisation |
+| NG-01 | **Cloud AI or LLM-based evaluation, chat or generation** | Product Owner constraint (PO-REQ-1119 §"Critical architecture requirements" 3, 4, 7; PO-REQ-1120 §9.5). Any future proposal needs an ADR, privacy review and explicit authorisation. The future design for an **optional** AI layer (R3+, on-device first, never mandatory, never producing scores) is ARC-06 with ADR-016; NG-01 stays in force for R1–R2 unless D-37…D-41 change it |
 | NG-02 | **Open-ended conversational "AI tutor" or chatbot** | Cannot be done honestly on-device today; the current template "Mentor" misrepresents itself (PP-1) |
 | NG-03 | **Phoneme-level pronunciation scoring or accent rating** | Requires acoustic models not available on-device; recognition agreement must not be presented as pronunciation (SRS-BR-004) |
 | NG-04 | **Exam band prediction (IELTS, TOEFL, CEFR certification)** | Requires validated scoring; would be dishonest (PP-1) |

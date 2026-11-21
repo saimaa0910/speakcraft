@@ -111,6 +111,7 @@ Every new document begins with the table: Document ID, Version, Date, Status, Ow
 | Evaluation issue codes, tip selection, metric bands | ARC-05 §6, §8.4 | FS-05, FS-07, DES-05/06, ARC-02/03, TST-01 |
 | Content schema (techniques, tips, provenance, `licenceStatus`) | ARC-03 §6 (+ SRS-BR-028 rule) | FS-06, CNT-01 |
 | Inventory of existing creator-derived content and its verification | CNT-01 Technique Catalogue Audit | PLN-02 EP-09 |
+| Future (R3+) AI design: providers, privacy, security, evaluation, rollout | ARC-06 (proposed; becomes binding only after D-37…D-41 and ADR-016) | RD-16 NG-01, PLN-02 EP-28 |
 | Work items, estimates, sequence | PLN-02 WBS + PLN-01 Roadmap | Sprint plan |
 | Risks, assumptions, issues, dependencies | PLN-04 RAID | All |
 | Open decisions requiring approval | RD-99 Final Review §8 | All |
@@ -160,7 +161,8 @@ Every new document begins with the table: Document ID, Version, Date, Status, Ow
 | ARC-03 | `docs/architecture/DATABASE_DESIGN.md` | Database Design | Database Architect | Draft |
 | ARC-04 | `docs/architecture/API_AND_INTEGRATION_SPEC.md` | API and Integration Specification | Solution Architect | Draft |
 | ARC-05 | `docs/architecture/LOCAL_INTELLIGENCE_ARCHITECTURE.md` | Local Intelligence Architecture | AI/ML Engineer | Draft |
-| ADR-nnn | `docs/architecture/ADR/` | Architecture Decision Records | Solution Architect | Proposed |
+| ADR-nnn | `docs/architecture/ADR/` | Architecture Decision Records (ADR-001…ADR-016) | Solution Architect | Proposed |
+| ARC-06 | `docs/architecture/AI_FUTURE_ARCHITECTURE.md` | Future AI Architecture — optional AI layer for R3+ (added 2026-11-21 at the Product Owner's request) | Solution Architect / AI/ML Engineer | Proposed — future, conditional (D-37…D-41) |
 | SEC-01 | `docs/security/SECURITY_DESIGN.md` | Security Design | Security Engineer | Draft |
 | TST-01 | `docs/testing/TEST_STRATEGY.md` | Test Strategy | QA Architect | Draft |
 | ENG-01 | `docs/engineering/DEVOPS_AND_RELEASE_PLAN.md` | DevOps and Release Plan | DevOps / Release Engineer | Draft |

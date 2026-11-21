@@ -31,3 +31,4 @@ Format for each ADR: Context · Problem · Options · Decision (proposed) · Con
 | [ADR-013](ADR-013_product_analytics.md) | Product success measurement and analytics | Possible new dependency | D-09 | Proposed — requires approval |
 | [ADR-014](ADR-014_sync_and_conflict_model.md) | Sync and conflict-resolution model | Architecture | — | Proposed — requires approval |
 | [ADR-015](ADR-015_recording_storage_retention.md) | Recording storage format and retention | Architecture / privacy | D-10 | Proposed — requires approval |
+| [ADR-016](ADR-016_optional_ai_augmentation_layer.md) | Optional AI augmentation layer (future, R3+; design ARC-06) | Possible new dependencies (ML Kit GenAI, Firebase AI Logic) — future | D-37…D-41 | Proposed — requires approval; **not in R1/R2 scope** (added 2026-11-21) |

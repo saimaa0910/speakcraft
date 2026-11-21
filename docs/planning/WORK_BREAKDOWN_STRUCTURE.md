@@ -46,7 +46,8 @@
 | | EP-24 R2 quality & release | R2 | P0 | 5–7 d | R2 epics |
 | **IN-4 Reach (conditional)** | EP-25 Store launch | R3 | — | 5–8 d | D-03, DEP-03 |
 | | EP-26 Video self-review | R3 | — | 8–12 d | ADR-010 revisit |
-| | EP-27 Recognition research (SPK-03) | R3 | — | 6–10 d | ADR-009 |
+| | EP-27 Recognition research (SPK-03; re-scoped to include ML Kit GenAI speech recognition, ARC-06 §12) | R3 | — | 6–10 d | ADR-009 |
+| | EP-28 Optional AI augmentation (conditional; ARC-06 §12.5) | R3+ | — | ≈ 37–53 d † on-device option (+ 6–9 d better transcripts; + 10–15 d cloud option) | D-37…D-41, ADR-016, SEC-01 §9.7 review |
 
 **Totals (preliminary):** R0 ≈ 38–55 d · R1 ≈ 101–146 d · R2 ≈ 31–46 d.
 
