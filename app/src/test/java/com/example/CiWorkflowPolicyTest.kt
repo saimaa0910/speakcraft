@@ -64,4 +64,29 @@ class CiWorkflowPolicyTest {
             toml.contains("""junit = { group = "junit", name = "junit", version.ref = "junitVersion" }""")
         )
     }
+
+    @Test
+    fun `ci build is resilient on clean checkout without gitignored debug keystore or google-services`() {
+        val ciContent = File(repoRoot(), ".github/workflows/ci.yml").readText()
+        assertTrue(
+            "ci.yml must prepare ephemeral debug.keystore for clean checkout assembleDebug",
+            ciContent.contains("debug.keystore.base64") && ciContent.contains("rm -f debug.keystore")
+        )
+
+        val authHelper = File(repoRoot(), "app/src/main/java/com/example/data/firebase/AuthHelper.kt").readText()
+        assertFalse(
+            "AuthHelper.kt must not hard-reference R.string.default_web_client_id (breaks secret-free CI)",
+            authHelper.contains("R.string.default_web_client_id")
+        )
+        assertTrue(
+            "AuthHelper.kt must resolve default_web_client_id via runtime getIdentifier lookup",
+            authHelper.contains("""getIdentifier("default_web_client_id", "string"""")
+        )
+
+        val appGradle = File(repoRoot(), "app/build.gradle.kts").readText()
+        assertTrue(
+            "app/build.gradle.kts must set minSdk = 26 (D-14, resolves java.time NewApi lint errors)",
+            Regex("""minSdk\s*=\s*26\b""").containsMatchIn(appGradle)
+        )
+    }
 }

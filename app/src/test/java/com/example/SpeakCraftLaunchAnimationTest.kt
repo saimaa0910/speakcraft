@@ -167,9 +167,7 @@ class SpeakCraftLaunchAnimationTest {
     @Test
     fun `signed-out flow renders AuthScreen underneath without blocking and reveals it on completion`() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
-        if (FirebaseApp.getApps(ctx).isEmpty()) {
-            FirebaseApp.initializeApp(ctx)
-        }
+        ensureTestFirebaseApp(ctx)
         composeRule.mainClock.autoAdvance = false
         val vm = LaunchExperienceViewModel()
         vm.latchCadenceIfNeeded(isFirstLaunch = false, reducedMotion = false)

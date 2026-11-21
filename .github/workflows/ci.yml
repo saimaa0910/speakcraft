@@ -42,6 +42,26 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
+      - name: Prepare debug keystore for debug APK verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "debug.keystore" ]; then
+            if [ -f "debug.keystore.base64" ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            else
+              keytool -genkeypair -v \
+                -keystore debug.keystore \
+                -storepass android \
+                -alias androiddebugkey \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          fi
+
       - name: Build Debug, Compile Release Kotlin, Run Tests & Lint
         shell: bash
         run: |
@@ -53,6 +73,11 @@ jobs:
           "$GRADLE_CMD" :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug \
             --no-daemon \
             --stacktrace
+
+      - name: Clean up ephemeral debug keystore
+        if: always()
+        shell: bash
+        run: rm -f debug.keystore
 
       - name: Upload Test & Lint Reports
         if: always()

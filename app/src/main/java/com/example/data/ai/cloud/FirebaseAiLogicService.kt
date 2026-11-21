@@ -518,6 +518,10 @@ class FirebaseAiLogicService {
                 enableInterruptions = true
             )
             Result.success(FirebaseLiveVoiceHandle(session))
+        } catch (e: SecurityException) {
+            runCatching { liveSession?.close() }
+            Log.e(TAG, "startLiveVoiceSession denied RECORD_AUDIO permission", e)
+            Result.failure(SecurityException("Microphone permission is required for live voice sessions.", e))
         } catch (e: TimeoutCancellationException) {
             runCatching { liveSession?.close() }
             Log.e(TAG, "startLiveVoiceSession timed out", e)

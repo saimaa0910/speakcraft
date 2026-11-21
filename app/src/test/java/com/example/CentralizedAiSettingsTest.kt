@@ -51,9 +51,7 @@ class CentralizedAiSettingsTest {
 
     private fun ensureFirestore(): FirebaseFirestore {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
-        if (FirebaseApp.getApps(ctx).isEmpty()) {
-            FirebaseApp.initializeApp(ctx)
-        }
+        ensureTestFirebaseApp(ctx)
         return FirebaseFirestore.getInstance()
     }
 

@@ -26,7 +26,7 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.speakcraft.qxmvkp"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 36
     versionCode = versionCodeOverride
     versionName = versionNameOverride
