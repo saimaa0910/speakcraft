@@ -4,7 +4,19 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+  alias(libs.plugins.google.services) apply false
+}
+
+// Apply Google Services only when google-services.json is present (local Firebase dev or release.yml).
+// Secret-free clean clones and PR CI run build, unit/Robolectric tests, and lint without credentials (T-01.1.2 / ENG-01 §3.2).
+val hasGoogleServicesConfig = listOf(
+  "google-services.json",
+  "src/debug/google-services.json",
+  "src/release/google-services.json"
+).any { file(it).exists() }
+
+if (hasGoogleServicesConfig) {
+  apply(plugin = "com.google.gms.google-services")
 }
 
 val versionCodeOverride =

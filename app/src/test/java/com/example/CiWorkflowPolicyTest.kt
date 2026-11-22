@@ -88,6 +88,11 @@ class CiWorkflowPolicyTest {
             "app/build.gradle.kts must set minSdk = 26 (D-14, resolves java.time NewApi lint errors)",
             Regex("""minSdk\s*=\s*26\b""").containsMatchIn(appGradle)
         )
+        assertTrue(
+            "app/build.gradle.kts must apply google-services conditionally so secret-free CI builds without google-services.json",
+            appGradle.contains("alias(libs.plugins.google.services) apply false") &&
+                appGradle.contains("""apply(plugin = "com.google.gms.google-services")""")
+        )
     }
 
     @Test

@@ -22,7 +22,7 @@ This guide covers local development setup, secret-free builds and tests, Firesto
 
 SpeakCraft supports building and running the complete unit, Robolectric, and Android Lint suites on a clean clone **without** production Firebase credentials (`ENG-01 §3.2 Option C`):
 
-- `gradle.properties` sets `googleServices.missing.passthrough=true`.
+- `app/build.gradle.kts` applies `com.google.gms.google-services` only when `google-services.json` is present (`app/`, `app/src/debug/`, or `app/src/release/`), alongside `googleServices.missing.passthrough=true` in `gradle.properties`.
 - `AuthHelper.kt` resolves `default_web_client_id` at runtime via `resources.getIdentifier(...)` instead of a compile-time `R.string.default_web_client_id` reference.
 - Robolectric tests use `TestFirebaseInit.kt` (`ensureTestFirebaseApp`) to fall back to synthetic `FirebaseOptions` when `app/google-services.json` is absent.
 
