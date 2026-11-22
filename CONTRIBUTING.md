@@ -10,7 +10,7 @@ This guide covers local development setup, secret-free builds and tests, Firesto
 |---|---|---|
 | **JDK** | **21** (Temurin 21) | Used to run Gradle (matches CI). Java bytecode target is Java 11. |
 | **Android SDK** | Platform **36**, Build-Tools **36.0.0** | `compileSdk = 36`, `targetSdk = 36`, `minSdk = 26` (`D-14`). |
-| **Gradle** | **9.3.1** | Configured in `gradle/wrapper/gradle-wrapper.properties`. |
+| **Gradle** | **9.3.1** (committed wrapper) | Official wrapper (`gradlew`, `gradlew.bat`, `gradle-wrapper.jar`) with pinned `distributionSha256Sum` in `gradle/wrapper/gradle-wrapper.properties`. |
 | **Android Studio** | Latest stable supporting **AGP 9.1.1** | Kotlin 2.2.10, Compose BOM `2024.09.00`. |
 | **Node.js** | **20 LTS** *(optional)* | Required only when running Firestore security rules tests locally. |
 
@@ -50,13 +50,13 @@ fi
 
 ### Step 2: Build, Test, and Lint
 
-Run the exact quality-gate command executed by `.github/workflows/ci.yml`:
+Run the exact quality-gate command executed by `.github/workflows/ci.yml` using the committed Gradle Wrapper:
 
 ```bash
-gradle :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug
+./gradlew :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug
 ```
 
-*(If you prefer the Gradle Wrapper on your workstation, generate it locally with `gradle wrapper --gradle-version 9.3.1` and run `./gradlew` instead. Note that cloud container environments without wrapper binaries run `gradle` directly.)*
+*(Note: Cloud container environments that disallow `./gradlew` run `gradle :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug` directly against Gradle 9.3.1.)*
 
 ---
 
@@ -84,13 +84,15 @@ npx firebase emulators:exec --only firestore --project demo-speakcraft "node --t
 
 All pull requests and pushes to `main` run `.github/workflows/ci.yml` with **zero repository secrets**:
 
-1. **Build & Test (`build-test`)**: `:app:assembleDebug`, `:app:compileReleaseKotlin`, `:app:testDebugUnitTest` (unit + Robolectric), and `:app:lintDebug`.
-2. **Static Security & Hygiene (`security-static`)**:
+1. **Validate Gradle Wrapper (`wrapper-validation`)**: Runs `gradle/actions/wrapper-validation@v4` to verify `gradle/wrapper/gradle-wrapper.jar` against official Gradle checksums (`T-01.1.1`).
+2. **Build & Test (`build-test`)**: Runs `./gradlew :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug` and uploads JUnit XML/HTML, Lint reports, and a 7-day reviewer debug APK (`T-01.2.1`).
+3. **Static Security & Hygiene (`security-static`)**:
    - Verifies legacy `release_on_push.yml` stays deleted (`T-01.3.1`).
    - Verifies `.github/workflows/release.yml` contains zero debug-signing fallbacks (`DEBUG_KEYSTORE_BASE64`, `assembleDebug`, `debug.keystore`).
    - Verifies `.github/workflows/ci.yml` never uses `pull_request_target` or repository secrets.
    - Scans `app/src` for private key material.
    - Enforces **ADR-003 (`T-04.1.2`)**: `firebase-ai` cloud AI SDK must stay absent from `app/build.gradle.kts`, `gradle/libs.versions.toml`, and `app/src/main`.
+   - Enforces **ADR-011 (`T-04.1.1`)**: YouTube Intelligence symbols and creator branding must stay absent from `app/src/main`.
 
 ### Release Pipeline Policy (`T-01.3.1`)
 

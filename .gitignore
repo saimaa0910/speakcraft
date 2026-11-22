@@ -15,10 +15,10 @@
 .cxx
 local.properties
 .env
+google-services.json
 debug.keystore
 *.jks
 *-debug.log
 build-release-artifacts/
 release_notes.md
 scripts/node_modules/
-

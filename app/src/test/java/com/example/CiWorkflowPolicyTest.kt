@@ -103,5 +103,35 @@ class CiWorkflowPolicyTest {
         assertTrue("CONTRIBUTING.md must document testDebugUnitTest", content.contains(":app:testDebugUnitTest"))
         assertTrue("CONTRIBUTING.md must document lintDebug", content.contains(":app:lintDebug"))
         assertTrue("CONTRIBUTING.md must document minSdk 26", content.contains("26"))
+        assertTrue("CONTRIBUTING.md must document ./gradlew", content.contains("./gradlew"))
+    }
+
+    @Test
+    fun `gradle wrapper files, pinned SHA-256, CI wrapper-validation, and gitignore are complete`() {
+        val root = repoRoot()
+        assertTrue("gradlew must be committed (T-01.1.1)", File(root, "gradlew").exists())
+        assertTrue("gradlew.bat must be committed (T-01.1.1)", File(root, "gradlew.bat").exists())
+        val wrapperJar = File(root, "gradle/wrapper/gradle-wrapper.jar")
+        assertTrue("gradle-wrapper.jar must be committed and non-empty (T-01.1.1)", wrapperJar.exists() && wrapperJar.length() > 10_000L)
+
+        val wrapperProps = File(root, "gradle/wrapper/gradle-wrapper.properties").readText()
+        assertTrue("Wrapper must target Gradle 9.3.1 bin zip", wrapperProps.contains("gradle-9.3.1-bin.zip"))
+        assertTrue("Wrapper must enable validateDistributionUrl", wrapperProps.contains("validateDistributionUrl=true"))
+        assertTrue(
+            "Wrapper must pin a 64-hex-char distributionSha256Sum (ENG-01 §3.1)",
+            Regex("""(?m)^distributionSha256Sum=[0-9a-f]{64}$""").containsMatchIn(wrapperProps)
+        )
+
+        val ciContent = File(root, ".github/workflows/ci.yml").readText()
+        assertTrue("ci.yml must include wrapper-validation job", ciContent.contains("wrapper-validation:"))
+        assertTrue("ci.yml must run gradle/actions/wrapper-validation", ciContent.contains("gradle/actions/wrapper-validation@"))
+        assertTrue("ci.yml must invoke ./gradlew", ciContent.contains("./gradlew"))
+
+        val gitignore = File(root, ".gitignore").readText()
+        assertTrue(
+            ".gitignore must explicitly ignore google-services.json (ENG-01 §3.2)",
+            Regex("""(?m)^google-services\.json$""").containsMatchIn(gitignore)
+        )
     }
 }
+

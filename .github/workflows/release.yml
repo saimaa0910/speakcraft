@@ -107,10 +107,11 @@ jobs:
         with:
           packages: "platform-tools platforms;android-36 build-tools;36.0.0 cmdline-tools;latest"
 
-      - name: Set up Gradle 9.3.1
+      - name: Validate Gradle wrapper JAR and checksum
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.3.1"
 
       - name: Restore & validate production Firebase configuration
         shell: bash
@@ -152,11 +153,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          GRADLE_CMD="gradle"
-          if [ -x "./gradlew" ]; then
-            GRADLE_CMD="./gradlew"
-          fi
-          "$GRADLE_CMD" :app:testDebugUnitTest --no-daemon
+          chmod +x ./gradlew
+          ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Restore & validate release signing keystore (fail-closed, no debug fallback)
         id: sign
@@ -207,11 +205,8 @@ jobs:
           BUILD_CHANNEL: ${{ steps.meta.outputs.channel }}
         run: |
           set -euo pipefail
-          GRADLE_CMD="gradle"
-          if [ -x "./gradlew" ]; then
-            GRADLE_CMD="./gradlew"
-          fi
-          "$GRADLE_CMD" :app:assembleRelease :app:bundleRelease \
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease :app:bundleRelease \
             -PversionCodeOverride="$VERSION_CODE" \
             -PversionNameOverride="$VERSION_NAME" \
             -PbuildChannelOverride="$BUILD_CHANNEL" \
