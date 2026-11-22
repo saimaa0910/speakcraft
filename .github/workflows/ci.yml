@@ -127,7 +127,7 @@ jobs:
 
           # 3. PR CI workflow must not use unsafe trigger or repository secrets
           if grep -Eq '^[[:space:]]*[p]ull_request_target[[:space:]]*:|\$\{\{[[:space:]]*[s]ecrets\.' .github/workflows/ci.yml; then
-            echo "::error::.github/workflows/ci.yml must not use unsafe PR target triggers or repository secrets."
+            echo "::error::ci.yml must not use unsafe PR target triggers or repository secrets."
             exit 1
           fi
 
