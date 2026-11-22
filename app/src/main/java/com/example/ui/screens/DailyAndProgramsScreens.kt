@@ -125,7 +125,7 @@ fun DailyPracticeScreen(
                     OutlinedTextField(
                         value = reflection,
                         onValueChange = { reflection = it },
-                        label = { Text("What felt stronger today? What @askvinh lever will you focus on tomorrow?") },
+                        label = { Text("What felt stronger today? What speaking lever will you focus on tomorrow?") },
                         minLines = 3,
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth().testTag("daily_reflection_input")
@@ -289,7 +289,7 @@ fun LearningPathsScreen(
             item {
                 SectionHeader(
                     title = "Structured Learning Programs",
-                    subtitle = "30/60/90-day tracks & specialized @askvinh skill curricula"
+                    subtitle = "30/60/90-day tracks & specialized speaking curricula"
                 )
                 Spacer(Modifier.height(8.dp))
                 FeatureGuideStrip(featureKey = "learning_paths")

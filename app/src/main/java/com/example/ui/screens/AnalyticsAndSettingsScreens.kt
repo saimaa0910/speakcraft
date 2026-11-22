@@ -398,7 +398,6 @@ fun SettingsScreen(
     updateStatusSummary: String,
     onSetTheme: (ThemePreference) -> Unit,
     onSetTtsRate: (Float) -> Unit,
-    onSetYoutubeKey: (String) -> Unit,
     onSetUpdateChannel: (String) -> Unit,
     onOpenUpdater: () -> Unit,
     onCreateBackupNow: () -> Unit,
@@ -408,12 +407,8 @@ fun SettingsScreen(
     firstUseTutorialsEnabled: Boolean = prefs.firstUseTutorialsEnabled,
     onToggleFirstUseTutorials: (Boolean) -> Unit = {},
     onReplayTutorials: () -> Unit = {},
-    onSetCloudAiEnabled: (Boolean) -> Unit = {},
-    onSetCloudAiModelTier: (String) -> Unit = {},
     aiSettings: AISettings = AISettings(
         localAiEnabled = prefs.localAiEnabled,
-        cloudAiEnabled = false,
-        cloudAiModelTier = prefs.cloudAiModelTier,
         liveTranscriptionEnabled = prefs.liveTranscriptionEnabled,
         localSpeechRecognitionEnabled = prefs.localSpeechRecognitionEnabled,
         localAudioAnalysisEnabled = prefs.localAudioAnalysisEnabled,
@@ -430,18 +425,16 @@ fun SettingsScreen(
     onSetLocalAudioAnalysisEnabled: (Boolean) -> Unit = {},
     onSetLocalVideoAnalysisEnabled: (Boolean) -> Unit = {},
     onSetRecognitionLanguage: (String) -> Unit = {},
-    onSetRecognitionEngine: (RecognitionEnginePreference) -> Unit = {},
-    cloudPolicyMessage: String? = null
+    onSetRecognitionEngine: (RecognitionEnginePreference) -> Unit = {}
 ) {
     val ext = MaterialTheme.speakCraftColors
-    var apiKeyDraft by remember(prefs.youtubeApiKey) { mutableStateOf(prefs.youtubeApiKey) }
     var ttsSlider by remember(prefs.ttsRate) { mutableFloatStateOf(prefs.ttsRate) }
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
 
     if (showClearHistoryConfirm) {
         ConfirmDestructiveDialog(
             title = "Delete Speaking Session History?",
-            message = "This permanently deletes all saved speaking recordings and AI diagnostic summaries from your account.",
+            message = "This permanently deletes your saved speaking session summaries from your account and removes any linked recordings stored on this device.",
             confirmLabel = "Delete History",
             onConfirm = {
                 onClearHistory()
@@ -603,16 +596,12 @@ fun SettingsScreen(
                     )
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (aiSettings.effectiveCloudAiEnabled) MaterialTheme.colorScheme.primaryContainer else ext.infoContainer
+                        color = ext.infoContainer
                     ) {
                         Text(
-                            text = if (aiSettings.effectiveCloudAiEnabled) {
-                                "Active Engine: Cloud AI Coach"
-                            } else {
-                                "Active Engine: On-Device Local Intelligence (Zero-Cloud-AI Policy)"
-                            },
+                            text = "Active Engine: On-Device Local Intelligence (Zero-Cloud-AI Policy)",
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (aiSettings.effectiveCloudAiEnabled) MaterialTheme.colorScheme.onPrimaryContainer else ext.info,
+                            color = ext.info,
                             modifier = Modifier
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                                 .testTag("settings_ai_engine_status")
@@ -643,74 +632,6 @@ fun SettingsScreen(
                             modifier = Modifier.testTag("settings_local_ai_switch")
                         )
                     }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-
-                    // B. Cloud AI
-                    Text("B. Cloud AI", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Cloud AI Coach", style = MaterialTheme.typography.titleSmall)
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Text(
-                                        text = if (aiSettings.cloudAiSupportedInBuild) {
-                                            capabilityMatrix.cloudAi.status.label
-                                        } else {
-                                            "Unavailable • Zero-Cloud-AI Policy"
-                                        },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier
-                                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                                            .testTag("settings_cloud_ai_status")
-                                    )
-                                }
-                            }
-                            Text(
-                                capabilityMatrix.cloudAi.detail,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = aiSettings.effectiveCloudAiEnabled,
-                            enabled = aiSettings.cloudAiSupportedInBuild,
-                            onCheckedChange = onSetCloudAiEnabled,
-                            modifier = Modifier.testTag("settings_cloud_ai_switch")
-                        )
-                    }
-                    if (!cloudPolicyMessage.isNullOrBlank()) {
-                        Text(
-                            text = cloudPolicyMessage,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
-                        listOf(
-                            "balanced" to "Balanced",
-                            "deep" to "Deep",
-                            "fast" to "Fast"
-                        ).forEach { (tierKey, label) ->
-                            FilterChip(
-                                selected = aiSettings.cloudAiModelTier == tierKey,
-                                enabled = aiSettings.effectiveCloudAiEnabled,
-                                onClick = { onSetCloudAiModelTier(tierKey) },
-                                label = { Text(label) },
-                                modifier = Modifier
-                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                    .testTag("settings_ai_tier_$tierKey")
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -722,8 +643,8 @@ fun SettingsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // C. Speech & Transcription
-                    Text("C. Speech & Transcription", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    // B. Speech & Transcription
+                    Text("B. Speech & Transcription", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Row(
                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -872,8 +793,8 @@ fun SettingsScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // D. Video Intelligence
-                    Text("D. Video Intelligence", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    // C. Video Intelligence
+                    Text("C. Video Intelligence", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Row(
                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -904,8 +825,8 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
 
-                    // E. Privacy
-                    Text("E. Privacy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    // D. Privacy
+                    Text("D. Privacy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = ext.successContainer.copy(alpha = 0.5f),
@@ -914,7 +835,7 @@ fun SettingsScreen(
                             .testTag("settings_ai_privacy_statement")
                     ) {
                         Text(
-                            text = "All speaking audio, video, and live transcripts stay on this device and are never uploaded to external Cloud AI services. Firebase Authentication and Firestore store only account identity and explicit practice progress.",
+                            text = "Speaking audio, video recordings, device file paths, and speech or conversation transcripts stay strictly on this device and are never uploaded to Firestore or any Cloud AI service. Firebase Authentication and Firestore store only your account identity, practice scores, coaching summaries, vocabulary progress, and session metadata. Note: when live speech recognition is enabled and an offline language pack is unavailable, Android's system speech provider may process audio under your device OS settings.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(12.dp)
@@ -935,28 +856,14 @@ fun SettingsScreen(
                         icon = Icons.Default.Key,
                         tint = ext.success,
                         bg = ext.successContainer,
-                        title = "Integrations & Keystore Protection"
+                        title = "On-Device Engine Status"
                     )
                     Text(
-                        "• AI Engine: Stage 1 On-Device Local Intelligence (audio DSP, MediaPipe landmarks, and speech recognition—zero cloud AI uploads).\n" +
-                            "• YouTube Channel Audit: Uses live public RSS feeds & timedtext captions automatically. Optional YouTube Data API v3 key is encrypted at rest with Android Keystore.",
+                        "• AI Engine: Stage 1 On-Device Local Intelligence (audio DSP, MediaPipe landmarks, and speech recognition — zero cloud AI uploads).\n" +
+                            "• Curriculum Library: Bundled communication frameworks and structured speaking drills available offline.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    OutlinedTextField(
-                        value = apiKeyDraft,
-                        onValueChange = { apiKeyDraft = it },
-                        label = { Text("Optional YouTube Data API v3 Key") },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedButton(
-                        onClick = { onSetYoutubeKey(apiKeyDraft) },
-                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                    ) {
-                        Text("Encrypt & Save YouTube Key")
-                    }
                 }
             }
         }

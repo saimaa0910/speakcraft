@@ -34,8 +34,6 @@ class LocalAIFoundationTest {
             "https://huggingface.co/api/models"
         )
 
-        val interceptor = LocalExecutionPolicy.aiEndpointBlockingInterceptor
-
         blockedDomains.forEach { url ->
             val isBlocked = LocalExecutionPolicy.isBlockedAiEndpoint(url)
             assertTrue("Expected $url to be flagged as blocked AI endpoint", isBlocked)

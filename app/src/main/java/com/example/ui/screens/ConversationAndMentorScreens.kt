@@ -110,7 +110,6 @@ fun ConversationSimulatorScreen(
     val isPartnerTyping by coachVm.isPartnerTyping.collectAsStateWithLifecycle()
     val coachDebrief by coachVm.coachDebrief.collectAsStateWithLifecycle()
     val conversationError by coachVm.conversationError.collectAsStateWithLifecycle()
-    val cloudAiEnabled by coachVm.cloudAiEnabled.collectAsStateWithLifecycle()
     val voiceLiveActive by coachVm.voiceLiveActive.collectAsStateWithLifecycle()
     val voiceLiveStatus by coachVm.voiceLiveStatus.collectAsStateWithLifecycle()
     val voiceAutoSpeak by coachVm.voiceAutoSpeak.collectAsStateWithLifecycle()
@@ -606,7 +605,6 @@ fun AiMentorScreen(
     val mentorMessages by coachVm.mentorMessages.collectAsStateWithLifecycle()
     val isResponding by coachVm.isMentorResponding.collectAsStateWithLifecycle()
     val mentorError by coachVm.mentorError.collectAsStateWithLifecycle()
-    val cloudAiEnabled by coachVm.cloudAiEnabled.collectAsStateWithLifecycle()
     val selectedRole by coachVm.selectedMentorRole.collectAsStateWithLifecycle()
 
     var question by remember { mutableStateOf("") }
@@ -631,8 +629,8 @@ fun AiMentorScreen(
 
     val quickPrompts = listOf(
         "Create my personalized 7-day improvement plan",
-        "Identify my recurring speaking mistakes & @askvinh fixes",
-        "Recommend my next @askvinh lesson based on my scores",
+        "Identify my recurring speaking mistakes & targeted fixes",
+        "Recommend my next speaking lesson based on my scores",
         "How do I stop saying 'um' in interviews?"
     )
 

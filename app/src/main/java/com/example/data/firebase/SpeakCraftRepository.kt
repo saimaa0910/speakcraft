@@ -6,9 +6,7 @@ import com.example.data.model.AdminUser
 import com.example.data.model.ApplicationRelease
 import com.example.data.model.ApplicationUpdateEvent
 import com.example.data.model.ConversationSession
-import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
-import com.example.data.model.ExtractedTechnique
 import com.example.data.model.LearningChallenge
 import com.example.data.model.Lesson
 import com.example.data.model.ProgramEnrollment
@@ -16,11 +14,9 @@ import com.example.data.model.RealWorldTaskRecord
 import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
 import com.example.data.model.StreakAndAnalyticsHelper
-import com.example.data.model.TranscriptSegment
 import com.example.data.model.UserLearningProgress
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabularyEntry
-import com.example.data.model.YouTubeSource
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -171,32 +167,6 @@ class SpeakCraftRepository(
         )
     }
 
-    fun observeYouTubeSources(userId: String): Flow<List<YouTubeSource>> = flow {
-        val uid = requireUserId()
-        check(uid == userId)
-        emitAll(
-            wrapStreamError(
-                db.collection("users").document(uid).collection("youtubeSources")
-                    .snapshots()
-                    .map { it.toObjects(YouTubeSource::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) },
-                uid, OperationType.LIST, "users/$uid/youtubeSources"
-            )
-        )
-    }
-
-    fun observeExtractedTechniques(userId: String): Flow<List<ExtractedTechnique>> = flow {
-        val uid = requireUserId()
-        check(uid == userId)
-        emitAll(
-            wrapStreamError(
-                db.collection("users").document(uid).collection("extractedTechniques")
-                    .snapshots()
-                    .map { it.toObjects(ExtractedTechnique::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) },
-                uid, OperationType.LIST, "users/$uid/extractedTechniques"
-            )
-        )
-    }
-
     fun observeConversationSessions(userId: String): Flow<List<ConversationSession>> = flow {
         val uid = requireUserId()
         check(uid == userId)
@@ -336,20 +306,6 @@ class SpeakCraftRepository(
         )
     }
 
-    fun observePublishedSharedTechniques(): Flow<List<ExtractedTechnique>> = flow {
-        if (auth.currentUser == null) {
-            emit(emptyList())
-            return@flow
-        }
-        emitAll(
-            db.collection("extractedTechniques")
-                .whereEqualTo("moderationStatus", "PUBLISHED")
-                .snapshots()
-                .map { it.toObjects(ExtractedTechnique::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
-                .catch { emit(emptyList()) }
-        )
-    }
-
     fun observePublishedSharedLessons(): Flow<List<Lesson>> = flow {
         if (auth.currentUser == null) {
             emit(emptyList())
@@ -417,19 +373,6 @@ class SpeakCraftRepository(
                 .orderBy("versionCode", Query.Direction.DESCENDING)
                 .snapshots()
                 .map { it.toObjects(ApplicationRelease::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
-                .catch { emit(emptyList()) }
-        )
-    }
-
-    fun observePendingModerationTechniques(): Flow<List<ExtractedTechnique>> = flow {
-        if (auth.currentUser == null) {
-            emit(emptyList())
-            return@flow
-        }
-        emitAll(
-            db.collection("extractedTechniques")
-                .snapshots()
-                .map { it.toObjects(ExtractedTechnique::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
                 .catch { emit(emptyList()) }
         )
     }
@@ -526,72 +469,6 @@ class SpeakCraftRepository(
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
             ).await()
-        }
-    }
-
-    suspend fun seedAskVinhKnowledgeBaseIfEmpty(): Result<Unit> = runMutation(OperationType.WRITE, "extractedTechniques") { uid ->
-        val existingTechs = db.collection("users").document(uid).collection("extractedTechniques").limit(1).get().await()
-        if (existingTechs.isEmpty) {
-            val batch = db.batch()
-            val seenVideos = mutableSetOf<String>()
-            CurriculumCatalog.askVinhKnowledgeBase.forEach { seed ->
-                val safeTechId = sanitizeId(seed.id)
-                val techRef = db.collection("users").document(uid).collection("extractedTechniques").document(safeTechId)
-                batch.set(
-                    techRef,
-                    mapOf(
-                        "userId" to uid,
-                        "videoId" to seed.videoId.take(64),
-                        "title" to seed.title.take(250),
-                        "category" to seed.category.take(100),
-                        "difficulty" to seed.difficulty,
-                        "creatorAdvice" to seed.creatorAdvice.take(2000),
-                        "aiExplanation" to seed.aiExplanation.take(2000),
-                        "originalContext" to seed.originalContext.take(1000),
-                        "instructions" to seed.instructions.take(2500),
-                        "practicalExercise" to seed.practicalExercise.take(2000),
-                        "expectedOutcome" to seed.expectedOutcome.take(800),
-                        "suggestedDurationMinutes" to seed.suggestedDurationMinutes.coerceIn(1L, 180L),
-                        "commonMistake" to seed.commonMistake.take(1000),
-                        "correction" to seed.correction.take(1000),
-                        "sourceVideoTitle" to seed.sourceVideoTitle.take(300),
-                        "sourceVideoUrl" to seed.sourceVideoUrl.take(500),
-                        "timestampLabel" to seed.timestampLabel.take(40),
-                        "isCreatorDerived" to seed.isCreatorDerived,
-                        "moderationStatus" to if (seed.verificationStatus == "VERIFIED") "PUBLISHED" else "PENDING_REVIEW",
-                        "createdAt" to FieldValue.serverTimestamp(),
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                )
-                val safeVideoId = sanitizeId(seed.videoId, 100)
-                if (seenVideos.add(safeVideoId)) {
-                    val srcRef = db.collection("users").document(uid).collection("youtubeSources").document(safeVideoId)
-                    val status = if (seed.verificationStatus == "VERIFIED") "EXTRACTED" else "PENDING"
-                    batch.set(
-                        srcRef,
-                        mapOf(
-                            "userId" to uid,
-                            "videoId" to safeVideoId,
-                            "channelHandle" to "@askvinh",
-                            "title" to seed.sourceVideoTitle.take(300),
-                            "videoUrl" to seed.sourceVideoUrl.take(500),
-                            "mainTopic" to seed.title.take(300),
-                            "category" to seed.category.take(100),
-                            "difficulty" to seed.difficulty,
-                            "extractionStatus" to status,
-                            "statusDetail" to if (status == "EXTRACTED") {
-                                "Verified @askvinh public framework catalog"
-                            } else {
-                                "Awaiting live caption ingestion in YouTube Learning Library"
-                            },
-                            "transcriptAvailable" to (status == "EXTRACTED"),
-                            "createdAt" to FieldValue.serverTimestamp(),
-                            "updatedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
-                }
-            }
-            batch.commit().await()
         }
     }
 
@@ -789,72 +666,20 @@ class SpeakCraftRepository(
         return runMutationWithReturn(OperationType.CREATE, "speakingSessions") { uid ->
             val sessionRef = db.collection("users").document(uid).collection("speakingSessions").document()
             val feedbackRef = db.collection("users").document(uid).collection("speechFeedback").document()
-            val safeModule = if (session.moduleType in listOf(
-                    "SPEAKING_LAB", "DAILY_CHALLENGE", "PRONUNCIATION", "SHADOWING", "GRAMMAR_SPEAKING", "PRESENTATION", "LESSON_PRACTICE"
-                )
-            ) session.moduleType else "SPEAKING_LAB"
 
             val batch = db.batch()
-            val sessionPayload = mapOf(
-                "userId" to uid,
-                "moduleType" to safeModule,
-                "promptTitle" to session.promptTitle.take(300).ifBlank { "Speaking Practice" },
-                "durationSeconds" to session.durationSeconds.coerceIn(0L, 3600L),
-                "localMediaPath" to session.localMediaPath.take(600).ifBlank { null },
-                "mediaType" to session.mediaType.take(64).ifBlank { null },
-                "feedbackId" to feedbackRef.id,
-                "transcript" to session.transcript.take(15000).ifBlank { null },
-                "overallAssessment" to session.overallAssessment.take(3000).ifBlank { "Assessment recorded." },
-                "strengths" to session.strengths.take(15).map { it.take(500) },
-                "mistakes" to session.mistakes.take(20).map { it.take(500) },
-                "pronunciationNotes" to session.pronunciationNotes.take(20).map { it.take(500) },
-                "betterAlternatives" to session.betterAlternatives.take(15).map { it.take(500) },
-                "fillerWordsDetected" to session.fillerWordsDetected.take(25).map { it.take(500) },
-                "repeatedExpressions" to session.repeatedExpressions.take(20).map { it.take(500) },
-                "improvementSuggestions" to session.improvementSuggestions.take(15).map { it.take(500) },
-                "recommendedExercises" to session.recommendedExercises.take(15).map { it.take(500) },
-                "pronunciationAssessable" to session.pronunciationAssessable,
-                "articulationClarity" to session.articulationClarity.take(800).ifBlank { null },
-                "thoughtOrganization" to session.thoughtOrganization.take(800).ifBlank { null },
-                "nextRecommendedActivity" to session.nextRecommendedActivity.take(400).ifBlank { null },
-                "confidenceLevel" to if (session.confidenceLevel in listOf("High", "Medium", "Low", "Low (Partial)")) session.confidenceLevel else "Medium",
-                "audioQualityNote" to session.audioQualityNote.take(500).ifBlank { null },
-                "fluencyScore" to session.fluencyScore.coerceIn(0L, 100L),
-                "pronunciationScore" to session.pronunciationScore.coerceIn(0L, 100L),
-                "vocabularyScore" to session.vocabularyScore.coerceIn(0L, 100L),
-                "grammarScore" to session.grammarScore.coerceIn(0L, 100L),
-                "articulationScore" to session.articulationScore.coerceIn(0L, 100L),
-                "wordsPerMinute" to session.wordsPerMinute.coerceIn(0L, 400L),
-                "sourceVideoUrl" to session.sourceVideoUrl.take(500).ifBlank { null },
-                "evaluationStatus" to session.evaluationStatus,
-                "isPartialEvaluation" to session.isPartialEvaluation,
-                "evaluatedDimensionKeys" to session.evaluatedDimensionKeys,
-                "unavailableDimensionKeys" to session.unavailableDimensionKeys,
-                "evidenceSummary" to session.evidenceSummary.take(400).ifBlank { null },
-                "createdAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ).filterValues { it != null } as Map<String, Any>
+            val sessionPayload = buildSpeakingSessionPayload(
+                uid = uid,
+                feedbackId = feedbackRef.id,
+                session = session
+            )
             batch.set(sessionRef, sessionPayload)
 
-            val fbPayload = mapOf(
-                "userId" to uid,
-                "sessionId" to sessionRef.id,
-                "transcript" to session.transcript.take(15000).ifBlank { null },
-                "strengths" to session.strengths.take(15).map { it.take(500) },
-                "mistakes" to session.mistakes.take(20).map { it.take(500) },
-                "recordingExamples" to session.pronunciationNotes.filter { it.startsWith("Quoted examples:") }.take(15),
-                "betterAlternatives" to session.betterAlternatives.take(15).map { it.take(500) },
-                "fillerWords" to session.fillerWordsDetected.take(25).map { it.take(500) },
-                "repeatedExpressions" to session.repeatedExpressions.take(20).map { it.take(500) },
-                "specificExercises" to session.recommendedExercises.take(15).map { it.take(500) },
-                "pronunciationAssessable" to session.pronunciationAssessable,
-                "pronunciationNote" to session.pronunciationNotes.joinToString("; ").take(800).ifBlank { null },
-                "articulationClarity" to session.articulationClarity.take(800).ifBlank { null },
-                "thoughtOrganization" to session.thoughtOrganization.take(800).ifBlank { null },
-                "nextRecommendedActivity" to session.nextRecommendedActivity.take(400).ifBlank { null },
-                "createdAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ).filterValues { it != null } as Map<String, Any>
+            val fbPayload = buildSpeechFeedbackPayload(
+                uid = uid,
+                sessionId = sessionRef.id,
+                session = session
+            )
             batch.set(feedbackRef, fbPayload)
             batch.commit().await()
 
@@ -910,84 +735,24 @@ class SpeakCraftRepository(
             }
         }
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveConversationSession(
         scenario: String,
         difficultyLevel: String,
         turnCount: Long,
         summaryFeedback: String,
-        transcriptPreview: String
+        transcriptPreview: String = ""
     ): Result<Unit> = runMutation(OperationType.CREATE, "conversationSessions") { uid ->
         val docRef = db.collection("users").document(uid).collection("conversationSessions").document()
-        val payload = mapOf(
-            "userId" to uid,
-            "scenario" to scenario.take(120),
-            "difficultyLevel" to difficultyLevel.take(60),
-            "turnCount" to turnCount.coerceIn(0L, 500L),
-            "summaryFeedback" to summaryFeedback.take(4000).ifBlank { null },
-            "transcriptPreview" to transcriptPreview.take(4000).ifBlank { null },
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp()
-        ).filterValues { it != null } as Map<String, Any>
+        // T-04.2.1 (FND-SEC-05 / SEC-REQ-10): transcriptPreview is intentionally not uploaded to Firestore.
+        val payload = buildConversationSessionPayload(
+            uid = uid,
+            scenario = scenario,
+            difficultyLevel = difficultyLevel,
+            turnCount = turnCount,
+            summaryFeedback = summaryFeedback
+        )
         docRef.set(payload).await()
-    }
-
-    suspend fun saveYouTubeAnalysis(
-        source: YouTubeSource,
-        techniques: List<ExtractedTechnique>
-    ): Result<Unit> = runMutation(OperationType.WRITE, "youtubeSources/${source.videoId}") { uid ->
-        val safeSourceId = sanitizeId(source.videoId, 100)
-        val batch = db.batch()
-        val srcRef = db.collection("users").document(uid).collection("youtubeSources").document(safeSourceId)
-        val srcPayload = mapOf(
-            "userId" to uid,
-            "videoId" to source.videoId.take(64),
-            "channelHandle" to source.channelHandle.take(100).ifBlank { null },
-            "playlistTitle" to source.playlistTitle.take(200).ifBlank { null },
-            "publishedDate" to source.publishedDate.take(40).ifBlank { null },
-            "durationSeconds" to source.durationSeconds.coerceIn(0L, 86400L),
-            "title" to source.title.take(300).ifBlank { "Untitled Video" },
-            "videoUrl" to source.videoUrl.take(500),
-            "thumbnailUrl" to source.thumbnailUrl.take(500).ifBlank { null },
-            "mainTopic" to source.mainTopic.take(300).ifBlank { null },
-            "category" to source.category.take(100).ifBlank { "Public Speaking" },
-            "difficulty" to if (source.difficulty in listOf("Beginner", "Intermediate", "Advanced")) source.difficulty else "Intermediate",
-            "extractionStatus" to if (source.extractionStatus in listOf("EXTRACTED", "NO_CAPTIONS", "INACCESSIBLE", "PENDING")) source.extractionStatus else "EXTRACTED",
-            "statusDetail" to source.statusDetail.take(500).ifBlank { null },
-            "transcriptAvailable" to source.transcriptAvailable,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp()
-        ).filterValues { it != null } as Map<String, Any>
-        batch.set(srcRef, srcPayload)
-
-        techniques.forEachIndexed { idx, tech ->
-            val techId = sanitizeId("${safeSourceId}_t$idx", 120)
-            val techRef = db.collection("users").document(uid).collection("extractedTechniques").document(techId)
-            val techPayload = mapOf(
-                "userId" to uid,
-                "videoId" to source.videoId.take(64),
-                "title" to tech.title.take(250).ifBlank { source.title.take(250) },
-                "category" to tech.category.take(100).ifBlank { source.category.take(100) },
-                "difficulty" to if (tech.difficulty in listOf("Beginner", "Intermediate", "Advanced")) tech.difficulty else "Intermediate",
-                "creatorAdvice" to tech.creatorAdvice.take(2000).ifBlank { "Extracted from video." },
-                "aiExplanation" to tech.aiExplanation.take(2000).ifBlank { null },
-                "originalContext" to tech.originalContext.take(1000).ifBlank { null },
-                "instructions" to tech.instructions.take(2500).ifBlank { null },
-                "practicalExercise" to tech.practicalExercise.take(2000).ifBlank { "Practice aloud for 60 seconds." },
-                "expectedOutcome" to tech.expectedOutcome.take(800).ifBlank { null },
-                "suggestedDurationMinutes" to tech.suggestedDurationMinutes.coerceIn(1L, 180L),
-                "commonMistake" to tech.commonMistake.take(1000).ifBlank { null },
-                "correction" to tech.correction.take(1000).ifBlank { null },
-                "sourceVideoTitle" to tech.sourceVideoTitle.take(300).ifBlank { source.title.take(300) },
-                "sourceVideoUrl" to tech.sourceVideoUrl.take(500).ifBlank { source.videoUrl.take(500) },
-                "timestampLabel" to tech.timestampLabel.take(40).ifBlank { null },
-                "isCreatorDerived" to tech.isCreatorDerived,
-                "moderationStatus" to "PUBLISHED",
-                "createdAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ).filterValues { it != null } as Map<String, Any>
-            batch.set(techRef, techPayload)
-        }
-        batch.commit().await()
     }
 
     suspend fun toggleRealWorldTask(
@@ -1003,7 +768,6 @@ class SpeakCraftRepository(
             val payload = mapOf(
                 "userId" to uid,
                 "taskTitle" to taskTitle.take(300),
-                "sourceVideoUrl" to "https://www.youtube.com/@askvinh",
                 "completed" to completed,
                 "reflection" to reflection.take(2000).ifBlank { null },
                 "createdAt" to FieldValue.serverTimestamp(),
@@ -1058,92 +822,6 @@ class SpeakCraftRepository(
     }
 
     // ==================== ADMIN CONSOLE MUTATIONS (GATED BY adminUsers/{uid}) ====================
-
-    suspend fun adminSyncVideoAndTechniques(
-        source: YouTubeSource,
-        segments: List<TranscriptSegment>,
-        techniques: List<ExtractedTechnique>,
-        moderationStatus: String = "PENDING_REVIEW"
-    ): Result<Unit> = runMutation(OperationType.WRITE, "adminSync/${source.videoId}") { _ ->
-        val safeVid = sanitizeId(source.videoId, 100)
-        val batch = db.batch()
-
-        val videoRef = db.collection("youtubeVideos").document(safeVid)
-        batch.set(
-            videoRef,
-            mapOf(
-                "videoId" to source.videoId.take(64),
-                "channelId" to source.channelHandle.take(100),
-                "playlistTitle" to source.playlistTitle.take(200),
-                "title" to source.title.take(300),
-                "publishedDate" to source.publishedDate.take(40),
-                "durationSeconds" to source.durationSeconds.coerceIn(0L, 86400L),
-                "videoUrl" to source.videoUrl.take(500),
-                "thumbnailUrl" to source.thumbnailUrl.take(500),
-                "transcriptAvailable" to source.transcriptAvailable,
-                "processingStatus" to source.extractionStatus,
-                "statusDetail" to source.statusDetail.take(500),
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-        )
-
-        if (segments.isNotEmpty()) {
-            val transcriptRef = db.collection("videoTranscripts").document(safeVid)
-            batch.set(
-                transcriptRef,
-                mapOf(
-                    "videoId" to source.videoId.take(64),
-                    "languageCode" to "en",
-                    "segmentSummaries" to segments.take(40).map { "[${it.timestampLabel}] ${it.text}".take(240) },
-                    "attributionNotice" to "Timestamps & excerpts grounded in creator captions.",
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            )
-        }
-
-        techniques.forEachIndexed { idx, tech ->
-            val techId = sanitizeId("${safeVid}_admin_$idx", 120)
-            val techRef = db.collection("extractedTechniques").document(techId)
-            batch.set(
-                techRef,
-                mapOf(
-                    "videoId" to source.videoId.take(64),
-                    "title" to tech.title.take(250),
-                    "category" to tech.category.take(100),
-                    "difficulty" to tech.difficulty,
-                    "creatorAdvice" to tech.creatorAdvice.take(2000),
-                    "aiExplanation" to tech.aiExplanation.take(2000),
-                    "originalContext" to tech.originalContext.take(1000),
-                    "instructions" to tech.instructions.take(2500),
-                    "practicalExercise" to tech.practicalExercise.take(2000),
-                    "expectedOutcome" to tech.expectedOutcome.take(800),
-                    "suggestedDurationMinutes" to tech.suggestedDurationMinutes.coerceIn(1L, 180L),
-                    "commonMistake" to tech.commonMistake.take(1000),
-                    "correction" to tech.correction.take(1000),
-                    "sourceVideoTitle" to tech.sourceVideoTitle.take(300),
-                    "sourceVideoUrl" to tech.sourceVideoUrl.take(500),
-                    "timestampLabel" to tech.timestampLabel.take(40),
-                    "isCreatorDerived" to tech.isCreatorDerived,
-                    "moderationStatus" to moderationStatus,
-                    "createdAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            )
-        }
-        batch.commit().await()
-    }
-
-    suspend fun adminModerateTechnique(techniqueId: String, newStatus: String): Result<Unit> =
-        runMutation(OperationType.UPDATE, "extractedTechniques/$techniqueId") { _ ->
-            val safeId = sanitizeId(techniqueId, 120)
-            val allowed = if (newStatus in listOf("PENDING_REVIEW", "APPROVED", "PUBLISHED", "REJECTED")) newStatus else "PENDING_REVIEW"
-            db.collection("extractedTechniques").document(safeId).update(
-                mapOf(
-                    "moderationStatus" to allowed,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
-        }
 
     suspend fun adminSaveSharedLesson(lesson: Lesson): Result<Unit> =
         runMutation(OperationType.WRITE, "lessons/${lesson.id}") { _ ->
@@ -1347,5 +1025,133 @@ class SpeakCraftRepository(
         val uid = auth.currentUser?.uid ?: "unauthenticated"
         handleFirestoreError(e, op, "users/$uid/$pathSuffix")
         Result.failure(e)
+    }
+
+    companion object {
+        private val ALLOWED_SPEAKING_MODULES = setOf(
+            "SPEAKING_LAB",
+            "DAILY_CHALLENGE",
+            "PRONUNCIATION",
+            "SHADOWING",
+            "GRAMMAR_SPEAKING",
+            "PRESENTATION",
+            "LESSON_PRACTICE"
+        )
+
+        private val ALLOWED_CONFIDENCE_LEVELS = setOf("High", "Medium", "Low", "Low (Partial)")
+
+        /**
+         * Builds the Firestore payload for `speakingSessions`.
+         *
+         * T-04.2.1 (FND-SEC-05 / SEC-REQ-10): Intentionally omits `transcript` and `localMediaPath`
+         * so raw speech transcripts and on-device file paths never leave the device.
+         */
+        @Suppress("UNCHECKED_CAST")
+        internal fun buildSpeakingSessionPayload(
+            uid: String,
+            feedbackId: String,
+            session: SpeakingSession,
+            timestamp: Any = FieldValue.serverTimestamp()
+        ): Map<String, Any> {
+            val safeModule = if (session.moduleType in ALLOWED_SPEAKING_MODULES) {
+                session.moduleType
+            } else {
+                "SPEAKING_LAB"
+            }
+            return mapOf(
+                "userId" to uid,
+                "moduleType" to safeModule,
+                "promptTitle" to session.promptTitle.take(300).ifBlank { "Speaking Practice" },
+                "durationSeconds" to session.durationSeconds.coerceIn(0L, 3600L),
+                "mediaType" to session.mediaType.take(64).ifBlank { null },
+                "feedbackId" to feedbackId,
+                "overallAssessment" to session.overallAssessment.take(3000).ifBlank { "Assessment recorded." },
+                "strengths" to session.strengths.take(15).map { it.take(500) },
+                "mistakes" to session.mistakes.take(20).map { it.take(500) },
+                "pronunciationNotes" to session.pronunciationNotes.take(20).map { it.take(500) },
+                "betterAlternatives" to session.betterAlternatives.take(15).map { it.take(500) },
+                "fillerWordsDetected" to session.fillerWordsDetected.take(25).map { it.take(500) },
+                "repeatedExpressions" to session.repeatedExpressions.take(20).map { it.take(500) },
+                "improvementSuggestions" to session.improvementSuggestions.take(15).map { it.take(500) },
+                "recommendedExercises" to session.recommendedExercises.take(15).map { it.take(500) },
+                "pronunciationAssessable" to session.pronunciationAssessable,
+                "articulationClarity" to session.articulationClarity.take(800).ifBlank { null },
+                "thoughtOrganization" to session.thoughtOrganization.take(800).ifBlank { null },
+                "nextRecommendedActivity" to session.nextRecommendedActivity.take(400).ifBlank { null },
+                "confidenceLevel" to if (session.confidenceLevel in ALLOWED_CONFIDENCE_LEVELS) session.confidenceLevel else "Medium",
+                "audioQualityNote" to session.audioQualityNote.take(500).ifBlank { null },
+                "fluencyScore" to session.fluencyScore.coerceIn(0L, 100L),
+                "pronunciationScore" to session.pronunciationScore.coerceIn(0L, 100L),
+                "vocabularyScore" to session.vocabularyScore.coerceIn(0L, 100L),
+                "grammarScore" to session.grammarScore.coerceIn(0L, 100L),
+                "articulationScore" to session.articulationScore.coerceIn(0L, 100L),
+                "wordsPerMinute" to session.wordsPerMinute.coerceIn(0L, 400L),
+                "sourceVideoUrl" to session.sourceVideoUrl.take(500).ifBlank { null },
+                "evaluationStatus" to session.evaluationStatus,
+                "isPartialEvaluation" to session.isPartialEvaluation,
+                "evaluatedDimensionKeys" to session.evaluatedDimensionKeys,
+                "unavailableDimensionKeys" to session.unavailableDimensionKeys,
+                "evidenceSummary" to session.evidenceSummary.take(400).ifBlank { null },
+                "createdAt" to timestamp,
+                "updatedAt" to timestamp
+            ).filterValues { it != null } as Map<String, Any>
+        }
+
+        /**
+         * Builds the Firestore payload for `speechFeedback`.
+         *
+         * T-04.2.1 (FND-SEC-05 / SEC-REQ-10): Intentionally omits `transcript`.
+         */
+        @Suppress("UNCHECKED_CAST")
+        internal fun buildSpeechFeedbackPayload(
+            uid: String,
+            sessionId: String,
+            session: SpeakingSession,
+            timestamp: Any = FieldValue.serverTimestamp()
+        ): Map<String, Any> {
+            return mapOf(
+                "userId" to uid,
+                "sessionId" to sessionId,
+                "strengths" to session.strengths.take(15).map { it.take(500) },
+                "mistakes" to session.mistakes.take(20).map { it.take(500) },
+                "recordingExamples" to session.pronunciationNotes.filter { it.startsWith("Quoted examples:") }.take(15),
+                "betterAlternatives" to session.betterAlternatives.take(15).map { it.take(500) },
+                "fillerWords" to session.fillerWordsDetected.take(25).map { it.take(500) },
+                "repeatedExpressions" to session.repeatedExpressions.take(20).map { it.take(500) },
+                "specificExercises" to session.recommendedExercises.take(15).map { it.take(500) },
+                "pronunciationAssessable" to session.pronunciationAssessable,
+                "pronunciationNote" to session.pronunciationNotes.joinToString("; ").take(800).ifBlank { null },
+                "articulationClarity" to session.articulationClarity.take(800).ifBlank { null },
+                "thoughtOrganization" to session.thoughtOrganization.take(800).ifBlank { null },
+                "nextRecommendedActivity" to session.nextRecommendedActivity.take(400).ifBlank { null },
+                "createdAt" to timestamp,
+                "updatedAt" to timestamp
+            ).filterValues { it != null } as Map<String, Any>
+        }
+
+        /**
+         * Builds the Firestore payload for `conversationSessions`.
+         *
+         * T-04.2.1 (FND-SEC-05 / SEC-REQ-10): Intentionally omits `transcriptPreview`.
+         */
+        @Suppress("UNCHECKED_CAST")
+        internal fun buildConversationSessionPayload(
+            uid: String,
+            scenario: String,
+            difficultyLevel: String,
+            turnCount: Long,
+            summaryFeedback: String,
+            timestamp: Any = FieldValue.serverTimestamp()
+        ): Map<String, Any> {
+            return mapOf(
+                "userId" to uid,
+                "scenario" to scenario.take(120),
+                "difficultyLevel" to difficultyLevel.take(60),
+                "turnCount" to turnCount.coerceIn(0L, 500L),
+                "summaryFeedback" to summaryFeedback.take(4000).ifBlank { null },
+                "createdAt" to timestamp,
+                "updatedAt" to timestamp
+            ).filterValues { it != null } as Map<String, Any>
+        }
     }
 }

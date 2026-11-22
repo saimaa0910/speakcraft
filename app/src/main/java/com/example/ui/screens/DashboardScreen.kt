@@ -160,7 +160,6 @@ fun DashboardScreen(
     reducedMotion: Boolean = false,
     onCompleteDailyTask: (String) -> Unit = {},
     onOpenProfile: () -> Unit = { onNavigate("settings") },
-    cloudAiEnabled: Boolean = false,
     onQuickAskMentor: (String) -> Unit = { onNavigate("ai_mentor") }
 ) {
     val ext = MaterialTheme.speakCraftColors
@@ -296,7 +295,6 @@ fun DashboardScreen(
             add(ModuleTileSpec("activity_library", "Activity Engine", "150 drills • 10 modules • 10 paths", Icons.Default.School, "Tools"))
             add(ModuleTileSpec("learning_paths", "30/60/90 Plans", "Structured tracks", Icons.Default.School, "Tools"))
             add(ModuleTileSpec("real_world_tasks", "Field Tasks", "Real-world log", Icons.AutoMirrored.Filled.DirectionsRun, "Tools"))
-            add(ModuleTileSpec("youtube_library", "@askvinh Library", "Channel & transcripts", Icons.Default.PlayCircle, "Tools"))
             add(ModuleTileSpec("analytics", "Analytics", "Mistakes & trends", Icons.Default.Analytics, "Tools"))
             add(ModuleTileSpec("ai_mentor", "AI Mentor", "Personal coach chat", Icons.Default.Psychology, "Tools"))
             add(ModuleTileSpec("app_updates", "App Updates", "Version & backups", Icons.Default.SystemUpdate, "Tools"))
@@ -459,7 +457,6 @@ fun DashboardScreen(
                         InlineAiMentorCard(
                             onOpenMentor = { onNavigate("ai_mentor") },
                             modifier = Modifier.weight(1.0f),
-                            cloudAiEnabled = cloudAiEnabled,
                             onAskPrompt = onQuickAskMentor
                         )
                         QuickAccessPastelGrid(
@@ -556,7 +553,6 @@ fun DashboardScreen(
                 item {
                     InlineAiMentorCard(
                         onOpenMentor = { onNavigate("ai_mentor") },
-                        cloudAiEnabled = cloudAiEnabled,
                         onAskPrompt = onQuickAskMentor
                     )
                 }
@@ -634,7 +630,7 @@ fun DashboardScreen(
                             .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                             .testTag("browse_all_tutorials_button")
                     ) {
-                        Text("Explore Tutorials for All 24 Features & Benefits")
+                        Text("Explore Tutorials for All 23 Features & Benefits")
                     }
                 }
             }
@@ -644,7 +640,7 @@ fun DashboardScreen(
                 item {
                     SectionHeader(
                         title = "All Communication Modules & Tools",
-                        subtitle = "Browse all 15 @askvinh modules & coaching utilities"
+                        subtitle = "Browse all 15 speaking modules & coaching utilities"
                     )
                     Spacer(Modifier.height(SpeakCraftSpacing.sm))
                     FlowRow(

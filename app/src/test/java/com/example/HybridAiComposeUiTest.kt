@@ -19,7 +19,6 @@ import com.example.data.media.AudioRecorderManager
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.UserProfile
 import com.example.data.preferences.AppPreferences
-import com.example.data.youtube.YouTubeIntelligenceClient
 import com.example.ui.components.InlineAiMentorCard
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.ConversationSimulatorScreen
@@ -52,19 +51,18 @@ class HybridAiComposeUiTest {
     }
 
     @Test
-    fun `settings screen centralizes live transcription toggle and marks cloud ai unavailable`() {
+    fun `settings screen centralizes live transcription toggle and omits removed cloud ai toggle`() {
         var liveTranscriptionToggledTo: Boolean? = null
 
         composeRule.setContent {
             SpeakCraftTheme {
                 SettingsScreen(
-                    prefs = AppPreferences(cloudAiEnabled = false, liveTranscriptionEnabled = false),
+                    prefs = AppPreferences(liveTranscriptionEnabled = false),
                     userEmail = "test@speakcraft.app",
                     isAdmin = false,
                     updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetYoutubeKey = {},
                     onSetUpdateChannel = {},
                     onOpenUpdater = {},
                     onCreateBackupNow = {},
@@ -76,12 +74,8 @@ class HybridAiComposeUiTest {
             }
         }
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_cloud_ai_switch"))
-        composeRule.onNodeWithTag("settings_cloud_ai_switch")
-            .assertIsDisplayed()
-            .assertIsOff()
-            .assertIsNotEnabled()
-        composeRule.onNodeWithTag("settings_cloud_ai_status").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_cloud_ai_switch").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings_cloud_ai_status").assertDoesNotExist()
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_live_transcription_switch"))
         composeRule.onNodeWithTag("settings_live_transcription_switch").assertIsDisplayed().performClick()
@@ -94,7 +88,6 @@ class HybridAiComposeUiTest {
         val vm = InteractiveCoachViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
             localOrchestrator = LocalIntelligenceOrchestrator(ctx),
-            youtubeClient = YouTubeIntelligenceClient(),
             appContext = ctx,
             currentUserId = "test_mentor_ui"
         )
@@ -122,7 +115,6 @@ class HybridAiComposeUiTest {
         val vm = InteractiveCoachViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
             localOrchestrator = LocalIntelligenceOrchestrator(ctx),
-            youtubeClient = YouTubeIntelligenceClient(),
             appContext = ctx,
             currentUserId = "test_conv_ui"
         )
@@ -175,7 +167,6 @@ class HybridAiComposeUiTest {
             SpeakCraftTheme {
                 InlineAiMentorCard(
                     onOpenMentor = {},
-                    cloudAiEnabled = true,
                     onAskPrompt = { dispatchedPrompt = it }
                 )
             }

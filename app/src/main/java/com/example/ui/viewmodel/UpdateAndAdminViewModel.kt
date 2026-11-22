@@ -2,14 +2,11 @@ package com.example.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.model.ApplicationRelease
 import com.example.data.model.ApplicationUpdateEvent
-import com.example.data.model.ExtractedTechnique
 import com.example.data.model.LearningChallenge
 import com.example.data.model.Lesson
-import com.example.data.model.YouTubeSource
 import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.update.BackupSnapshotInfo
@@ -18,7 +15,6 @@ import com.example.data.update.ReleaseUpdateRepository
 import com.example.data.update.UpdateBackupManager
 import com.example.data.update.UpdateDownloadState
 import com.example.data.update.UpdateEvaluation
-import com.example.data.youtube.YouTubeIntelligenceClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,40 +28,9 @@ class UpdateAndAdminViewModel(
     private val updateRepository: ReleaseUpdateRepository,
     private val backupManager: UpdateBackupManager,
     private val prefsRepo: AppPreferencesRepository,
-    private val youtubeClient: YouTubeIntelligenceClient,
-    private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val currentUserId: String,
-    private val githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient(),
-    private val hybridCoordinator: com.example.data.ai.HybridAiCoachCoordinator? = null
+    private val githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient()
 ) : ViewModel() {
-
-    private val effectiveCoordinator: com.example.data.ai.HybridAiCoachCoordinator by lazy {
-        hybridCoordinator ?: com.example.data.ai.HybridAiCoachCoordinator(
-            localOrchestrator = localOrchestrator,
-            prefsRepo = prefsRepo
-        )
-    }
-
-    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
-    constructor(
-        repository: SpeakCraftRepository,
-        updateRepository: ReleaseUpdateRepository,
-        backupManager: UpdateBackupManager,
-        prefsRepo: AppPreferencesRepository,
-        youtubeClient: YouTubeIntelligenceClient,
-        geminiCoach: com.example.data.ai.GeminiCoachService,
-        currentUserId: String,
-        githubReleaseClient: GitHubReleaseClient = GitHubReleaseClient()
-    ) : this(
-        repository = repository,
-        updateRepository = updateRepository,
-        backupManager = backupManager,
-        prefsRepo = prefsRepo,
-        youtubeClient = youtubeClient,
-        localOrchestrator = LocalIntelligenceOrchestrator(),
-        currentUserId = currentUserId,
-        githubReleaseClient = githubReleaseClient
-    )
 
     val enabledReleases: StateFlow<List<ApplicationRelease>> =
         repository.observeEnabledReleases()
@@ -73,10 +38,6 @@ class UpdateAndAdminViewModel(
 
     val adminReleases: StateFlow<List<ApplicationRelease>> =
         repository.observeAdminReleases()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
-
-    val moderationTechniques: StateFlow<List<ExtractedTechnique>> =
-        repository.observePendingModerationTechniques()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
     val adminUpdateEvents: StateFlow<List<ApplicationUpdateEvent>> =
@@ -117,9 +78,6 @@ class UpdateAndAdminViewModel(
 
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
-
-    private val _adminSyncBusy = MutableStateFlow(false)
-    val adminSyncBusy: StateFlow<Boolean> = _adminSyncBusy.asStateFlow()
 
     fun clearStatusMessage() {
         _statusMessage.value = null
@@ -341,58 +299,6 @@ class UpdateAndAdminViewModel(
     }
 
     // ==================== ADMIN CONSOLE ACTIONS ====================
-
-    fun adminSyncYouTubeChannel(url: String, apiKey: String, autoPublish: Boolean) {
-        viewModelScope.launch {
-            _adminSyncBusy.value = true
-            val auditRes = youtubeClient.inspectUrl(url, apiKey)
-            auditRes.onFailure { err ->
-                _statusMessage.value = "Sync failed: ${err.message}"
-            }.onSuccess { audit ->
-                var savedCount = 0
-                audit.videos.forEach { video ->
-                    val techniques = if (video.extractionStatus != "INACCESSIBLE") {
-                        effectiveCoordinator.extractYouTubeLessons(
-                            videoId = video.videoId,
-                            videoTitle = video.title,
-                            videoUrl = video.videoUrl,
-                            description = video.description,
-                            transcriptText = video.transcript
-                        ).getOrNull()?.techniques.orEmpty()
-                    } else emptyList()
-
-                    savedCount += techniques.size
-                    repository.adminSyncVideoAndTechniques(
-                        source = YouTubeSource(
-                            videoId = video.videoId,
-                            channelHandle = video.channelHandle,
-                            playlistTitle = video.playlistTitle,
-                            publishedDate = video.publishedDate,
-                            durationSeconds = video.durationSeconds,
-                            title = video.title,
-                            videoUrl = video.videoUrl,
-                            thumbnailUrl = video.thumbnailUrl,
-                            extractionStatus = video.extractionStatus,
-                            statusDetail = video.statusDetail,
-                            transcriptAvailable = video.transcript != null
-                        ),
-                        segments = video.segments,
-                        techniques = techniques,
-                        moderationStatus = if (autoPublish) "PUBLISHED" else "PENDING_REVIEW"
-                    )
-                }
-                _statusMessage.value = "Synced ${audit.videos.size} videos and queued $savedCount techniques."
-            }
-            _adminSyncBusy.value = false
-        }
-    }
-
-    fun moderateTechnique(techniqueId: String, status: String) {
-        viewModelScope.launch {
-            val res = repository.adminModerateTechnique(techniqueId, status)
-            _statusMessage.value = if (res.isSuccess) "Technique set to $status." else res.exceptionOrNull()?.message
-        }
-    }
 
     fun saveSharedLesson(lesson: Lesson) {
         viewModelScope.launch {

@@ -774,8 +774,8 @@ fun LessonAttributionBadge(
 ) {
     val ext = MaterialTheme.speakCraftColors
     val label = when {
-        !sourceVerified -> "Pending Transcript Verification"
-        isCreatorDerived -> "Creator Framework (@askvinh)"
+        !sourceVerified -> "Editorial Draft"
+        isCreatorDerived -> "Speaking Framework"
         else -> "AI Coaching Supplement"
     }
     val tint = when {

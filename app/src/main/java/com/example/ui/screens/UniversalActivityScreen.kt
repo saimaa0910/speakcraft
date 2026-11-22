@@ -79,7 +79,6 @@ fun ActivityScreen(
 
     val uiState by vm.activeState.collectAsStateWithLifecycle()
     val savedList by vm.savedActivities.collectAsStateWithLifecycle()
-    val cloudAiEnabled by vm.cloudAiEnabled.collectAsStateWithLifecycle()
     val isAudioRecording by (vm.audioRecorder?.isRecording?.collectAsStateWithLifecycle() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) })
     val amplitude by (vm.audioRecorder?.amplitude?.collectAsStateWithLifecycle() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) })
 

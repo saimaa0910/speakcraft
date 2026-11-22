@@ -129,4 +129,16 @@ jobs:
             exit 1
           fi
 
+          # 5. ADR-003 (T-04.1.2): firebase-ai cloud AI SDK must stay removed from build & source
+          if grep -rnE 'firebase[-.]ai|com\.google\.firebase\.ai' app/build.gradle.kts gradle/libs.versions.toml app/src/main; then
+            echo "::error::Prohibited cloud AI dependency or import (firebase-ai) detected."
+            exit 1
+          fi
+
+          # 6. ADR-011 (T-04.1.1): YouTube Intelligence and creator branding must stay removed from app/src/main
+          if grep -rniE 'vinh|giang|askvinh|YouTubeIntelligenceClient|YouTubeIntelligenceScreen' app/src/main; then
+            echo "::error::Prohibited creator branding or YouTube Intelligence symbol detected in app/src/main."
+            exit 1
+          fi
+
           echo "All static security and workflow hygiene checks passed."

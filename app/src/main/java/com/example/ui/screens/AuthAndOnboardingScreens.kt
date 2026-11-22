@@ -143,7 +143,7 @@ fun AuthScreen(
                     }
                     Spacer(Modifier.height(SpeakCraftSpacing.sm))
                     Text(
-                        text = "AI Communication Coach grounded in Vinh Giang (@askvinh) frameworks",
+                        text = "Personal Communication Coach for vocal clarity, presence & fluency",
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = if (tier.isExpandedTablet) TextAlign.Start else TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -196,7 +196,7 @@ fun AuthScreen(
                                 icon = Icons.Default.PlayCircle,
                                 tint = ext.info,
                                 bg = ext.infoContainer,
-                                text = "Live YouTube @askvinh intelligence & source-attributed lessons"
+                                text = "Structured speaking frameworks, vocal labs & 30/60/90-day plans"
                             )
                             AuthFeatureRow(
                                 icon = Icons.Default.GraphicEq,
@@ -429,7 +429,7 @@ fun OnboardingAssessmentScreen(
                                         modifier = Modifier.semantics { heading() }
                                     )
                                     Text(
-                                        "Let's tailor your coaching curriculum and @askvinh 30-Day Communication Challenge baseline.",
+                                        "Let's tailor your coaching curriculum and 30-Day Communication Challenge baseline.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

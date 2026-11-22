@@ -83,8 +83,7 @@ fun ModuleLessonsScreen(
     moduleSlug: String,
     sharedLessons: List<Lesson>,
     learningProgress: List<UserLearningProgress>,
-    onOpenLesson: (String) -> Unit,
-    onOpenYouTubeLibrary: () -> Unit
+    onOpenLesson: (String) -> Unit
 ) {
     val moduleMeta = CurriculumCatalog.contentModules.firstOrNull { it.slug == moduleSlug }
     val localLessons = remember(moduleSlug, sharedLessons) {
@@ -95,7 +94,7 @@ fun ModuleLessonsScreen(
                 moduleSlug = l.moduleSlug,
                 title = l.title,
                 objective = l.objective,
-                sourceVideoTitle = "@askvinh Curated Lesson",
+                sourceVideoTitle = "Curated Lesson",
                 sourceVideoUrl = l.sourceVideoUrl,
                 timestampLabel = l.timestampLabel,
                 explanation = l.explanation,
@@ -110,7 +109,7 @@ fun ModuleLessonsScreen(
         (builtIn + fromCloud).distinctBy { it.id }
     }
     val pendingSeeds = remember(moduleSlug) {
-        CurriculumCatalog.askVinhKnowledgeBase.filter {
+        CurriculumCatalog.curatedTechniqueCatalog.filter {
             it.moduleSlug == moduleSlug && it.verificationStatus == "PENDING_TRANSCRIPT"
         }
     }
@@ -127,7 +126,7 @@ fun ModuleLessonsScreen(
             item {
                 SectionHeader(
                     title = moduleMeta?.title ?: "Module Lessons",
-                    subtitle = moduleMeta?.subtitle ?: "Source-grounded @askvinh communication curriculum"
+                    subtitle = moduleMeta?.subtitle ?: "Structured communication curriculum"
                 )
                 Spacer(Modifier.height(8.dp))
                 FeatureGuideStrip(featureKey = "module_lessons")
@@ -137,9 +136,7 @@ fun ModuleLessonsScreen(
                 item {
                     EmptyStateCard(
                         title = "No lessons published in this module yet",
-                        message = "Inspect @askvinh videos in YouTube Intelligence to extract verified lessons into this module.",
-                        ctaLabel = "Open YouTube Library",
-                        onCta = onOpenYouTubeLibrary
+                        message = "Check back as new curated communication lessons are added to this module."
                     )
                 }
             }
@@ -180,8 +177,8 @@ fun ModuleLessonsScreen(
             if (pendingSeeds.isNotEmpty()) {
                 item {
                     SectionHeader(
-                        title = "Queued Frameworks (Transcript Verification Required)",
-                        subtitle = "SpeakCraft never invents creator bullet points offline"
+                        title = "Upcoming Editorial Drafts",
+                        subtitle = "Curriculum modules currently being authored"
                     )
                 }
                 items(pendingSeeds, key = { it.id }) { seed ->
@@ -194,12 +191,6 @@ fun ModuleLessonsScreen(
                             LessonAttributionBadge(isCreatorDerived = false, sourceVerified = false)
                             Text(seed.title, style = MaterialTheme.typography.titleMedium)
                             Text(seed.creatorAdvice, style = MaterialTheme.typography.bodySmall)
-                            OutlinedButton(
-                                onClick = onOpenYouTubeLibrary,
-                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                            ) {
-                                Text("Fetch Live Captions in YouTube Library")
-                            }
                         }
                     }
                 }
@@ -273,7 +264,7 @@ fun LessonDetailScreen(
                     moduleSlug = l.moduleSlug,
                     title = l.title,
                     objective = l.objective,
-                    sourceVideoTitle = "@askvinh Lesson",
+                    sourceVideoTitle = "Curated Lesson",
                     sourceVideoUrl = l.sourceVideoUrl,
                     timestampLabel = l.timestampLabel,
                     explanation = l.explanation,
@@ -476,10 +467,12 @@ fun LessonDetailScreen(
                     LessonAttributionBadge(lesson.isCreatorDerived, lesson.sourceVerified)
                     Text(lesson.title, style = MaterialTheme.typography.headlineMedium)
                     Text("Objective: ${lesson.objective}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick = { uriHandler.openUri(lesson.sourceVideoUrl) }) {
-                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Watch source video")
-                        Spacer(Modifier.width(6.dp))
-                        Text("${lesson.sourceVideoTitle} • ${lesson.timestampLabel}")
+                    if (lesson.sourceVideoUrl.isNotBlank()) {
+                        OutlinedButton(onClick = { uriHandler.openUri(lesson.sourceVideoUrl) }) {
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Watch source video")
+                            Spacer(Modifier.width(6.dp))
+                            Text("${lesson.sourceVideoTitle} • ${lesson.timestampLabel}")
+                        }
                     }
                     FeatureGuideStrip(featureKey = "lesson_detail")
                 }
@@ -633,7 +626,7 @@ fun VoiceTrainingLabScreen(
             item {
                 SectionHeader(
                     title = "Voice Training Lab",
-                    subtitle = "@askvinh 5 Vocal Foundations: Rate, Pause, Melody, Volume & Character"
+                    subtitle = "5 Vocal Foundations: Rate, Pause, Melody, Volume & Character"
                 )
                 Spacer(Modifier.height(8.dp))
                 FeatureGuideStrip(featureKey = "voice_training")

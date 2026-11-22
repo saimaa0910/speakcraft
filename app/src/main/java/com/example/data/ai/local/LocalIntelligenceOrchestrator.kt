@@ -2,7 +2,6 @@ package com.example.data.ai.local
 
 import android.content.Context
 import android.util.Log
-import com.example.data.ai.ExtractedYouTubeBundle
 import com.example.data.ai.VocabEvaluationResult
 import com.example.data.ai.local.audio.AcousticFeatures
 import com.example.data.ai.local.audio.AudioFeatureExtractionEngine
@@ -28,7 +27,6 @@ import com.example.data.ai.local.video.GestureAnalysisEngine
 import com.example.data.ai.local.video.GestureAnalysisResult
 import com.example.data.ai.local.video.PostureAnalysisResult
 import com.example.data.ai.local.video.VideoFrameProcessingEngine
-import com.example.data.model.ExtractedTechnique
 import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
 import com.example.data.model.UserProfile
@@ -810,111 +808,6 @@ class LocalIntelligenceOrchestrator(
     }
 
     private fun langExampleHint(upgrades: List<String>): String = upgrades.firstOrNull().orEmpty()
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // 5. Local YouTube Lesson & Technique Extractor
-    // ─────────────────────────────────────────────────────────────────────────
-
-    suspend fun extractYouTubeLessons(
-        videoId: String,
-        videoTitle: String,
-        videoUrl: String,
-        description: String,
-        transcriptText: String?
-    ): Result<ExtractedYouTubeBundle> = withContext(Dispatchers.Default) {
-        runCatching {
-            LocalExecutionPolicy.verifyLocalOnly()
-
-            val combined = "$videoTitle $description ${transcriptText.orEmpty()}".lowercase()
-            val category = when {
-                combined.contains("voice") || combined.contains("vocal") || combined.contains("tone") || combined.contains("pitch") -> "Voice Mastery"
-                combined.contains("story") || combined.contains("narrative") -> "Storytelling"
-                combined.contains("body language") || combined.contains("gesture") || combined.contains("posture") || combined.contains("eye contact") -> "Body Language"
-                combined.contains("listen") -> "Active Listening"
-                combined.contains("conversation") || combined.contains("small talk") || combined.contains("rapport") -> "Conversation Mastery"
-                combined.contains("pronun") || combined.contains("articulat") -> "Pronunciation & Articulation"
-                combined.contains("interview") || combined.contains("meeting") || combined.contains("executive") -> "Professional Communication"
-                combined.contains("stage") || combined.contains("presentation") || combined.contains("public speaking") -> "Public Speaking"
-                else -> "Speaking Clarity"
-            }
-
-            val difficulty = when {
-                combined.contains("advanced") || combined.contains("executive") || combined.contains("mastery") -> "Advanced"
-                combined.contains("beginner") || combined.contains("basics") || combined.contains("foundation") -> "Beginner"
-                else -> "Intermediate"
-            }
-
-            val sourceText = (transcriptText?.takeIf { it.isNotBlank() } ?: description).trim()
-            val candidateSentences = sourceText
-                .split(Regex("[.!?\\n]+"))
-                .map { it.replace(Regex("^\\s*(?:\\[?\\d{1,2}:\\d{2}\\]?\\s*[-–:]?\\s*)"), "").trim() }
-                .filter { it.length in 30..240 }
-                .filterNot { it.startsWith("subscribe", ignoreCase = true) || it.startsWith("http", ignoreCase = true) }
-                .distinct()
-                .take(5)
-
-            val techniques = if (candidateSentences.isNotEmpty()) {
-                candidateSentences.mapIndexed { idx, insight ->
-                    val shortCue = insight.split(Regex("[,;:]")).firstOrNull()?.take(48)?.trim().orEmpty()
-                    val drillTitle = if (shortCue.length >= 16) {
-                        shortCue.replaceFirstChar { it.uppercase() }
-                    } else {
-                        "${videoTitle.take(36).trim()} — Drill ${idx + 1}"
-                    }
-                    ExtractedTechnique(
-                        videoId = videoId,
-                        title = drillTitle,
-                        category = category,
-                        difficulty = difficulty,
-                        creatorAdvice = insight,
-                        aiExplanation = "Creator-attributed $category habit: practicing this explicitly locks in clearer vocal phrasing and listener engagement.",
-                        originalContext = videoTitle,
-                        instructions = "1. Read the creator insight aloud twice.\n2. Record a 45–60s spoken take putting it into your own example.\n3. Compare your second take for deliberate pauses and energy shifts.",
-                        practicalExercise = "Record a 60-second response applying: \"$insight\"",
-                        expectedOutcome = "Noticeably stronger $category control and steadier phrasing.",
-                        suggestedDurationMinutes = 5L,
-                        commonMistake = "Knowing the concept intellectually without vocalizing it cleanly under real speaking tempo.",
-                        correction = "Anchor this drill with a deliberate 1-second breath pause right before your key point.",
-                        sourceVideoTitle = videoTitle,
-                        sourceVideoUrl = videoUrl,
-                        timestampLabel = String.format("%02d:%02d", (idx * 45) / 60, (idx * 45) % 60),
-                        isCreatorDerived = true,
-                        moderationStatus = "PUBLISHED"
-                    )
-                }
-            } else {
-                listOf(
-                    ExtractedTechnique(
-                        videoId = videoId,
-                        title = videoTitle.ifBlank { "$category Core Practice" }.take(60),
-                        category = category,
-                        difficulty = difficulty,
-                        creatorAdvice = "Apply the core $category principles discussed in \"$videoTitle\".",
-                        aiExplanation = "Structured on-device study drill attributed to the original creator video.",
-                        originalContext = videoTitle,
-                        instructions = "1. Watch the linked source video.\n2. Summarize one takeaway in 60 seconds using PREP.\n3. Re-record with clearer pauses and projection.",
-                        practicalExercise = "Deliver a 60-second spoken summary of \"$videoTitle\" using intentional 1-second pauses.",
-                        expectedOutcome = "Improved clarity, pacing, and practical retention of the lesson.",
-                        suggestedDurationMinutes = 5L,
-                        commonMistake = "Passive watching without immediate vocal practice.",
-                        correction = "Immediately test the technique in a 60-second recording.",
-                        sourceVideoTitle = videoTitle,
-                        sourceVideoUrl = videoUrl,
-                        timestampLabel = "00:00",
-                        isCreatorDerived = true,
-                        moderationStatus = "PUBLISHED"
-                    )
-                )
-            }
-
-            ExtractedYouTubeBundle(
-                mainTopic = videoTitle.ifBlank { category },
-                category = category,
-                difficulty = difficulty,
-                techniques = techniques
-            )
-        }
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers

@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.RecommendationEngine
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
@@ -19,7 +19,6 @@ import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.update.ReleaseUpdateRepository
 import com.example.data.update.UpdateBackupManager
-import com.example.data.youtube.YouTubeIntelligenceClient
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
 import com.example.ui.screens.AnalyticsScreen
@@ -138,8 +137,6 @@ class SpeakCraftTabletLayoutTest {
             updateRepository = ReleaseUpdateRepository(ctx, backupMgr),
             backupManager = backupMgr,
             prefsRepo = AppPreferencesRepository(ctx),
-            youtubeClient = YouTubeIntelligenceClient(),
-            geminiCoach = GeminiCoachService(),
             currentUserId = "tablet_user_1"
         )
 
@@ -202,7 +199,6 @@ class SpeakCraftTabletLayoutTest {
                     updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetYoutubeKey = {},
                     onSetUpdateChannel = {},
                     onOpenUpdater = {},
                     onCreateBackupNow = {},
@@ -229,7 +225,7 @@ class SpeakCraftTabletLayoutTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            GeminiCoachService(),
+            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         val fakeVideo = File(ctx.cacheDir, "tablet_clip.mp4").apply { writeBytes(ByteArray(128) { 2 }) }

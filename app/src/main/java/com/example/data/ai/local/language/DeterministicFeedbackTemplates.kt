@@ -54,7 +54,7 @@ data class StructuredFeedback(
 /**
  * Generates all six structured feedback sections from evidence without an LLM.
  *
- * Grounded in Vinh Giang's (@askvinh) vocal & communication frameworks:
+ * Grounded in core vocal & communication fundamentals:
  * 5 Vocal Foundations (Rate, Pause, Melody, Volume, Character), PREP, and CLEAR.
  */
 object DeterministicFeedbackTemplates {
@@ -207,7 +207,7 @@ object DeterministicFeedbackTemplates {
             append("Correcting sentence structure ensures your credibility remains high with every listener. ")
         }
         if (e.fillerCount > 0) {
-            append("Vinh Giang teaches that fillers occur when the mouth moves faster than the mind; replacing fillers with silent poise signals confidence. ")
+            append("Fillers occur when your mouth moves faster than your next thought; replacing fillers with silent poise signals confidence. ")
         }
         if (e.wordsPerMinute > 175) {
             append("Slowing down by 15% creates breathing room for listeners to process and retain your key points. ")
@@ -226,7 +226,7 @@ object DeterministicFeedbackTemplates {
         if (e.wordsPerMinute > 175) {
             add("Practice rate contrast: speak your setup briskly, then intentionally slow down 20% on the core conclusion.")
         } else if (e.wordsPerMinute in 1..99) {
-            add("Practice shadowing an @askvinh lesson clip to build conversational cadence and rhythm.")
+            add("Practice shadowing a cadence segment in Active Listening to build conversational rhythm.")
         }
         if (e.grammarIssues.isNotEmpty()) {
             add("Re-record this response once, explicitly using the corrected phrasing shown above.")

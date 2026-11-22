@@ -28,18 +28,23 @@ class CurriculumAndRecommendationTest {
     }
 
     @Test
-    fun `unverified frameworks stay marked PENDING_TRANSCRIPT and lessons remain source grounded`() {
-        val pending = CurriculumCatalog.askVinhKnowledgeBase.filter { it.verificationStatus == "PENDING_TRANSCRIPT" }
-        assertTrue(pending.isNotEmpty())
+    fun `editorial drafts stay marked PENDING_TRANSCRIPT and curated lessons preserve full D-08 catalog without channel URLs`() {
+        assertEquals(15, CurriculumCatalog.curatedTechniqueCatalog.size)
+        val pending = CurriculumCatalog.curatedTechniqueCatalog.filter { it.verificationStatus == "PENDING_TRANSCRIPT" }
+        assertEquals(3, pending.size)
         pending.forEach { seed ->
-            assertFalse("Pending item ${seed.id} must not claim creator-verified transcript", seed.isCreatorDerived)
-            assertTrue(seed.creatorAdvice.contains("transcript", ignoreCase = true))
+            assertFalse("Pending item ${seed.id} must not claim verified framework", seed.isCreatorDerived)
+            assertTrue(seed.creatorAdvice.contains("Editorial authoring in progress", ignoreCase = true))
+            assertEquals("", seed.sourceVideoUrl)
         }
 
         val verifiedLessons = CurriculumCatalog.lessons.filter { it.sourceVerified }
-        assertTrue(verifiedLessons.isNotEmpty())
+        assertEquals(12, verifiedLessons.size)
         verifiedLessons.forEach { lesson ->
-            assertTrue(lesson.sourceVideoUrl.startsWith("https://www.youtube.com/"))
+            assertFalse(
+                "Lesson ${lesson.id} must not point to channel-root YouTube URLs before EP-09",
+                lesson.sourceVideoUrl.contains("youtube.com", ignoreCase = true)
+            )
             assertTrue(lesson.instructions.isNotEmpty())
         }
     }
@@ -76,7 +81,7 @@ class CurriculumAndRecommendationTest {
             articulationScore = 60L
         )
         val prepRec = RecommendationEngine.recommendNextAction(profile, listOf(prepSession), emptyList(), null)
-        assertEquals("lesson_detail/lesson_vinh_prep", prepRec.targetRoute)
+        assertEquals("lesson_detail/lesson_tech_prep", prepRec.targetRoute)
     }
 
     @Test

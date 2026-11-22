@@ -138,7 +138,7 @@ data class SpeakingSession(
     val grammarScore: Long = 0L,
     val articulationScore: Long = 0L,
     val wordsPerMinute: Long = 0L,
-    val sourceVideoUrl: String = "https://www.youtube.com/@askvinh",
+    val sourceVideoUrl: String = "",
     val evaluationStatus: String = "COMPLETED",
     val isPartialEvaluation: Boolean = false,
     val evaluatedDimensionKeys: List<String> = emptyList(),
@@ -181,110 +181,6 @@ data class ConversationSession(
     val turnCount: Long = 0L,
     val summaryFeedback: String = "",
     val transcriptPreview: String = "",
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
-data class YouTubeChannel(
-    @DocumentId val id: String = "",
-    val channelId: String = "",
-    val handle: String = "@askvinh",
-    val title: String = "",
-    val channelUrl: String = "",
-    val videoCountSynced: Long = 0L,
-    val status: String = "ACTIVE",
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
-data class YouTubeVideo(
-    @DocumentId val id: String = "",
-    val videoId: String = "",
-    val channelId: String = "",
-    val playlistId: String = "",
-    val playlistTitle: String = "",
-    val title: String = "",
-    val description: String = "",
-    val publishedDate: String = "",
-    val durationSeconds: Long = 0L,
-    val videoUrl: String = "",
-    val thumbnailUrl: String = "",
-    val transcriptAvailable: Boolean = false,
-    val processingStatus: String = "PENDING",
-    val statusDetail: String = "",
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-data class TranscriptSegment(
-    val startSeconds: Double = 0.0,
-    val durationSeconds: Double = 0.0,
-    val timestampLabel: String = "00:00",
-    val text: String = ""
-)
-
-@Keep
-@IgnoreExtraProperties
-data class VideoTranscript(
-    @DocumentId val id: String = "",
-    val videoId: String = "",
-    val languageCode: String = "en",
-    val segmentSummaries: List<String> = emptyList(),
-    val attributionNotice: String = "Source metadata & caption timestamps belong to the original creator.",
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
-data class YouTubeSource(
-    @DocumentId val id: String = "",
-    val userId: String = "",
-    val videoId: String = "",
-    val channelHandle: String = "@askvinh",
-    val playlistTitle: String = "",
-    val publishedDate: String = "",
-    val durationSeconds: Long = 0L,
-    val title: String = "",
-    val videoUrl: String = "",
-    val thumbnailUrl: String = "",
-    val mainTopic: String = "",
-    val category: String = "",
-    val difficulty: String = "Intermediate",
-    val extractionStatus: String = "EXTRACTED",
-    val statusDetail: String = "",
-    val transcriptAvailable: Boolean = false,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
-data class ExtractedTechnique(
-    @DocumentId val id: String = "",
-    val userId: String = "",
-    val videoId: String = "",
-    val title: String = "",
-    val category: String = "",
-    val difficulty: String = "Intermediate",
-    val creatorAdvice: String = "",
-    val aiExplanation: String = "",
-    val originalContext: String = "",
-    val instructions: String = "",
-    val practicalExercise: String = "",
-    val expectedOutcome: String = "",
-    val suggestedDurationMinutes: Long = 5L,
-    val commonMistake: String = "",
-    val correction: String = "",
-    val sourceVideoTitle: String = "",
-    val sourceVideoUrl: String = "",
-    val timestampLabel: String = "",
-    val isCreatorDerived: Boolean = true,
-    val moderationStatus: String = "PUBLISHED",
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )

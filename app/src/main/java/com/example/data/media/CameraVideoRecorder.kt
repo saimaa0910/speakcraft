@@ -189,7 +189,7 @@ fun InAppCameraVideoDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Frame chest-to-waist (Power Zone) for @askvinh 3-Stage Video Audit",
+                        text = "Frame chest-to-waist (Power Zone) for your 3-Stage Video Audit",
                         color = ext.onHeroSubtitle,
                         style = MaterialTheme.typography.bodySmall
                     )

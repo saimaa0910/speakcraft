@@ -177,7 +177,6 @@ private fun iconForFeature(featureKey: String): ImageVector = when (featureKey) 
     "vocabulary" -> Icons.AutoMirrored.Filled.MenuBook
     "voice_training", "pronunciation", "articulation_lab" -> Icons.Default.GraphicEq
     "analytics" -> Icons.Default.Analytics
-    "youtube_library" -> Icons.Default.PlayCircle
     else -> Icons.Default.AutoAwesome
 }
 

@@ -209,7 +209,7 @@ fun SpotlightHeroCard(
                 title = "The 3 Vs of Communication",
                 subtitle = "Build a strong foundation with Visual, Vocal and Verbal communication.",
                 primaryCta = "Start Lesson",
-                primaryRoute = "lesson_detail/lesson_vinh_3stage_audit",
+                primaryRoute = "lesson_detail/lesson_tech_3stage_audit",
                 quickPracticeRoute = "speaking_lab"
             ),
             SpotlightSlide(
@@ -1065,7 +1065,6 @@ fun StudioMetricCard(
 fun InlineAiMentorCard(
     onOpenMentor: () -> Unit,
     modifier: Modifier = Modifier,
-    cloudAiEnabled: Boolean = false,
     onAskPrompt: (String) -> Unit = { onOpenMentor() }
 ) {
     val ext = MaterialTheme.speakCraftColors

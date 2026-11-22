@@ -49,17 +49,6 @@ class SpeakingAndLabsViewModel(
     private val capabilityManager: IntelligenceCapabilityManager? = null
 ) : ViewModel() {
 
-    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
-    constructor(
-        repository: SpeakCraftRepository,
-        geminiCoach: com.example.data.ai.GeminiCoachService,
-        audioManager: AudioRecorderManager
-    ) : this(
-        repository = repository,
-        localOrchestrator = LocalIntelligenceOrchestrator(audioManager.context),
-        audioManager = audioManager
-    )
-
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
         hybridCoordinator ?: HybridAiCoachCoordinator(
             localOrchestrator = localOrchestrator,
@@ -86,9 +75,6 @@ class SpeakingAndLabsViewModel(
 
     val liveTranscriptionState: StateFlow<LiveTranscriptionState> =
         liveTranscriptionManager?.state ?: MutableStateFlow(LiveTranscriptionState()).asStateFlow()
-
-    val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _currentSessionId = MutableStateFlow(UUID.randomUUID().toString())
     val currentSessionId: StateFlow<String> = _currentSessionId.asStateFlow()
@@ -149,12 +135,6 @@ class SpeakingAndLabsViewModel(
         _liveTranscript.value = text
         _liveTranscriptConfidence.value = confidence.coerceIn(0f, 1f)
         liveTranscriptionManager?.updateEditedTranscript(text)
-    }
-
-    fun setCloudAiEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            effectiveCoordinator.setCloudAiEnabled(enabled)
-        }
     }
 
     fun clearTranscriptionError() {

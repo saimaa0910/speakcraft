@@ -378,11 +378,13 @@ fun ListeningShadowingScreen(
                             Spacer(Modifier.width(4.dp))
                             Text("Play Reference")
                         }
-                        OutlinedButton(
-                            onClick = { uriHandler.openUri(activeSegment.sourceVideoUrl) },
-                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                        ) {
-                            Text("Watch @askvinh")
+                        if (activeSegment.sourceVideoUrl.isNotBlank()) {
+                            OutlinedButton(
+                                onClick = { uriHandler.openUri(activeSegment.sourceVideoUrl) },
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            ) {
+                                Text("Watch Original Lesson")
+                            }
                         }
                     }
 
@@ -458,7 +460,7 @@ fun ListeningShadowingScreen(
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
-                SectionHeader("Active Listening & Shadowing", "4 Ways of Listening + match @askvinh pacing & silent pauses")
+                SectionHeader("Active Listening & Shadowing", "4 Ways of Listening + match natural pacing & silent pauses")
                 Spacer(Modifier.height(SpeakCraftSpacing.sm))
                 FeatureGuideStrip(featureKey = "listening_lab")
             }
@@ -924,7 +926,7 @@ fun RealWorldTasksScreen(
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
-                SectionHeader("Real-World Communication Tasks", "Apply @askvinh techniques outside the app and log your reflection")
+                SectionHeader("Real-World Communication Tasks", "Apply speaking techniques outside the app and log your reflection")
                 Spacer(Modifier.height(SpeakCraftSpacing.sm))
                 FeatureGuideStrip(featureKey = "real_world_tasks")
             }

@@ -1,22 +1,24 @@
 package com.example
 
-import com.example.data.ai.GeminiCoachService
 import com.example.data.ai.local.LocalExecutionPolicy
-import kotlinx.coroutines.test.runTest
-import okhttp3.Interceptor
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Protocol
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.IOException
+import java.io.File
 
+/**
+ * TC-SEC-010 / ADR-003 (T-04.1.2):
+ * Verifies at classpath and build-configuration level that Cloud AI SDKs (`firebase-ai`),
+ * `FirebaseAiLogicService`, `GeminiCoachService`, and `cloud_ai_*` preference keys are
+ * completely removed from the application.
+ */
 class ZeroCloudAiNetworkBoundaryTest {
+
+    private fun repoRoot(): File {
+        val cwd = File(System.getProperty("user.dir") ?: ".")
+        return if (File(cwd, "gradle").exists()) cwd else cwd.parentFile ?: cwd
+    }
 
     @Test
     fun zero_cloud_policy_is_strictly_enforced() {
@@ -25,85 +27,36 @@ class ZeroCloudAiNetworkBoundaryTest {
     }
 
     @Test
-    fun network_interceptor_throws_ioexception_on_any_cloud_ai_endpoint() {
-        // Test client with interceptor and a mock terminal chain
-        val blockedEndpoints = listOf(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
-            "https://firebaseml.googleapis.com/v1/projects/speakcraft/models",
-            "https://api.openai.com/v1/chat/completions",
-            "https://api.anthropic.com/v1/messages",
-            "https://api.groq.com/openai/v1/chat/completions",
-            "https://huggingface.co/api/inference"
+    fun firebase_ai_sdk_is_absent_from_runtime_classpath() {
+        val prohibitedClasses = listOf(
+            "com.google.firebase.ai.FirebaseAI",
+            "com.google.firebase.ai.GenerativeModel",
+            "com.example.data.ai.cloud.FirebaseAiLogicService",
+            "com.example.data.ai.GeminiCoachService"
         )
-
-        val interceptor = LocalExecutionPolicy.aiEndpointBlockingInterceptor
-
-        blockedEndpoints.forEach { endpoint ->
-            val request = Request.Builder().url(endpoint).build()
-            val fakeChain = object : Interceptor.Chain {
-                override fun request(): Request = request
-                override fun proceed(request: Request): Response {
-                    return Response.Builder()
-                        .request(request)
-                        .protocol(Protocol.HTTP_1_1)
-                        .code(200)
-                        .message("OK")
-                        .body("{}".toResponseBody("application/json".toMediaType()))
-                        .build()
-                }
-                override fun connection() = null
-                override fun call() = throw UnsupportedOperationException()
-                override fun connectTimeoutMillis() = 1000
-                override fun withConnectTimeout(timeout: Int, unit: java.util.concurrent.TimeUnit) = this
-                override fun readTimeoutMillis() = 1000
-                override fun withReadTimeout(timeout: Int, unit: java.util.concurrent.TimeUnit) = this
-                override fun writeTimeoutMillis() = 1000
-                override fun withWriteTimeout(timeout: Int, unit: java.util.concurrent.TimeUnit) = this
-            }
-
-            val exception = assertThrows(IOException::class.java) {
-                interceptor.intercept(fakeChain)
-            }
-            assertTrue(
-                "Exception message must mention LOCAL_ONLY policy violation",
-                exception.message?.contains("LOCAL_ONLY policy violation") == true
-            )
+        prohibitedClasses.forEach { fqcn ->
+            val loaded = runCatching { Class.forName(fqcn) }.isSuccess
+            assertFalse("Prohibited Cloud AI class must NOT be on runtime classpath: $fqcn", loaded)
         }
     }
 
     @Test
-    fun deprecated_gemini_coach_service_strictly_throws_unsupported_operation() {
-        val deprecatedService = GeminiCoachService()
+    fun build_config_and_preferences_contain_no_cloud_ai_dependencies_or_keys() {
+        val appGradle = File(repoRoot(), "app/build.gradle.kts").readText()
+        val libsToml = File(repoRoot(), "gradle/libs.versions.toml").readText()
+        val prefsRepo = File(repoRoot(), "app/src/main/java/com/example/data/preferences/AppPreferencesRepository.kt").readText()
+        val aiSettingsRepo = File(repoRoot(), "app/src/main/java/com/example/data/preferences/AISettingsRepository.kt").readText()
 
-        assertThrows(UnsupportedOperationException::class.java) {
-            runTest {
-                deprecatedService.analyzeSpeechRecording(
-                    mediaBytes = ByteArray(10),
-                    mimeType = "audio/mp4",
-                    moduleType = "test",
-                    promptTitle = "test",
-                    durationSeconds = 10,
-                    previousSession = null
-                )
-            }
-        }
+        assertFalse("app/build.gradle.kts must not depend on firebase.ai", appGradle.contains("firebase.ai"))
+        assertFalse("libs.versions.toml must not define firebase-ai", libsToml.contains("firebase-ai"))
+        assertFalse("AppPreferencesRepository must not retain cloud_ai_enabled key", prefsRepo.contains("cloud_ai_enabled"))
+        assertFalse("AppPreferencesRepository must not retain cloud_ai_model_tier key", prefsRepo.contains("cloud_ai_model_tier"))
+        assertFalse("AISettingsRepository must not expose cloudAiEnabled", aiSettingsRepo.contains("cloudAiEnabled"))
 
-        assertThrows(UnsupportedOperationException::class.java) {
-            runTest {
-                deprecatedService.evaluateVocabularyUsage("word", "meaning", "sentence")
-            }
-        }
-
-        assertThrows(UnsupportedOperationException::class.java) {
-            runTest {
-                deprecatedService.generateConversationTurn("scenario", "level", emptyList(), "msg")
-            }
-        }
-
-        assertThrows(UnsupportedOperationException::class.java) {
-            runTest {
-                deprecatedService.generateConversationCheckIn("scenario", "transcript")
-            }
-        }
+        val ciYml = File(repoRoot(), ".github/workflows/ci.yml").readText()
+        assertTrue(
+            "ci.yml must enforce firebase-ai absence check",
+            ciYml.contains("firebase[-.]ai")
+        )
     }
 }

@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.School
@@ -51,7 +50,6 @@ import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -153,7 +151,6 @@ import com.example.ui.screens.SpeakingLabScreen
 import com.example.ui.screens.UserProfileScreen
 import com.example.ui.screens.VocabularyScreen
 import com.example.ui.screens.VoiceTrainingLabScreen
-import com.example.ui.screens.YouTubeIntelligenceScreen
 import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.ActivityEngineViewModel
@@ -178,7 +175,6 @@ private val primaryNavItems = listOf(
     PrimaryNavItem("dashboard", "Home", Icons.Filled.Home, Icons.Outlined.Home),
     PrimaryNavItem("daily_practice", "Daily", Icons.Filled.CheckCircle, Icons.Outlined.CheckCircle),
     PrimaryNavItem("speaking_lab", "Record", Icons.Filled.Mic, Icons.Outlined.Mic),
-    PrimaryNavItem("youtube_library", "@askvinh", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircle),
     PrimaryNavItem("ai_mentor", "Mentor", Icons.Filled.Psychology, Icons.Outlined.Psychology)
 )
 
@@ -197,7 +193,6 @@ private val routeTitles = mapOf(
     "grammar_speaking" to "Thinking & Articulation",
     "public_speaking" to "Public Speaking",
     "real_world_tasks" to "Real-World Tasks",
-    "youtube_library" to "YouTube Intelligence",
     "analytics" to "Progress Analytics",
     "ai_mentor" to "AI Mentor",
     "settings" to "Settings",
@@ -355,7 +350,6 @@ private fun AuthenticatedAppShell(
                 InteractiveCoachViewModel(
                     repository = container.repository,
                     localOrchestrator = container.localIntelligenceOrchestrator,
-                    youtubeClient = container.youtubeClient,
                     appContext = context.applicationContext,
                     currentUserId = userId,
                     hybridCoordinator = container.hybridAiCoordinator,
@@ -375,11 +369,8 @@ private fun AuthenticatedAppShell(
                     updateRepository = container.releaseUpdateRepository,
                     backupManager = container.backupManager,
                     prefsRepo = container.preferencesRepository,
-                    youtubeClient = container.youtubeClient,
-                    localOrchestrator = container.localIntelligenceOrchestrator,
                     currentUserId = userId,
-                    githubReleaseClient = container.githubReleaseClient,
-                    hybridCoordinator = container.hybridAiCoordinator
+                    githubReleaseClient = container.githubReleaseClient
                 )
             }
         }
@@ -410,9 +401,6 @@ private fun AuthenticatedAppShell(
     val learningProgressState by mainVm.learningProgress.collectAsStateWithLifecycle()
     val enrollState by mainVm.enrollments.collectAsStateWithLifecycle()
     val tasksState by mainVm.realWorldTasks.collectAsStateWithLifecycle()
-    val ytSourcesState by mainVm.youtubeSources.collectAsStateWithLifecycle()
-    val techState by mainVm.extractedTechniques.collectAsStateWithLifecycle()
-    val sharedTechniques by mainVm.publishedSharedTechniques.collectAsStateWithLifecycle()
     val sharedLessons by mainVm.publishedSharedLessons.collectAsStateWithLifecycle()
     val sharedChallenges by mainVm.sharedChallenges.collectAsStateWithLifecycle()
     val isAdmin by mainVm.isAdmin.collectAsStateWithLifecycle()
@@ -435,7 +423,6 @@ private fun AuthenticatedAppShell(
     val capabilityMatrix by remember(capabilityManager, aiSettingsRepo) {
         capabilityManager.observeMatrix(aiSettingsRepo)
     }.collectAsStateWithLifecycle(initialValue = capabilityManager.computeMatrix(AISettings()))
-    var cloudPolicyMessage by remember { mutableStateOf<String?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(actionMessage) {
@@ -517,8 +504,6 @@ private fun AuthenticatedAppShell(
                 val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
                 val enrollments = (enrollState as? UiState.Success)?.data.orEmpty()
                 val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
-                val ytSources = (ytSourcesState as? UiState.Success)?.data.orEmpty()
-                val userTechniques = (techState as? UiState.Success)?.data.orEmpty()
 
                 val latestReleaseVer = updateEvaluation.latestRelease?.versionName.orEmpty()
                 val showUpdateBanner = updateEvaluation.isUpdateAvailable &&
@@ -934,7 +919,6 @@ private fun AuthenticatedAppShell(
                                             learningProgressManager.completeDailyTask(taskId)
                                         },
                                         onOpenProfile = { navigateTo("profile") },
-                                        cloudAiEnabled = aiSettings.effectiveCloudAiEnabled,
                                         onQuickAskMentor = { promptText ->
                                             coachVm.askMentor(
                                                 profile = profile,
@@ -973,9 +957,7 @@ private fun AuthenticatedAppShell(
                                         onReviewCard = { seed, existing, ok -> mainVm.reviewVocabularyCard(seed, existing, ok) },
                                         onEvaluateUsage = { seed, existing, sent -> mainVm.evaluateVocabUsage(seed, existing, sent) },
                                         onSaveCustomWord = { w, m, l, e, n -> mainVm.saveCustomVocabularyWord(w, m, l, e, n) },
-                                        onClearEval = { mainVm.clearVocabEval() },
-                                        cloudAiEnabled = aiSettings.effectiveCloudAiEnabled,
-                                        onToggleCloudAi = null
+                                        onClearEval = { mainVm.clearVocabEval() }
                                     )
                                 }
                                 composable("speaking_lab") {
@@ -1060,8 +1042,7 @@ private fun AuthenticatedAppShell(
                                         moduleSlug = slug,
                                         sharedLessons = sharedLessons,
                                         learningProgress = learningProgress,
-                                        onOpenLesson = { lessonId -> navigateTo("lesson_detail/$lessonId") },
-                                        onOpenYouTubeLibrary = { navigateTo("youtube_library") }
+                                        onOpenLesson = { lessonId -> navigateTo("lesson_detail/$lessonId") }
                                     )
                                 }
                                 composable(
@@ -1079,15 +1060,6 @@ private fun AuthenticatedAppShell(
                                             mainVm.toggleLessonCompleted(id, slug, completed, notes)
                                         },
                                         onNavigateToLesson = { nextId -> navigateTo("lesson_detail/$nextId") }
-                                    )
-                                }
-                                composable("youtube_library") {
-                                    YouTubeIntelligenceScreen(
-                                        coachVm = coachVm,
-                                        sources = ytSources,
-                                        userTechniques = userTechniques,
-                                        sharedTechniques = sharedTechniques,
-                                        youtubeApiKey = prefs.youtubeApiKey
                                     )
                                 }
                                 composable("analytics") {
@@ -1119,8 +1091,7 @@ private fun AuthenticatedAppShell(
                                     AdminDashboardScreen(
                                         vm = updateAdminVm,
                                         isAdmin = isAdmin,
-                                        currentUserId = userId,
-                                        youtubeApiKey = prefs.youtubeApiKey
+                                        currentUserId = userId
                                     )
                                 }
                                 composable("settings") {
@@ -1131,7 +1102,6 @@ private fun AuthenticatedAppShell(
                                         updateStatusSummary = updateEvaluation.statusSummary,
                                         onSetTheme = { mode -> scope.launch { prefsRepo.setThemeMode(mode) } },
                                         onSetTtsRate = { rate -> scope.launch { prefsRepo.setTtsRate(rate) } },
-                                        onSetYoutubeKey = { key -> scope.launch { prefsRepo.setYoutubeApiKey(key) } },
                                         onSetUpdateChannel = { ch -> updateAdminVm.selectUpdateChannel(ch, prefs) },
                                         onOpenUpdater = {
                                             updateAdminVm.checkForUpdatesManual(prefs)
@@ -1150,15 +1120,6 @@ private fun AuthenticatedAppShell(
                                                 tutorialStateManager.resetUserTutorials(userId)
                                                 navigateTo("dashboard")
                                             }
-                                        },
-                                        onSetCloudAiEnabled = { enabled ->
-                                            scope.launch {
-                                                val result = aiSettingsRepo.setCloudAiEnabled(enabled)
-                                                cloudPolicyMessage = result.exceptionOrNull()?.message
-                                            }
-                                        },
-                                        onSetCloudAiModelTier = { tier ->
-                                            scope.launch { aiSettingsRepo.setCloudAiModelTier(tier) }
                                         },
                                         aiSettings = aiSettings,
                                         capabilityMatrix = capabilityMatrix,
@@ -1182,8 +1143,7 @@ private fun AuthenticatedAppShell(
                                         },
                                         onSetRecognitionEngine = { engine ->
                                             scope.launch { aiSettingsRepo.setSelectedRecognitionEngine(engine) }
-                                        },
-                                        cloudPolicyMessage = cloudPolicyMessage
+                                        }
                                     )
                                 }
                                 composable("profile") {
@@ -1341,7 +1301,6 @@ private fun SpeakCraftIndigoSidebar(
             SidebarDestination("ai_mentor", "AI Mentor", Icons.Default.Psychology),
             SidebarDestination("learning_paths", "Learn", Icons.Default.MenuBook),
             SidebarDestination("speaking_lab", "Record & Review", Icons.Default.Mic),
-            SidebarDestination("youtube_library", "YouTube Intelligence", Icons.Default.PlayCircle),
             SidebarDestination("vocabulary", "Tools", Icons.Default.GridView),
             SidebarDestination("analytics", "Progress", Icons.Default.Analytics),
             SidebarDestination("settings", "Settings", Icons.Default.Settings)

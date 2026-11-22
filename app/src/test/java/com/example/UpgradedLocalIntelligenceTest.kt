@@ -114,30 +114,6 @@ class UpgradedLocalIntelligenceTest {
     }
 
     @Test
-    fun `local youtube extraction produces up to 5 distinct attributed drills for rich transcript`() = runBlocking {
-        val orchestrator = LocalIntelligenceOrchestrator()
-        val transcript = """
-            Great communication starts with vocal foundation and intentional pauses before your main point.
-            When you slow down your speaking rate, listeners immediately perceive higher executive confidence.
-            Next, structure every answer using Point, Reason, Example, Point so you never ramble in meetings.
-            Use storytelling with vivid sensory details so your audience visualizes the scene rather than hearing abstract data.
-            Finally, match your hand gestures and eye contact to key transitions so your visual channel reinforces your voice.
-            Practice active listening by reflecting the speaker's core emotion before offering advice.
-        """.trimIndent()
-
-        val bundle = orchestrator.extractYouTubeLessons(
-            videoId = "vid_test_01",
-            videoTitle = "Master Vocal Presence, Pauses, Storytelling & Active Listening",
-            videoUrl = "https://www.youtube.com/watch?v=vid_test_01",
-            description = "Communication mastery framework covering pauses, PREP structure, storytelling, gestures, and listening.",
-            transcriptText = transcript
-        ).getOrThrow()
-
-        assertTrue("Should extract between 2 and 5 drills, got ${bundle.techniques.size}", bundle.techniques.size in 2..5)
-        assertEquals(bundle.techniques.size, bundle.techniques.map { it.title }.distinct().size)
-    }
-
-    @Test
     fun `universal evaluation engine local mode returns rich dynamic rewrites with aiEvaluated false`() = runBlocking {
         val activity = ActivityCatalogue.allActivities.first()
         val engine = UniversalEvaluationEngine(aiClientOverride = null)

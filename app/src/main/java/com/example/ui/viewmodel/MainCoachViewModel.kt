@@ -11,7 +11,6 @@ import com.example.data.ai.VocabEvaluationResult
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
-import com.example.data.model.ExtractedTechnique
 import com.example.data.model.LearningChallenge
 import com.example.data.model.Lesson
 import com.example.data.model.ProgramEnrollment
@@ -23,7 +22,6 @@ import com.example.data.model.UserLearningProgress
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabSeed
 import com.example.data.model.VocabularyEntry
-import com.example.data.model.YouTubeSource
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -50,28 +48,8 @@ class MainCoachViewModel(
     private val hybridCoordinator: HybridAiCoachCoordinator? = null
 ) : ViewModel() {
 
-    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
-    constructor(
-        repository: SpeakCraftRepository,
-        geminiCoach: com.example.data.ai.GeminiCoachService,
-        currentUserId: String
-    ) : this(
-        repository = repository,
-        localOrchestrator = LocalIntelligenceOrchestrator(),
-        currentUserId = currentUserId
-    )
-
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
         hybridCoordinator ?: HybridAiCoachCoordinator(localOrchestrator = localOrchestrator)
-    }
-
-    val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    fun setCloudAiEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            effectiveCoordinator.setCloudAiEnabled(enabled)
-        }
     }
 
     val todayDateKey: String
@@ -120,16 +98,6 @@ class MainCoachViewModel(
 
     val realWorldTasks: StateFlow<UiState<List<RealWorldTaskRecord>>> =
         repository.observeRealWorldTasks(currentUserId).toUiStateFlow("real-world tasks")
-
-    val youtubeSources: StateFlow<UiState<List<YouTubeSource>>> =
-        repository.observeYouTubeSources(currentUserId).toUiStateFlow("YouTube sources")
-
-    val extractedTechniques: StateFlow<UiState<List<ExtractedTechnique>>> =
-        repository.observeExtractedTechniques(currentUserId).toUiStateFlow("extracted techniques")
-
-    val publishedSharedTechniques: StateFlow<List<ExtractedTechnique>> =
-        repository.observePublishedSharedTechniques()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     val publishedSharedLessons: StateFlow<List<Lesson>> =
         repository.observePublishedSharedLessons()
@@ -184,12 +152,6 @@ class MainCoachViewModel(
     private val _vocabEvalState = MutableStateFlow<UiState<VocabEvaluationResult>?>(null)
     val vocabEvalState: StateFlow<UiState<VocabEvaluationResult>?> = _vocabEvalState.asStateFlow()
 
-    init {
-        viewModelScope.launch {
-            repository.seedAskVinhKnowledgeBaseIfEmpty()
-        }
-    }
-
     fun clearActionMessage() {
         _actionMessage.value = null
     }
@@ -227,7 +189,6 @@ class MainCoachViewModel(
             )
             if (res.isSuccess) {
                 repository.enrollInProgram("30_day_challenge", "30-Day Communication Challenge")
-                repository.seedAskVinhKnowledgeBaseIfEmpty()
             } else {
                 _actionMessage.value = res.exceptionOrNull()?.localizedMessage ?: "Failed to save profile"
             }

@@ -16,7 +16,6 @@ import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.preferences.TutorialStateManager
 import com.example.data.update.ReleaseUpdateRepository
 import com.example.data.update.UpdateBackupManager
-import com.example.data.youtube.YouTubeIntelligenceClient
 import com.google.firebase.firestore.FirebaseFirestore
 
 class AppContainer(context: Context) {
@@ -38,10 +37,6 @@ class AppContainer(context: Context) {
 
     val localIntelligenceOrchestrator: LocalIntelligenceOrchestrator by lazy {
         LocalIntelligenceOrchestrator(appContext, onDeviceModelManager, deviceCapabilityManager)
-    }
-
-    val firebaseAiLogicService: com.example.data.ai.cloud.FirebaseAiLogicService by lazy {
-        com.example.data.ai.cloud.FirebaseAiLogicService()
     }
 
     val preferencesRepository: AppPreferencesRepository by lazy {
@@ -70,16 +65,11 @@ class AppContainer(context: Context) {
     val hybridAiCoordinator: HybridAiCoachCoordinator by lazy {
         HybridAiCoachCoordinator(
             localOrchestrator = localIntelligenceOrchestrator,
-            cloudService = firebaseAiLogicService,
             prefsRepo = preferencesRepository,
             appContext = appContext,
             modelManager = onDeviceModelManager,
             aiSettingsRepo = aiSettingsRepository
         )
-    }
-
-    val youtubeClient: YouTubeIntelligenceClient by lazy {
-        YouTubeIntelligenceClient()
     }
 
     val audioRecorderManager: AudioRecorderManager by lazy {
@@ -107,11 +97,7 @@ class AppContainer(context: Context) {
     }
 
     val universalEvaluationEngine: com.example.data.activity.UniversalEvaluationEngine by lazy {
-        com.example.data.activity.UniversalEvaluationEngine(
-            aiClientOverride = { activity, response, strategy, metrics ->
-                hybridAiCoordinator.evaluateUniversalActivityIfCloud(activity, response, strategy, metrics)
-            }
-        )
+        com.example.data.activity.UniversalEvaluationEngine()
     }
 
     val activityEngine: com.example.data.activity.ActivityEngine by lazy {

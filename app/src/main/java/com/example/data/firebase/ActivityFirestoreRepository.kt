@@ -180,29 +180,10 @@ class ActivityFirestoreRepository(
         val attemptId = "att_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}"
         val ref = db.collection("users").document(uid).collection("activityAttempts").document(attemptId)
 
-        val payload = mapOf(
-            "userId" to uid,
-            "activityId" to sanitizeId(attempt.activityId),
-            "moduleId" to sanitizeId(attempt.moduleId, 80),
-            "skillCategory" to attempt.skillCategory.take(64),
-            "exerciseType" to attempt.exerciseType.take(64),
-            "evaluatorName" to attempt.evaluatorName.take(64),
-            "dateKey" to attempt.dateKey.take(20),
-            "durationSeconds" to attempt.durationSeconds.coerceIn(0L, 14400L),
-            "objectiveScore" to attempt.objectiveScore.coerceIn(0L, 100L),
-            "confidenceSelfRating" to attempt.confidenceSelfRating.coerceIn(0L, 100L),
-            "passed" to attempt.passed,
-            "aiEvaluated" to attempt.aiEvaluated,
-            "responseSummary" to attempt.responseSummary.take(600),
-            "whatWentWell" to attempt.whatWentWell.take(5).map { it.take(300) },
-            "specificMistakes" to attempt.specificMistakes.take(5).map { it.take(300) },
-            "improvementSuggestions" to attempt.improvementSuggestions.take(5).map { it.take(300) },
-            "nextPracticeTask" to attempt.nextPracticeTask.take(300),
-            "recordedMediaPath" to attempt.recordedMediaPath.take(400),
-            "wordsPerMinute" to attempt.wordsPerMinute.coerceIn(0L, 400L),
-            "fillerCount" to attempt.fillerCount.coerceIn(0L, 500L),
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp()
+        val payload = buildActivityAttemptPayload(
+            uid = uid,
+            attempt = attempt,
+            sanitizeId = ::sanitizeId
         )
         ref.set(payload).await()
         Result.success(attemptId)
@@ -284,5 +265,45 @@ class ActivityFirestoreRepository(
     } catch (e: Exception) {
         handleFirestoreError(e, OperationType.WRITE, "users/${auth.currentUser?.uid}/dailyPracticePlans/${record.dateKey}")
         Result.failure(e)
+    }
+
+    companion object {
+        private fun defaultSanitizeId(raw: String, maxLen: Int = 120): String =
+            raw.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").ifBlank { "item" }.take(maxLen)
+
+        /**
+         * Builds the Firestore payload for `activityAttempts`.
+         *
+         * T-04.2.1 (FND-SEC-05 / SEC-REQ-10): Intentionally omits `recordedMediaPath` so
+         * device-local file paths are never uploaded to Firestore.
+         */
+        internal fun buildActivityAttemptPayload(
+            uid: String,
+            attempt: ActivityAttemptRecord,
+            sanitizeId: (String, Int) -> String = ::defaultSanitizeId,
+            timestamp: Any = FieldValue.serverTimestamp()
+        ): Map<String, Any> = mapOf(
+            "userId" to uid,
+            "activityId" to sanitizeId(attempt.activityId, 120),
+            "moduleId" to sanitizeId(attempt.moduleId, 80),
+            "skillCategory" to attempt.skillCategory.take(64),
+            "exerciseType" to attempt.exerciseType.take(64),
+            "evaluatorName" to attempt.evaluatorName.take(64),
+            "dateKey" to attempt.dateKey.take(20),
+            "durationSeconds" to attempt.durationSeconds.coerceIn(0L, 14400L),
+            "objectiveScore" to attempt.objectiveScore.coerceIn(0L, 100L),
+            "confidenceSelfRating" to attempt.confidenceSelfRating.coerceIn(0L, 100L),
+            "passed" to attempt.passed,
+            "aiEvaluated" to attempt.aiEvaluated,
+            "responseSummary" to attempt.responseSummary.take(600),
+            "whatWentWell" to attempt.whatWentWell.take(5).map { it.take(300) },
+            "specificMistakes" to attempt.specificMistakes.take(5).map { it.take(300) },
+            "improvementSuggestions" to attempt.improvementSuggestions.take(5).map { it.take(300) },
+            "nextPracticeTask" to attempt.nextPracticeTask.take(300),
+            "wordsPerMinute" to attempt.wordsPerMinute.coerceIn(0L, 400L),
+            "fillerCount" to attempt.fillerCount.coerceIn(0L, 500L),
+            "createdAt" to timestamp,
+            "updatedAt" to timestamp
+        )
     }
 }

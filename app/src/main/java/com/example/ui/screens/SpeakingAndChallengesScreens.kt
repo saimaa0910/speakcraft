@@ -405,7 +405,7 @@ fun SpeakingLabScreen(
                     }
 
                     if (recordedPath != null || uploadedLabel != null || !activeMediaPath.isNullOrBlank()) {
-                        Text("Vinh Giang 3-Stage Self-Audit Playback", style = MaterialTheme.typography.labelLarge)
+                        Text("3-Stage Self-Audit Playback", style = MaterialTheme.typography.labelLarge)
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm),
@@ -998,7 +998,7 @@ fun ChallengesScreen(
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.md)
         ) {
             item {
-                SectionHeader("Communication Challenges", "Daily & weekly timed drills grounded in @askvinh lessons")
+                SectionHeader("Communication Challenges", "Daily & weekly timed speaking drills")
                 Spacer(Modifier.height(SpeakCraftSpacing.sm))
                 FeatureGuideStrip(featureKey = "challenges")
                 Spacer(Modifier.height(SpeakCraftSpacing.sm))

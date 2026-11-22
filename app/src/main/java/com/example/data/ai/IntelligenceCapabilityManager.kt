@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
-import com.example.data.ai.local.LocalExecutionPolicy
 import com.example.data.ai.local.LocalModelId
 import com.example.data.ai.local.OfflineAIAvailabilityManager
 import com.example.data.ai.local.OnDeviceModelManager
@@ -37,7 +36,6 @@ data class CapabilityDescriptor(
 
 data class IntelligenceCapabilityMatrix(
     val localAi: CapabilityDescriptor,
-    val cloudAi: CapabilityDescriptor,
     val liveTranscription: CapabilityDescriptor,
     val localSpeechRecognition: CapabilityDescriptor,
     val localAudioAnalysis: CapabilityDescriptor,
@@ -125,25 +123,6 @@ class IntelligenceCapabilityManager(
                 "Disabled by user in AI & Intelligence settings."
             },
             offlineCapable = true
-        )
-
-        val cloudPolicyBlocked = LocalExecutionPolicy.isLocalOnly()
-        val cloudDescriptor = CapabilityDescriptor(
-            key = "cloud_ai",
-            title = "Cloud AI Coach",
-            status = when {
-                cloudPolicyBlocked -> CapabilityStatus.UNAVAILABLE
-                settings.effectiveCloudAiEnabled -> CapabilityStatus.ENABLED
-                else -> CapabilityStatus.DISABLED
-            },
-            detail = if (cloudPolicyBlocked) {
-                "Unavailable in Stage 1 Zero-Cloud-AI build. Audio, video, and transcripts stay strictly on-device."
-            } else if (settings.effectiveCloudAiEnabled) {
-                "Enabled (${settings.cloudAiModelTier})."
-            } else {
-                "Disabled by user."
-            },
-            offlineCapable = false
         )
 
         val engineLabel = when {
@@ -295,7 +274,6 @@ class IntelligenceCapabilityManager(
 
         return IntelligenceCapabilityMatrix(
             localAi = localAiDescriptor,
-            cloudAi = cloudDescriptor,
             liveTranscription = liveTranscriptionDescriptor,
             localSpeechRecognition = localSpeechRecDescriptor,
             localAudioAnalysis = audioAnalysisDescriptor,

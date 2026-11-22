@@ -46,27 +46,27 @@ As PLN-05 §6 (tests alongside code, CI green, acceptance demonstrated with evid
 
 ### Sprint 1 — Safe pipeline and first removals
 
-| Story / task | WBS | Est. | Acceptance criteria |
-|---|---|---|---|
-| Disable release-on-push; tag-driven, release-signed only | T-01.3.1 | 1 d | A push to `main` produces no release; a tag produces a release-signed build (CI log) |
-| Commit wrapper; dev-setup guide | T-01.1.1, T-01.1.2 | 1.5 d | Clean clone builds with documented steps; unit tests run without production `google-services.json` |
-| PR workflow: build + unit + Robolectric + lint | T-01.2.1 | 2 d | PR shows required checks; current suite results recorded honestly (failures listed, not hidden) |
-| Remove cloud AI | T-04.1.2 | 1 d | `firebase-ai` absent from dependency tree (CI check); settings no longer show cloud toggle |
-| Stop transcript upload; correct privacy text | T-04.2.1 | 1 d | Saved session payload has no transcript; privacy text matches |
-| **Planned load** | | **6.5 d** | |
+| Story / task | WBS | Est. | Status | Acceptance criteria |
+|---|---|---|---|---|
+| Disable release-on-push; tag-driven, release-signed only | T-01.3.1 | 1 d | Done | A push to `main` produces no release; a tag produces a release-signed build (`release.yml`, `ReleaseWorkflowPolicyTest`) |
+| Commit wrapper; dev-setup guide | T-01.1.1, T-01.1.2 | 1.5 d | Done | Clean clone builds with documented steps (`CONTRIBUTING.md`, `minSdk = 26` per D-14); unit tests run without production `google-services.json` (`AuthHelper`, `TestFirebaseInit`) |
+| PR workflow: build + unit + Robolectric + lint | T-01.2.1 | 2 d | Done | PR workflow `.github/workflows/ci.yml` runs `assembleDebug`, `compileReleaseKotlin`, `testDebugUnitTest`, `lintDebug`, and `security-static`; CL-20 `junit` fix applied (`CiWorkflowPolicyTest`) |
+| Remove cloud AI | T-04.1.2 | 1 d | Done | `firebase-ai`, `FirebaseAiLogicService`, `GeminiCoachService`, cloud branches, and Settings Cloud AI toggle removed; CI `security-static` + `ZeroCloudAiNetworkBoundaryTest` enforce absence (ADR-003) |
+| Stop transcript upload; correct privacy text | T-04.2.1 | 1 d | Done | Saved session/feedback/conversation/attempt payloads omit `transcript`, `transcriptPreview`, `localMediaPath`, and `recordedMediaPath`; Settings privacy copy aligned (`PrivacyAndTranscriptUploadTest`) |
+| **Planned load** | | **6.5 d** | **Complete** | |
 
 Dependencies: G4; DEP-05. Testing responsibility: every task adds or updates tests; QA reviews CI evidence.
 
 ### Sprint 2 — Safety, privacy and legal removals
 
-| Story / task | WBS | Est. | Acceptance criteria |
-|---|---|---|---|
-| Remove YouTube Intelligence (ingestion, seeded per-user copies) & creator branding; keep catalogue content for re-expression (D-08) | T-04.1.1 | 2.5 d | No creator name in UI strings or bundled content (grep check in CI); tab and ingestion removed; catalogue items still present for EP-09 |
-| Remove updater and release collections | T-04.1.3 | 1 d | No install intents; no GitHub API calls |
-| Backup rules; recordings to `noBackupFilesDir` | T-04.2.2 | 1 d | Backup rules test passes; files located under no-backup dir |
-| PII redaction (AppLogger) | T-04.2.3 | 1 d | Log tests show no uid/email |
-| Fix/retire `speakingSessions` write path | T-04.2.4 | 1 d | Rules emulator test for the save passes |
-| **Planned load** | | **6.5 d** | |
+| Story / task | WBS | Est. | Status | Acceptance criteria |
+|---|---|---|---|---|
+| Remove YouTube Intelligence (ingestion, seeded per-user copies) & creator branding; keep catalogue content for re-expression (D-08) | T-04.1.1 | 2.5 d | Done | Zero creator branding or YouTube Intelligence symbols in `app/src/main/` (CI `security-static` Check #6 + `YouTubeRemovalAndBrandingPolicyTest`); tab, ingestion, admin sync, API key UI/prefs, and per-user seeding removed; all 15 bundled catalogue items preserved for EP-09 |
+| Remove updater and release collections | T-04.1.3 | 1 d | Todo | No install intents; no GitHub API calls |
+| Backup rules; recordings to `noBackupFilesDir` | T-04.2.2 | 1 d | Todo | Backup rules test passes; files located under no-backup dir |
+| PII redaction (AppLogger) | T-04.2.3 | 1 d | Todo | Log tests show no uid/email |
+| Fix/retire `speakingSessions` write path | T-04.2.4 | 1 d | Todo | Rules emulator test for the save passes |
+| **Planned load** | | **6.5 d** | **In progress (1/5)** | |
 
 ### Sprint 3 — Architecture shell and speech spike
 

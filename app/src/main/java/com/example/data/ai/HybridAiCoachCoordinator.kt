@@ -1,15 +1,6 @@
 package com.example.data.ai
 
 import android.content.Context
-import android.util.Log
-import com.example.data.activity.ActivityDefinition
-import com.example.data.activity.ActivityEvaluationResult
-import com.example.data.activity.ActivityEvaluatorStrategy
-import com.example.data.activity.ActivityUserResponse
-import com.example.data.activity.LocalSpeechMetrics
-import com.example.data.ai.cloud.FirebaseAiLogicService
-import com.example.data.ai.cloud.LiveVoiceHandle
-import com.example.data.ai.local.LocalExecutionPolicy
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.local.OnDeviceModelManager
 import com.example.data.ai.local.audio.SpeechRecognitionManager
@@ -22,86 +13,30 @@ import com.example.data.model.UserProfile
 import com.example.data.preferences.AISettings
 import com.example.data.preferences.AISettingsRepository
 import com.example.data.preferences.AppPreferencesRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import java.io.File
-
-private const val TAG = "HybridAiCoordinator"
+import java.util.UUID
 
 /**
- * Dual-engine SpeakCraft AI Coordinator governed centrally by [AISettingsRepository]:
- * - Stage 1 Zero-Cloud-AI Policy ([LocalExecutionPolicy.isLocalOnly] == true):
- *   Cloud AI is strictly UNAVAILABLE and cannot be activated or called silently anywhere.
- * - All speech evaluation runs through [LocalIntelligenceOrchestrator.evaluateSpeechWithReport]
- *   with strict evidence validation and no fabricated scores.
+ * On-device SpeakCraft Intelligence Coordinator governed centrally by [AISettingsRepository] (ADR-003).
+ * All speech analysis, transcription, coaching, conversation, and vocabulary evaluation execute
+ * strictly on-device via [LocalIntelligenceOrchestrator] with evidence-based scoring.
  */
 class HybridAiCoachCoordinator(
     private val localOrchestrator: LocalIntelligenceOrchestrator,
-    private val cloudService: FirebaseAiLogicService = FirebaseAiLogicService(),
     private val prefsRepo: AppPreferencesRepository? = null,
     private val appContext: Context? = null,
     private val modelManager: OnDeviceModelManager? = null,
-    private val aiSettingsRepo: AISettingsRepository? = prefsRepo?.let { AISettingsRepository(it) },
-    private val cloudEnabledOverride: (() -> Boolean)? = null,
-    private val modelTierOverride: (() -> String)? = null
+    private val aiSettingsRepo: AISettingsRepository? = prefsRepo?.let { AISettingsRepository(it) }
 ) {
 
     val aiSettingsFlow: Flow<AISettings> =
         aiSettingsRepo?.aiSettingsFlow ?: flowOf(AISettings())
 
-    val cloudAiEnabledFlow: Flow<Boolean> =
-        if (LocalExecutionPolicy.isLocalOnly()) {
-            flowOf(false)
-        } else {
-            aiSettingsRepo?.aiSettingsFlow?.map { it.effectiveCloudAiEnabled }
-                ?: prefsRepo?.preferencesFlow?.map { it.cloudAiEnabled }
-                ?: flowOf(cloudEnabledOverride?.invoke() ?: false)
-        }
-
-    val cloudAiModelTierFlow: Flow<String> =
-        aiSettingsRepo?.aiSettingsFlow?.map { it.cloudAiModelTier }
-            ?: prefsRepo?.preferencesFlow?.map { it.cloudAiModelTier }
-            ?: flowOf(modelTierOverride?.invoke() ?: "balanced")
-
     suspend fun currentAiSettings(): AISettings {
         return runCatching { aiSettingsRepo?.aiSettingsFlow?.first() }.getOrNull() ?: AISettings()
-    }
-
-    suspend fun isCloudAiEnabled(): Boolean {
-        if (LocalExecutionPolicy.isLocalOnly()) return false
-        cloudEnabledOverride?.let { return it() }
-        return currentAiSettings().effectiveCloudAiEnabled
-    }
-
-    suspend fun activeModelTier(): String {
-        modelTierOverride?.let { return it() }
-        val prefs = runCatching { prefsRepo?.preferencesFlow?.first() }.getOrNull()
-        return prefs?.cloudAiModelTier ?: "balanced"
-    }
-
-    suspend fun setCloudAiEnabled(enabled: Boolean): Result<Boolean> {
-        val repo = aiSettingsRepo
-        if (repo != null) return repo.setCloudAiEnabled(enabled)
-        if (LocalExecutionPolicy.isLocalOnly()) {
-            prefsRepo?.setCloudAiEnabled(false)
-            return if (enabled) {
-                Result.failure(
-                    IllegalStateException("Cloud AI Coach is unavailable in Stage 1 Zero-Cloud-AI Policy.")
-                )
-            } else {
-                Result.success(false)
-            }
-        }
-        prefsRepo?.setCloudAiEnabled(enabled)
-        return Result.success(enabled)
-    }
-
-    suspend fun setCloudAiModelTier(tier: String) {
-        aiSettingsRepo?.setCloudAiModelTier(tier) ?: prefsRepo?.setCloudAiModelTier(tier)
     }
 
     suspend fun transcribeAudio(
@@ -110,9 +45,6 @@ class HybridAiCoachCoordinator(
         hintPrompt: String = "",
         mediaFile: File? = null
     ): Result<String> {
-        if (isCloudAiEnabled()) {
-            return cloudService.transcribeAudio(audioBytes, mimeType, hintPrompt)
-        }
         val settings = currentAiSettings()
         if (!settings.localSpeechRecognitionEnabled) {
             return Result.failure(
@@ -195,23 +127,8 @@ class HybridAiCoachCoordinator(
         liveTranscript: String = "",
         asrConfidence: Float = 0.85f
     ): Result<SpeakingSession> {
-        if (isCloudAiEnabled()) {
-            val tier = activeModelTier()
-            return cloudService.analyzeSpeechRecording(
-                mediaBytes = mediaBytes,
-                mimeType = mimeType,
-                moduleType = moduleType,
-                promptTitle = promptTitle,
-                durationSeconds = durationSeconds,
-                previousSession = previousSession,
-                extraInstructions = extraInstructions,
-                localMediaPath = localMediaPath,
-                liveTranscript = liveTranscript,
-                modelTier = tier
-            )
-        }
         val report = evaluateSpeechWithReport(
-            sessionId = java.util.UUID.randomUUID().toString(),
+            sessionId = UUID.randomUUID().toString(),
             mediaBytes = mediaBytes,
             mimeType = mimeType,
             moduleType = moduleType,
@@ -237,120 +154,31 @@ class HybridAiCoachCoordinator(
         history: List<Pair<String, String>> = emptyList(),
         userQuestion: String,
         roleKey: String = "mentor"
-    ): Flow<String> = flow {
-        if (isCloudAiEnabled()) {
-            val tier = activeModelTier()
-            cloudService.askMentorStream(
-                profile = profile,
-                recentSessions = recentSessions,
-                recentFeedback = recentFeedback,
-                history = history,
-                userQuestion = userQuestion,
-                roleKey = roleKey,
-                modelTier = tier
-            ).collect { emit(it) }
-        } else {
-            localOrchestrator.askMentorStream(
-                profile = profile,
-                recentSessions = recentSessions,
-                recentFeedback = recentFeedback,
-                userQuestion = userQuestion,
-                history = history,
-                roleKey = roleKey
-            ).collect { emit(it) }
-        }
-    }
+    ): Flow<String> = localOrchestrator.askMentorStream(
+        profile = profile,
+        recentSessions = recentSessions,
+        recentFeedback = recentFeedback,
+        userQuestion = userQuestion,
+        history = history,
+        roleKey = roleKey
+    )
 
     suspend fun generateConversationTurn(
         scenario: String,
         userLevel: String,
         historyPairs: List<Pair<String, String>>,
         userMessage: String
-    ): Result<String> {
-        return if (isCloudAiEnabled()) {
-            val tier = activeModelTier()
-            cloudService.generateConversationTurn(scenario, userLevel, historyPairs, userMessage, tier)
-        } else {
-            localOrchestrator.generateConversationTurn(scenario, userLevel, historyPairs, userMessage)
-        }
-    }
+    ): Result<String> = localOrchestrator.generateConversationTurn(scenario, userLevel, historyPairs, userMessage)
 
     suspend fun generateConversationCheckIn(
         scenario: String,
         transcript: String
-    ): Result<String> {
-        return if (isCloudAiEnabled()) {
-            val tier = activeModelTier()
-            cloudService.generateConversationCheckIn(scenario, transcript, tier)
-        } else {
-            localOrchestrator.generateConversationCheckIn(scenario, transcript)
-        }
-    }
-
-    suspend fun startLiveVoiceSession(
-        scenario: String,
-        userLevel: String,
-        onInputTranscript: (String) -> Unit,
-        onOutputTranscript: (String) -> Unit,
-        onGoAway: (String) -> Unit,
-        onError: (Throwable) -> Unit
-    ): Result<LiveVoiceHandle> {
-        if (!isCloudAiEnabled()) {
-            return Result.failure(
-                IllegalStateException("Cloud AI Coach is unavailable. Live voice runs offline via on-device speech mode.")
-            )
-        }
-        return cloudService.startLiveVoiceSession(
-            scenario = scenario,
-            userLevel = userLevel,
-            onInputTranscript = onInputTranscript,
-            onOutputTranscript = onOutputTranscript,
-            onGoAway = onGoAway,
-            onError = onError
-        )
-    }
+    ): Result<String> = localOrchestrator.generateConversationCheckIn(scenario, transcript)
 
     suspend fun evaluateVocabularyUsage(
         word: String,
         meaning: String,
         userSentence: String,
         difficulty: String = "Intermediate"
-    ): Result<VocabEvaluationResult> {
-        return if (isCloudAiEnabled()) {
-            cloudService.evaluateVocabularyUsage(word, meaning, userSentence, difficulty)
-        } else {
-            localOrchestrator.evaluateVocabSentence(word, meaning, userSentence, difficulty)
-        }
-    }
-
-    suspend fun extractYouTubeLessons(
-        videoId: String,
-        videoTitle: String,
-        videoUrl: String,
-        description: String,
-        transcriptText: String?
-    ): Result<ExtractedYouTubeBundle> {
-        return if (isCloudAiEnabled()) {
-            val tier = activeModelTier()
-            cloudService.extractYouTubeLessons(videoId, videoTitle, videoUrl, description, transcriptText, tier)
-        } else {
-            localOrchestrator.extractYouTubeLessons(videoId, videoTitle, videoUrl, description, transcriptText)
-        }
-    }
-
-    suspend fun evaluateUniversalActivityIfCloud(
-        activity: ActivityDefinition,
-        response: ActivityUserResponse,
-        strategy: ActivityEvaluatorStrategy,
-        metrics: LocalSpeechMetrics
-    ): ActivityEvaluationResult? {
-        if (!isCloudAiEnabled()) return null
-        val tier = activeModelTier()
-        val result = cloudService.evaluateUniversalActivity(activity, response, strategy, metrics, tier)
-        return result.getOrElse { err ->
-            if (err is CancellationException) throw err
-            Log.e(TAG, "Cloud activity evaluation error", err)
-            throw err
-        }
-    }
+    ): Result<VocabEvaluationResult> = localOrchestrator.evaluateVocabSentence(word, meaning, userSentence, difficulty)
 }

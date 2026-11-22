@@ -86,16 +86,12 @@ class CentralizedAiSettingsTest {
     }
 
     @Test
-    fun `02 Stage 1 Zero-Cloud-AI policy locks Cloud AI off and fails activation attempts`() = runBlocking {
+    fun `02 Stage 1 Zero-Cloud-AI policy keeps local-only mode with zero cloud uploads`() = runBlocking {
         assertTrue(LocalExecutionPolicy.isLocalOnly())
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val repo = AISettingsRepository(AppPreferencesRepository(ctx))
 
-        val res = repo.setCloudAiEnabled(true)
-        assertTrue(res.isFailure)
         val settings = repo.aiSettingsFlow.first()
-        assertFalse(settings.cloudAiSupportedInBuild)
-        assertFalse(settings.effectiveCloudAiEnabled)
         assertFalse(settings.audioVideoUploadedToCloud)
     }
 
@@ -104,7 +100,6 @@ class CentralizedAiSettingsTest {
         val mgr = IntelligenceCapabilityManager(context = null)
         val disabledMatrix = mgr.computeMatrix(AISettings(liveTranscriptionEnabled = false))
         assertEquals(CapabilityStatus.ENABLED, disabledMatrix.localAi.status)
-        assertEquals(CapabilityStatus.UNAVAILABLE, disabledMatrix.cloudAi.status)
         assertEquals(CapabilityStatus.DISABLED, disabledMatrix.liveTranscription.status)
         assertEquals(CapabilityStatus.PERMISSION_REQUIRED, disabledMatrix.localVideoAnalysis.status)
 
@@ -145,7 +140,6 @@ class CentralizedAiSettingsTest {
             aiSettingsRepo = aiRepo
         )
         assertTrue(vm.currentSessionId.value.isNotBlank())
-        assertFalse(vm.cloudAiEnabled.value)
 
         aiRepo.setLiveTranscriptionEnabled(false)
     }
@@ -165,7 +159,6 @@ class CentralizedAiSettingsTest {
                     updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetYoutubeKey = {},
                     onSetUpdateChannel = {},
                     onOpenUpdater = {},
                     onCreateBackupNow = {},
@@ -184,9 +177,9 @@ class CentralizedAiSettingsTest {
         composeRule.onNodeWithTag("settings_local_ai_switch").performClick()
         assertEquals(false, localToggled)
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_cloud_ai_switch"))
-        composeRule.onNodeWithTag("settings_cloud_ai_switch").assertIsOff().assertIsNotEnabled()
-        composeRule.onNodeWithTag("settings_cloud_ai_status").assertIsDisplayed()
+        // ADR-003 (T-04.1.2): Cloud AI toggle and status must not appear in Settings
+        composeRule.onNodeWithTag("settings_cloud_ai_switch").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings_cloud_ai_status").assertDoesNotExist()
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_live_transcription_switch"))
         composeRule.onNodeWithText("Display recognized words while you are speaking during practice.").assertIsDisplayed()
@@ -263,9 +256,7 @@ class CentralizedAiSettingsTest {
                     onReviewCard = { _, _, _ -> },
                     onEvaluateUsage = { _, _, _ -> },
                     onSaveCustomWord = { _, _, _, _, _ -> },
-                    onClearEval = {},
-                    cloudAiEnabled = true,
-                    onToggleCloudAi = {}
+                    onClearEval = {}
                 )
             }
         }

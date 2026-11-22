@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Proposed — requires explicit approval** |
+| Status | **Accepted & Implemented (2026-11-21 — Stage B Sprint 1, T-04.1.2)** |
 | Date | 2026-11-20 |
 | Owner (role) | AI/ML Engineer / Security Engineer |
 | Related | ARC-05, SEC-01, RD-03 FND-AI-10, RD-05 (cloud-AI conflicts), PO-REQ-1119 (no LLMs, no paid cloud AI, no recordings/transcripts to cloud AI), PO-REQ-1120 §9.5 |
@@ -32,4 +32,4 @@ Shipping dormant cloud-AI code and SDKs contradicts the Product Owner's privacy 
 Loss of a possible future capability — mitigated because the code remains in git history.
 
 ## Approval status
-Pending — Product Owner (decision D-04).
+Approved by Product Owner (D-04, G1–G4, 2026-11-21). Implemented in Sprint 1 (`T-04.1.2`): `firebase-ai`, `FirebaseAiLogicService`, `GeminiCoachService`, cloud branches in `HybridAiCoachCoordinator`, `cloud_ai_*` keys, and Settings Cloud AI toggle removed; enforced by `ZeroCloudAiNetworkBoundaryTest` (TC-SEC-010) and `.github/workflows/ci.yml`.

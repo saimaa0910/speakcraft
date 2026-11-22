@@ -122,15 +122,16 @@ class StreakAnalyticsAndBackupTest {
     }
 
     @Test
-    fun `feature tutorial registry covers all 24 features with steps and improvement benefits`() {
+    fun `feature tutorial registry covers all 23 active features with steps and improvement benefits`() {
         val requiredKeys = listOf(
             "auth", "onboarding", "dashboard", "daily_practice", "learning_paths",
             "vocabulary", "speaking_lab", "challenges", "articulation_lab", "pronunciation",
             "voice_training", "conversation", "listening_lab", "grammar_speaking",
             "public_speaking", "real_world_tasks", "module_lessons", "lesson_detail",
-            "youtube_library", "analytics", "ai_mentor", "settings", "app_updates", "admin_console"
+            "analytics", "ai_mentor", "settings", "app_updates", "admin_console"
         )
         val registryKeys = com.example.data.model.FeatureTutorialRegistry.allTutorials.map { it.featureKey }.toSet()
+        assertFalse("Removed youtube_library tutorial must not exist", registryKeys.contains("youtube_library"))
         requiredKeys.forEach { key ->
             assertTrue("Missing tutorial for $key", registryKeys.contains(key))
         }

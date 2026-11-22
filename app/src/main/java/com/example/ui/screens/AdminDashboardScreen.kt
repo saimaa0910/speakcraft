@@ -20,12 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Publish
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +47,6 @@ import com.example.data.model.ApplicationRelease
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.LearningChallenge
 import com.example.data.model.Lesson
-import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.MetricTile
 import com.example.ui.components.SectionHeader
@@ -65,8 +62,7 @@ import java.util.Locale
 fun AdminDashboardScreen(
     vm: UpdateAndAdminViewModel,
     isAdmin: Boolean,
-    currentUserId: String,
-    youtubeApiKey: String
+    currentUserId: String
 ) {
     if (!isAdmin) {
         Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -91,8 +87,6 @@ fun AdminDashboardScreen(
     }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val syncBusy by vm.adminSyncBusy.collectAsStateWithLifecycle()
-    val techniques by vm.moderationTechniques.collectAsStateWithLifecycle()
     val releases by vm.adminReleases.collectAsStateWithLifecycle()
     val updateEvents by vm.adminUpdateEvents.collectAsStateWithLifecycle()
 
@@ -105,7 +99,7 @@ fun AdminDashboardScreen(
                 FeatureGuideStrip(featureKey = "admin_console", modifier = Modifier.widthIn(max = containerMaxWidth))
             }
             TabRow(selectedTabIndex = selectedTab, modifier = Modifier.widthIn(max = containerMaxWidth)) {
-                listOf("YouTube Sync", "Moderation", "Releases", "Telemetry").forEachIndexed { idx, label ->
+                listOf("Catalog", "Releases", "Telemetry").forEachIndexed { idx, label ->
                     Tab(selected = selectedTab == idx, onClick = { selectedTab = idx }, text = { Text(label) })
                 }
             }
@@ -113,158 +107,91 @@ fun AdminDashboardScreen(
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 when (selectedTab) {
                     0 -> {
-                        var channelUrl by remember { mutableStateOf("https://www.youtube.com/@askvinh") }
-                        var autoPublish by remember { mutableStateOf(false) }
+                        var lessonTitle by remember { mutableStateOf("") }
+                        var lessonObj by remember { mutableStateOf("") }
+                        var lessonSlug by remember { mutableStateOf(CurriculumCatalog.contentModules.first().slug) }
+                        var chalTitle by remember { mutableStateOf("") }
+                        var chalPrompt by remember { mutableStateOf("") }
 
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                        item {
-                            SectionHeader("YouTube Content Sync Console", "Ingest @askvinh feeds & queue techniques for moderation")
-                        }
-                        item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    OutlinedTextField(
-                                        value = channelUrl,
-                                        onValueChange = { channelUrl = it },
-                                        label = { Text("Channel / Playlist / Video URL") },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Checkbox(checked = autoPublish, onCheckedChange = { autoPublish = it })
-                                        Text("Publish immediately (otherwise queue as PENDING_REVIEW)", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                    Button(
-                                        onClick = { vm.adminSyncYouTubeChannel(channelUrl, youtubeApiKey, autoPublish) },
-                                        enabled = !syncBusy,
-                                        modifier = Modifier.fillMaxWidth().testTag("admin_sync_youtube_button")
-                                    ) {
-                                        if (syncBusy) CircularProgressIndicator(strokeWidth = 2.dp)
-                                        else Icon(Icons.Default.Sync, contentDescription = null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(if (syncBusy) "Syncing Channel..." else "Sync to Shared Catalog")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                1 -> {
-                    var lessonTitle by remember { mutableStateOf("") }
-                    var lessonObj by remember { mutableStateOf("") }
-                    var lessonSlug by remember { mutableStateOf(CurriculumCatalog.contentModules.first().slug) }
-                    var chalTitle by remember { mutableStateOf("") }
-                    var chalPrompt by remember { mutableStateOf("") }
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            SectionHeader("AI Extraction Moderation Queue", "${techniques.size} shared catalog entries")
-                        }
-                        if (techniques.isEmpty()) {
                             item {
-                                EmptyStateCard("Queue is empty", "Sync YouTube videos in the YouTube Sync tab to queue extracted techniques for review.")
+                                SectionHeader("Shared Curriculum Catalog", "Publish curated lessons and speaking challenges")
                             }
-                        } else {
-                            items(techniques, key = { it.id.ifBlank { it.title } }) { tech ->
+                            item {
                                 Card(
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                                 ) {
-                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("${tech.moderationStatus} • ${tech.category}", style = MaterialTheme.typography.labelSmall, color = AcousticTeal)
-                                        Text(tech.title, style = MaterialTheme.typography.titleMedium)
-                                        Text("Creator Advice: ${tech.creatorAdvice}", style = MaterialTheme.typography.bodySmall)
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            OutlinedButton(onClick = { vm.moderateTechnique(tech.id, "PUBLISHED") }) { Text("Publish") }
-                                            OutlinedButton(onClick = { vm.moderateTechnique(tech.id, "APPROVED") }) { Text("Approve") }
-                                            OutlinedButton(onClick = { vm.moderateTechnique(tech.id, "REJECTED") }) { Text("Reject") }
-                                        }
+                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("Publish Shared Lesson", style = MaterialTheme.typography.titleMedium)
+                                        OutlinedTextField(value = lessonSlug, onValueChange = { lessonSlug = it }, label = { Text("Module Slug (e.g. storytelling)") }, modifier = Modifier.fillMaxWidth())
+                                        OutlinedTextField(value = lessonTitle, onValueChange = { lessonTitle = it }, label = { Text("Lesson Title") }, modifier = Modifier.fillMaxWidth())
+                                        OutlinedTextField(value = lessonObj, onValueChange = { lessonObj = it }, label = { Text("Objective & Explanation") }, modifier = Modifier.fillMaxWidth())
+                                        Button(
+                                            onClick = {
+                                                if (lessonTitle.isNotBlank()) {
+                                                    vm.saveSharedLesson(
+                                                        Lesson(
+                                                            id = "shared_${System.currentTimeMillis()}",
+                                                            moduleSlug = lessonSlug.trim(),
+                                                            title = lessonTitle.trim(),
+                                                            objective = lessonObj.trim().ifBlank { "Communication practice" },
+                                                            sourceVideoUrl = "",
+                                                            timestampLabel = "Curated",
+                                                            explanation = lessonObj.trim(),
+                                                            instructions = listOf("Study the framework", "Record a 60s practice clip"),
+                                                            practicePrompt = lessonObj.trim(),
+                                                            status = "PUBLISHED"
+                                                        )
+                                                    )
+                                                    lessonTitle = ""; lessonObj = ""
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) { Text("Publish Lesson") }
+                                    }
+                                }
+                            }
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("Publish Shared Speaking Challenge", style = MaterialTheme.typography.titleMedium)
+                                        OutlinedTextField(value = chalTitle, onValueChange = { chalTitle = it }, label = { Text("Challenge Title") }, modifier = Modifier.fillMaxWidth())
+                                        OutlinedTextField(value = chalPrompt, onValueChange = { chalPrompt = it }, label = { Text("Speaking Prompt") }, modifier = Modifier.fillMaxWidth())
+                                        Button(
+                                            onClick = {
+                                                if (chalTitle.isNotBlank() && chalPrompt.isNotBlank()) {
+                                                    vm.saveSharedChallenge(
+                                                        LearningChallenge(
+                                                            id = "shared_chal_${System.currentTimeMillis()}",
+                                                            title = chalTitle.trim(),
+                                                            challengeType = "DAILY",
+                                                            durationSeconds = 60L,
+                                                            prompt = chalPrompt.trim(),
+                                                            frameworkHint = "Clarity & intentional pauses",
+                                                            sourceReference = "Admin Curated",
+                                                            active = true
+                                                        )
+                                                    )
+                                                    chalTitle = ""; chalPrompt = ""
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) { Text("Publish Challenge") }
                                     }
                                 }
                             }
                         }
-                        item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Publish Shared Lesson", style = MaterialTheme.typography.titleMedium)
-                                    OutlinedTextField(value = lessonSlug, onValueChange = { lessonSlug = it }, label = { Text("Module Slug (e.g. storytelling)") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = lessonTitle, onValueChange = { lessonTitle = it }, label = { Text("Lesson Title") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = lessonObj, onValueChange = { lessonObj = it }, label = { Text("Objective & Explanation") }, modifier = Modifier.fillMaxWidth())
-                                    Button(
-                                        onClick = {
-                                            if (lessonTitle.isNotBlank()) {
-                                                vm.saveSharedLesson(
-                                                    Lesson(
-                                                        id = "shared_${System.currentTimeMillis()}",
-                                                        moduleSlug = lessonSlug.trim(),
-                                                        title = lessonTitle.trim(),
-                                                        objective = lessonObj.trim().ifBlank { "Communication practice" },
-                                                        sourceVideoUrl = "https://www.youtube.com/@askvinh",
-                                                        timestampLabel = "Curated",
-                                                        explanation = lessonObj.trim(),
-                                                        instructions = listOf("Study the framework", "Record a 60s practice clip"),
-                                                        practicePrompt = lessonObj.trim(),
-                                                        status = "PUBLISHED"
-                                                    )
-                                                )
-                                                lessonTitle = ""; lessonObj = ""
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Publish Lesson") }
-                                }
-                            }
-                        }
-                        item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Publish Shared Speaking Challenge", style = MaterialTheme.typography.titleMedium)
-                                    OutlinedTextField(value = chalTitle, onValueChange = { chalTitle = it }, label = { Text("Challenge Title") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = chalPrompt, onValueChange = { chalPrompt = it }, label = { Text("Speaking Prompt") }, modifier = Modifier.fillMaxWidth())
-                                    Button(
-                                        onClick = {
-                                            if (chalTitle.isNotBlank() && chalPrompt.isNotBlank()) {
-                                                vm.saveSharedChallenge(
-                                                    LearningChallenge(
-                                                        id = "shared_chal_${System.currentTimeMillis()}",
-                                                        title = chalTitle.trim(),
-                                                        challengeType = "DAILY",
-                                                        durationSeconds = 60L,
-                                                        prompt = chalPrompt.trim(),
-                                                        frameworkHint = "@askvinh clarity & pauses",
-                                                        sourceReference = "Admin Curated",
-                                                        active = true
-                                                    )
-                                                )
-                                                chalTitle = ""; chalPrompt = ""
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Publish Challenge") }
-                                }
-                            }
-                        }
                     }
-                }
 
-                2 -> {
+                    1 -> {
                     var versionName by remember { mutableStateOf(com.example.BuildConfig.VERSION_NAME) }
                     var versionCode by remember { mutableStateOf(com.example.BuildConfig.VERSION_CODE.toString()) }
                     var channel by remember { mutableStateOf(com.example.BuildConfig.BUILD_CHANNEL) }

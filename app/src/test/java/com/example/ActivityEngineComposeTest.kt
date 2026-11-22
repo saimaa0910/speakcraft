@@ -41,7 +41,6 @@ class ActivityEngineComposeTest {
         return ActivityEngineViewModel(
             activityRepository = null,
             activityEngine = engine,
-            geminiCoach = null,
             audioRecorder = null,
             userId = "test_user_ui"
         )

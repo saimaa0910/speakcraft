@@ -89,4 +89,19 @@ class CiWorkflowPolicyTest {
             Regex("""minSdk\s*=\s*26\b""").containsMatchIn(appGradle)
         )
     }
+
+    @Test
+    fun `contributing guide documents secret-free local build, test, and lint workflow`() {
+        val contributing = File(repoRoot(), "CONTRIBUTING.md")
+        assertTrue("CONTRIBUTING.md must exist at repository root (T-01.1.2)", contributing.exists())
+        val content = contributing.readText()
+        assertTrue(
+            "CONTRIBUTING.md must document googleServices.missing.passthrough",
+            content.contains("googleServices.missing.passthrough")
+        )
+        assertTrue("CONTRIBUTING.md must document assembleDebug", content.contains(":app:assembleDebug"))
+        assertTrue("CONTRIBUTING.md must document testDebugUnitTest", content.contains(":app:testDebugUnitTest"))
+        assertTrue("CONTRIBUTING.md must document lintDebug", content.contains(":app:lintDebug"))
+        assertTrue("CONTRIBUTING.md must document minSdk 26", content.contains("26"))
+    }
 }

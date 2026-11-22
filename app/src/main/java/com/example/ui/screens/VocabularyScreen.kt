@@ -77,9 +77,7 @@ fun VocabularyScreen(
     onReviewCard: (VocabSeed, VocabularyEntry?, Boolean) -> Unit,
     onEvaluateUsage: (VocabSeed, VocabularyEntry?, String) -> Unit,
     onSaveCustomWord: (word: String, meaning: String, level: String, example: String, note: String) -> Unit,
-    onClearEval: () -> Unit,
-    cloudAiEnabled: Boolean = false,
-    onToggleCloudAi: ((Boolean) -> Unit)? = null
+    onClearEval: () -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
     var selectedTab by remember { mutableIntStateOf(0) }

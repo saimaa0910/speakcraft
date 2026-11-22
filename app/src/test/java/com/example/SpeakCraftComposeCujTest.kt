@@ -12,7 +12,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.RecommendationEngine
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
@@ -24,7 +24,6 @@ import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.update.UpdateBackupManager
 import com.example.data.update.UpdateEvaluation
-import com.example.data.youtube.YouTubeIntelligenceClient
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
 import com.example.ui.components.TutorialOverlay
@@ -39,7 +38,6 @@ import com.example.ui.screens.LessonDetailScreen
 import com.example.ui.screens.OnboardingAssessmentScreen
 import com.example.ui.screens.PronunciationLabScreen
 import com.example.ui.screens.SettingsScreen
-import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.ui.components.WelcomeBackBanner
 import com.example.ui.screens.SpeakingLabScreen
 import com.example.ui.screens.UserProfileScreen
@@ -160,12 +158,12 @@ class SpeakCraftComposeCujTest {
     }
 
     @Test
-    fun `lesson detail displays creator attribution badge and marks lesson completed`() {
+    fun `lesson detail displays framework attribution badge and marks lesson completed`() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            GeminiCoachService(),
+            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         var toggledId = ""
@@ -174,7 +172,7 @@ class SpeakCraftComposeCujTest {
         composeRule.setContent {
             SpeakCraftTheme {
                 LessonDetailScreen(
-                    lessonId = "lesson_vinh_3stage_audit",
+                    lessonId = "lesson_tech_3stage_audit",
                     sharedLessons = emptyList(),
                     learningProgress = emptyList(),
                     speakingVm = speakingVm,
@@ -189,10 +187,10 @@ class SpeakCraftComposeCujTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("Creator Framework (@askvinh)").assertIsDisplayed()
+        composeRule.onNodeWithText("Speaking Framework").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("lesson_complete_toggle"))
         composeRule.onNodeWithTag("lesson_complete_toggle").performClick()
-        assertEquals("lesson_vinh_3stage_audit", toggledId)
+        assertEquals("lesson_tech_3stage_audit", toggledId)
         assertTrue(toggledState)
     }
 
@@ -207,8 +205,6 @@ class SpeakCraftComposeCujTest {
             updateRepository = com.example.data.update.ReleaseUpdateRepository(ctx, backupMgr),
             backupManager = backupMgr,
             prefsRepo = AppPreferencesRepository(ctx),
-            youtubeClient = YouTubeIntelligenceClient(),
-            geminiCoach = GeminiCoachService(),
             currentUserId = "regular_user_1"
         )
 
@@ -217,8 +213,7 @@ class SpeakCraftComposeCujTest {
                 AdminDashboardScreen(
                     vm = vm,
                     isAdmin = false,
-                    currentUserId = "regular_user_1",
-                    youtubeApiKey = ""
+                    currentUserId = "regular_user_1"
                 )
             }
         }
@@ -238,8 +233,6 @@ class SpeakCraftComposeCujTest {
             updateRepository = com.example.data.update.ReleaseUpdateRepository(ctx, backupMgr),
             backupManager = backupMgr,
             prefsRepo = AppPreferencesRepository(ctx),
-            youtubeClient = YouTubeIntelligenceClient(),
-            geminiCoach = GeminiCoachService(),
             currentUserId = "regular_user_1"
         )
 
@@ -302,7 +295,7 @@ class SpeakCraftComposeCujTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            GeminiCoachService(),
+            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         val fakeVideo = File(ctx.cacheDir, "test_clip.mp4").apply { writeBytes(ByteArray(256) { 1 }) }
@@ -342,7 +335,6 @@ class SpeakCraftComposeCujTest {
                     updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetYoutubeKey = {},
                     onSetUpdateChannel = {},
                     onOpenUpdater = {},
                     onCreateBackupNow = {},
@@ -370,7 +362,7 @@ class SpeakCraftComposeCujTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            GeminiCoachService(),
+            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         val ttsHelper = TtsAndSpeechHelper(ctx)
@@ -420,8 +412,7 @@ class SpeakCraftComposeCujTest {
         val db = ensureFirestore()
         val coachVm = InteractiveCoachViewModel(
             repository = SpeakCraftRepository(db),
-            geminiCoach = GeminiCoachService(),
-            youtubeClient = YouTubeIntelligenceClient(),
+            localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             appContext = ctx,
             currentUserId = "test_mentor_ui"
         )
@@ -562,7 +553,6 @@ class SpeakCraftComposeCujTest {
                     updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetYoutubeKey = {},
                     onSetUpdateChannel = {},
                     onOpenUpdater = {},
                     onCreateBackupNow = {},

@@ -43,7 +43,7 @@ object FeatureTutorialRegistry {
             ),
             whatImproves = listOf(
                 "Tailors your AI Mentor advice, Conversation Simulator difficulty, and Next Step recommendation from Day 1.",
-                "Enrolls you immediately into the @askvinh 30-Day Communication Challenge."
+                "Enrolls you immediately into the 30-Day Communication Challenge."
             ),
             coachTip = "Be honest rather than optimistic on your baseline—SpeakCraft updates your objective scores automatically once you record real speech."
         ),
@@ -52,7 +52,7 @@ object FeatureTutorialRegistry {
             title = "Home Coach Dashboard",
             categoryBadge = "Command Center",
             estimatedTime = "1 min overview",
-            summary = "Your daily starting point showing your highest-impact Next Step, routine momentum, filtered trends, and all 15 @askvinh modules.",
+            summary = "Your daily starting point showing your highest-impact Next Step, routine momentum, filtered trends, and all 15 speaking modules.",
             howToUseSteps = listOf(
                 "Tap the top 'Next Step' hero button for the single best exercise recommended for your lowest or overdue skill.",
                 "Check 'Today's Routine Progress' or jump into 30/60/90 Plans, Vocabulary, Conversation, or Analytics from the 4 hub shortcuts.",
@@ -87,7 +87,7 @@ object FeatureTutorialRegistry {
             title = "30 / 60 / 90-Day Structured Programs",
             categoryBadge = "Curriculum Tracks",
             estimatedTime = "5–15 min/day",
-            summary = "Multi-week progressive roadmaps designed around @askvinh communication foundations, workplace clarity, and executive presence.",
+            summary = "Multi-week progressive roadmaps designed around communication foundations, workplace clarity, and executive presence.",
             howToUseSteps = listOf(
                 "Browse the 30-Day, 60-Day, or 90-Day tracks and tap 'Enroll' on your chosen commitment.",
                 "Expand the active program to see weekly focus themes and daily drills.",
@@ -109,7 +109,7 @@ object FeatureTutorialRegistry {
                 "Words tab: Filter by level or search keywords, and tap the speaker icon to hear pronunciation + context sentence.",
                 "Flashcards tab: Tap the card to reveal meaning/example, then pick 'Review Again (1d)' or 'Mastered Next' to schedule spaced review.",
                 "AI Quiz tab: Write a realistic sentence using the target word and tap 'Evaluate Conversational Usage' for naturalness scoring.",
-                "Notebook tab: Save custom phrases you hear at work or in @askvinh lessons with personal usage notes."
+                "Notebook tab: Save custom phrases you hear at work or in practice lessons with personal usage notes."
             ),
             whatImproves = listOf(
                 "Active spoken vocabulary precision (moving words from passive recognition into real sentences).",
@@ -123,7 +123,7 @@ object FeatureTutorialRegistry {
             title = "Record & Review Studio (3-Stage Audit)",
             categoryBadge = "Core Practice",
             estimatedTime = "3–7 min",
-            summary = "Capture mic audio (with pause/resume) or CameraX/Photo Picker video (<19MB), perform Vinh Giang's 3-Stage Self-Audit, and get AI diagnostics.",
+            summary = "Capture mic audio (with pause/resume) or CameraX/Photo Picker video (<19MB), perform the 3-Stage Self-Audit, and get coaching diagnostics.",
             howToUseSteps = listOf(
                 "Enter or customize your speaking prompt at the top.",
                 "Tap 'Record Mic' (supports Pause/Resume), 'Video Clip' (in-app camera), or 'Attach Video from Photo Picker'.",
@@ -135,14 +135,14 @@ object FeatureTutorialRegistry {
                 "Upgrades posture, eye line, and hand gestures via Stage 1 muted visual playback.",
                 "Calibrates speaking speed (target 120–155 WPM) and vocal variety."
             ),
-            coachTip = "Vinh Giang teaches Stage 1 (Muted) first because hearing your own voice distracts you from spotting distracting body tension."
+            coachTip = "Start with Stage 1 (Muted) first because hearing your own voice distracts you from spotting distracting body tension."
         ),
         FeatureTutorial(
             featureKey = "challenges",
             title = "Timed Communication Challenges",
             categoryBadge = "Impromptu Sprints",
             estimatedTime = "60–90 sec",
-            summary = "Daily and weekly countdown speaking sprints built around @askvinh techniques like PREP, hooks, and intentional pausing.",
+            summary = "Daily and weekly countdown speaking sprints built around core techniques like PREP, hooks, and intentional pausing.",
             howToUseSteps = listOf(
                 "Filter between ALL, DAILY, or WEEKLY challenges and tap any challenge card to load its timer & framework hint.",
                 "Tap 'Start [N]s Timer' to record under a realistic live countdown (pause/resume supported).",
@@ -193,7 +193,7 @@ object FeatureTutorialRegistry {
             title = "Voice Training Lab (5 Vocal Foundations)",
             categoryBadge = "Vocal Presence",
             estimatedTime = "5–8 min",
-            summary = "Train Vinh Giang's 5 vocal levers—Rate, Pause, Melody, Volume, and Character—using customizable WPM and pause-beat targets.",
+            summary = "Train the 5 vocal levers—Rate, Pause, Melody, Volume, and Character—using customizable WPM and pause-beat targets.",
             howToUseSteps = listOf(
                 "Pick one of the 4 vocal lever cards below (e.g., Rate & Intentional Pauses or Melody & Pitch Range).",
                 "Adjust the Target Pace (WPM) and Pause Hold sliders, then tap 'Hear Reference' to hear the cadence.",
@@ -220,17 +220,17 @@ object FeatureTutorialRegistry {
                 "Real-time listening comprehension and diplomatic turn-taking in high-stakes workplace dialogues.",
                 "Confidence handling tricky interview questions, pushback, and disagreements smoothly."
             ),
-            coachTip = "Use Vinh Giang's 4 Ways of Listening mindset: briefly paraphrase your partner's concern before stating your counterpoint."
+            coachTip = "Use the 4 Ways of Listening mindset: briefly paraphrase your partner's concern before stating your counterpoint."
         ),
         FeatureTutorial(
             featureKey = "listening_lab",
             title = "Active Listening & Shadowing Lab",
             categoryBadge = "Cadence & Rhythm",
             estimatedTime = "5–7 min",
-            summary = "Shadow curated @askvinh clips marked with pitch arrows and [PAUSE] cues to internalize native pacing, emphasis, and rhythm.",
+            summary = "Shadow curated clips marked with pitch arrows and [PAUSE] cues to internalize natural pacing, emphasis, and rhythm.",
             howToUseSteps = listOf(
                 "Select a shadowing segment and study the stress CAPS, pitch arrows [↗/↘], and [PAUSE] markers.",
-                "Tap 'Play Reference' (or 'Watch @askvinh') to absorb the speaker's cadence and breathing points.",
+                "Tap 'Play Reference' to absorb the speaker's cadence and breathing points.",
                 "Tap 'Shadow & Repeat' to record yourself matching the rhythm and WPM target, then tap 'Score Shadow'."
             ),
             whatImproves = listOf(
@@ -263,7 +263,7 @@ object FeatureTutorialRegistry {
             estimatedTime = "6–10 min",
             summary = "Rehearse 6 core presentation phases—Audience Calibration, Magnetic Hooks, Rule of 3, Reliving Stories, Projection, and Downward Close.",
             howToUseSteps = listOf(
-                "Select one of the 6 presentation phase cards below to load its @askvinh framework and assignment.",
+                "Select one of the 6 presentation phase cards below to load its speaking framework and assignment.",
                 "Tap 'Record Rehearsal' to deliver the assigned 15–60 second segment standing up with Power Zone gestures.",
                 "Tap 'Get Presentation AI' to critique your opening hook, vocal modulation, and closing impact."
             ),
@@ -295,15 +295,15 @@ object FeatureTutorialRegistry {
             title = "Module Curriculum Directory",
             categoryBadge = "Structured Lessons",
             estimatedTime = "3–10 min/lesson",
-            summary = "Browse verified @askvinh lessons inside Storytelling, Body Language, Confidence, Professional Communication, or Influence.",
+            summary = "Browse structured lessons inside Storytelling, Body Language, Confidence, Professional Communication, or Influence.",
             howToUseSteps = listOf(
-                "Review the source badges: green 'Creator Framework (@askvinh)' lessons come with verified video timestamps.",
-                "Tap any lesson card to read the breakdown, watch the source clip, and record a targeted practice attempt.",
-                "If a framework shows 'Pending Transcript Verification', tap 'Fetch Live Captions in YouTube Library' to inspect its video."
+                "Review the framework badges to distinguish core speaking frameworks from editorial drafts.",
+                "Tap any lesson card to read the breakdown, review the common mistake vs correction, and record a targeted practice attempt.",
+                "Save personal takeaways after each drill to track your mastery across modules."
             ),
             whatImproves = listOf(
                 "Deep mastery of specific pillars like Power Zone gestures, Reliving vs Reporting stories, and Friendly Authority.",
-                "Complete transparency on which lessons come directly from creator videos vs AI coaching supplements."
+                "Clear, step-by-step practice progression from concept to spoken execution."
             ),
             coachTip = "Work through lessons inside your weakest module sequentially so each technique builds on the last."
         ),
@@ -312,34 +312,17 @@ object FeatureTutorialRegistry {
             title = "Interactive Lesson & Practice Check",
             categoryBadge = "Learn + Apply",
             estimatedTime = "5–8 min",
-            summary = "Study the @askvinh technique breakdown, open the exact timestamped YouTube source, record your attempt inline, and log personal takeaways.",
+            summary = "Study the technique breakdown, review the before-and-after example, record your attempt inline, and log personal takeaways.",
             howToUseSteps = listOf(
-                "Read the Technique Breakdown, Step-by-Step Instructions, and Before/After example (tap the video button to watch @askvinh).",
+                "Read the Technique Breakdown, Step-by-Step Instructions, and Before/After example.",
                 "Scroll to 'Practice Prompt', tap 'Record', speak your attempt, and tap 'Get AI Feedback' for lesson-specific grading.",
                 "Jot down your takeaway note and tap 'Mark Complete', then 'Next Lesson' to continue."
             ),
             whatImproves = listOf(
-                "Turns passive video watching into immediate muscle memory through 60-second applied speaking.",
+                "Turns passive reading into immediate muscle memory through 60-second applied speaking.",
                 "Tracks completed lessons across your Dashboard and Personalized AI Mentor."
             ),
             coachTip = "Write one concrete action in the takeaway box before marking complete—writing forces recall."
-        ),
-        FeatureTutorial(
-            featureKey = "youtube_library",
-            title = "YouTube Channel Intelligence (@askvinh)",
-            categoryBadge = "Live Content Engine",
-            estimatedTime = "2–5 min",
-            summary = "Inspect live YouTube channels, playlists, or video URLs via RSS & timedtext captions to extract structured, source-attributed drills.",
-            howToUseSteps = listOf(
-                "Keep the default https://www.youtube.com/@askvinh URL or paste any public channel, playlist, or video URL.",
-                "Tap 'Inspect & Extract Lessons' to fetch metadata, check live captions, and extract creator advice vs AI supplements.",
-                "Search and filter the Knowledge Base below by difficulty or any of the 20 communication categories."
-            ),
-            whatImproves = listOf(
-                "Keeps your practice library fresh with authentic creator frameworks and real-world examples.",
-                "Separates verified creator teachings from AI-generated practice supplements."
-            ),
-            coachTip = "Videos without public captions are flagged honestly as 'NO_CAPTIONS' rather than hallucinating fake lessons."
         ),
         FeatureTutorial(
             featureKey = "analytics",
@@ -363,7 +346,7 @@ object FeatureTutorialRegistry {
             title = "Personalized Multi-Turn AI Mentor",
             categoryBadge = "Personal Coach",
             estimatedTime = "2–5 min chat",
-            summary = "A persistent, multi-turn AI communication coach aware of your recent recording scores, recurring mistakes, and @askvinh curriculum.",
+            summary = "A persistent, multi-turn AI communication coach aware of your recent recording scores, recurring mistakes, and speaking curriculum.",
             howToUseSteps = listOf(
                 "Tap any quick-prompt chip at the top (e.g., '7-day improvement plan') or ask any follow-up question in your own words.",
                 "Ask follow-ups naturally—your conversation thread persists locally per account so you can continue anytime.",
@@ -371,7 +354,7 @@ object FeatureTutorialRegistry {
             ),
             whatImproves = listOf(
                 "Gives tailored troubleshooting when you feel stuck on filler words, interview anxiety, or vocal monotony.",
-                "Connects your exact WPM/fluency stats directly to the right @askvinh exercise."
+                "Connects your exact WPM/fluency stats directly to the right practice exercise."
             ),
             coachTip = "Ask specific follow-ups like: 'Turn my top 2 mistakes into a 5-minute morning warm-up I can do before standup.'"
         ),
@@ -380,15 +363,15 @@ object FeatureTutorialRegistry {
             title = "Settings, Voice Speed & Privacy",
             categoryBadge = "Preferences",
             estimatedTime = "1 min",
-            summary = "Customize light/dark theme, reference TTS voice speed, software update channel, encrypted YouTube API key, and local/cloud history controls.",
+            summary = "Customize light/dark theme, reference TTS voice speed, software update channel, and local/cloud history controls.",
             howToUseSteps = listOf(
                 "Choose System, Light, or Dark appearance and drag 'Reference Voice Speed' (0.65x–1.35x) to match your listening comfort.",
                 "Switch between Stable or Beta update channels, create an immediate data snapshot backup, or open App Updates.",
-                "Optionally save a YouTube Data API v3 key (encrypted via Android Keystore) for higher-quota channel audits."
+                "Review on-device privacy guarantees and manage your speaking history or account deletion safely."
             ),
             whatImproves = listOf(
                 "Makes listening models easier to shadow by tuning TTS speed to your current comprehension level.",
-                "Keeps sensitive API keys hardware-backed and prevents accidental history loss with confirmation dialogs."
+                "Keeps practice recordings private on-device and prevents accidental history loss with confirmation dialogs."
             ),
             coachTip = "Lower Reference Voice Speed to 0.85x while mastering tricky intonation patterns, then raise it back to 1.0x–1.15x."
         ),
@@ -414,17 +397,17 @@ object FeatureTutorialRegistry {
             title = "Admin & Content Studio (RBAC)",
             categoryBadge = "Administration",
             estimatedTime = "Admin workflow",
-            summary = "Role-restricted studio for syncing @askvinh feeds to the shared catalog, moderating extracted techniques, publishing lessons/challenges, and managing releases.",
+            summary = "Role-restricted studio for publishing curated shared lessons and challenges, managing releases, and monitoring telemetry.",
             howToUseSteps = listOf(
-                "YouTube Sync tab: Ingest a channel/playlist/video URL and choose auto-publish or PENDING_REVIEW moderation.",
-                "Moderation tab: Approve, Publish, or Reject queued extractions and publish curated shared lessons or challenges.",
-                "Releases & Telemetry tabs: Publish SHA-256 verified SemVer updates and inspect verified install/failure telemetry."
+                "Catalog tab: Publish curated shared lessons and speaking challenges to the community catalog.",
+                "Releases tab: Publish SHA-256 verified SemVer updates and toggle release availability.",
+                "Telemetry tab: Inspect verified update check, download, and install telemetry."
             ),
             whatImproves = listOf(
-                "Ensures shared @askvinh community content stays verified, accurate, and high-quality.",
+                "Ensures shared community lessons and challenges stay curated, accurate, and high-quality.",
                 "Enforces Firestore RBAC security so only authorized adminUsers/<uid> records can publish global changes."
             ),
-            coachTip = "Queue new YouTube extractions as PENDING_REVIEW first so you can verify timestamps and advice before publishing globally."
+            coachTip = "Double-check lesson instructions and practice prompts before publishing globally."
         )
     )
 

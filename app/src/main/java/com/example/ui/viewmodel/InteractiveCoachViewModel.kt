@@ -4,16 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.HybridAiCoachCoordinator
-import com.example.data.ai.cloud.LiveVoiceHandle
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.model.SpeakingSession
 import com.example.data.model.SpeechFeedback
 import com.example.data.model.UiState
 import com.example.data.model.UserProfile
-import com.example.data.model.YouTubeSource
 import com.example.data.preferences.AppPreferencesRepository
-import com.example.data.youtube.YouTubeIntelligenceClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,36 +29,14 @@ data class ChatTurn(
     val text: String
 )
 
-data class YouTubeAuditUiState(
-    val isAuditing: Boolean = false,
-    val statusSummary: String = "",
-    val error: String? = null
-)
-
 class InteractiveCoachViewModel(
     private val repository: SpeakCraftRepository,
     private val localOrchestrator: LocalIntelligenceOrchestrator,
-    private val youtubeClient: YouTubeIntelligenceClient,
     private val appContext: Context? = null,
     private val currentUserId: String = "default",
     private val hybridCoordinator: HybridAiCoachCoordinator? = null,
     private val prefsRepo: AppPreferencesRepository? = null
 ) : ViewModel() {
-
-    @Deprecated("Use constructor with LocalIntelligenceOrchestrator")
-    constructor(
-        repository: SpeakCraftRepository,
-        geminiCoach: com.example.data.ai.GeminiCoachService,
-        youtubeClient: YouTubeIntelligenceClient,
-        appContext: Context? = null,
-        currentUserId: String = "default"
-    ) : this(
-        repository = repository,
-        localOrchestrator = if (appContext != null) LocalIntelligenceOrchestrator(appContext) else LocalIntelligenceOrchestrator(),
-        youtubeClient = youtubeClient,
-        appContext = appContext,
-        currentUserId = currentUserId
-    )
 
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
         hybridCoordinator ?: HybridAiCoachCoordinator(
@@ -70,12 +45,6 @@ class InteractiveCoachViewModel(
             appContext = appContext
         )
     }
-
-    val cloudAiEnabled: StateFlow<Boolean> = effectiveCoordinator.cloudAiEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    val cloudAiModelTier: StateFlow<String> = effectiveCoordinator.cloudAiModelTierFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "balanced")
 
     private val defaultMentorGreeting = ChatTurn(
         isUser = false,
@@ -103,8 +72,6 @@ class InteractiveCoachViewModel(
     private val _voiceAutoSpeak = MutableStateFlow(true)
     val voiceAutoSpeak: StateFlow<Boolean> = _voiceAutoSpeak.asStateFlow()
 
-    private var activeLiveHandle: LiveVoiceHandle? = null
-
     private val _coachDebrief = MutableStateFlow<UiState<String>?>(null)
     val coachDebrief: StateFlow<UiState<String>?> = _coachDebrief.asStateFlow()
 
@@ -125,9 +92,6 @@ class InteractiveCoachViewModel(
     )
     val mentorAnswer: StateFlow<UiState<String>> = _mentorAnswer.asStateFlow()
 
-    private val _ytAuditState = MutableStateFlow(YouTubeAuditUiState())
-    val ytAuditState: StateFlow<YouTubeAuditUiState> = _ytAuditState.asStateFlow()
-
     private var lastQuestionText: String = ""
     private var lastProfileSnapshot: UserProfile? = null
     private var lastSessionsSnapshot: List<SpeakingSession> = emptyList()
@@ -135,12 +99,6 @@ class InteractiveCoachViewModel(
 
     private var lastConversationMsg: String = ""
     private var lastConversationLevel: String = "Intermediate"
-
-    fun setCloudAiEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            effectiveCoordinator.setCloudAiEnabled(enabled)
-        }
-    }
 
     fun setMentorRole(roleKey: String) {
         _selectedMentorRole.value = roleKey
@@ -253,66 +211,14 @@ class InteractiveCoachViewModel(
         }
     }
 
-    fun startCloudLiveVoiceCall(
-        userLevel: String,
-        onPartnerCaption: (String) -> Unit
-    ) {
-        if (_voiceLiveActive.value) return
-        _conversationError.value = null
-        _voiceLiveStatus.value = "Connecting Gemini Live Voice..."
-        viewModelScope.launch {
-            val res = effectiveCoordinator.startLiveVoiceSession(
-                scenario = _selectedScenario.value,
-                userLevel = userLevel,
-                onInputTranscript = { userText ->
-                    viewModelScope.launch {
-                        _chatTurns.value = _chatTurns.value + ChatTurn(isUser = true, text = userText)
-                    }
-                },
-                onOutputTranscript = { aiText ->
-                    viewModelScope.launch {
-                        _chatTurns.value = _chatTurns.value + ChatTurn(isUser = false, text = aiText)
-                        onPartnerCaption(aiText)
-                    }
-                },
-                onGoAway = { notice ->
-                    viewModelScope.launch { _voiceLiveStatus.value = notice }
-                },
-                onError = { err ->
-                    viewModelScope.launch {
-                        _voiceLiveActive.value = false
-                        _voiceLiveStatus.value = "Live Voice disconnected"
-                        _conversationError.value = err.localizedMessage ?: "Gemini Live Voice session ended."
-                    }
-                }
-            )
-            res.onSuccess { handle ->
-                activeLiveHandle = handle
-                _voiceLiveActive.value = true
-                _voiceLiveStatus.value = "Gemini Live Voice Active • Speak naturally"
-            }.onFailure { err ->
-                _voiceLiveActive.value = false
-                _voiceLiveStatus.value = "Live Voice unavailable"
-                _conversationError.value = err.localizedMessage ?: "Unable to open Gemini Live Voice."
-            }
-        }
-    }
-
     fun setLocalVoiceCallState(active: Boolean, status: String) {
         _voiceLiveActive.value = active
         _voiceLiveStatus.value = status
     }
 
     fun stopVoiceLiveSession() {
-        val handle = activeLiveHandle
-        activeLiveHandle = null
         _voiceLiveActive.value = false
         _voiceLiveStatus.value = "Ready for Voice Call"
-        if (handle != null) {
-            viewModelScope.launch {
-                runCatching { handle.stopAndClose() }
-            }
-        }
     }
 
     fun requestCoachCheckInAndSave(userLevel: String) {
@@ -370,7 +276,7 @@ class InteractiveCoachViewModel(
         runMentorStreamRequest(
             withUser = withUser,
             historyPairs = historyPairs,
-            questionText = if (cloudAiEnabled.value) trimmed else contextualQuestion,
+            questionText = contextualQuestion,
             profile = profile,
             sessions = sessions,
             feedbackList = feedbackList
@@ -460,89 +366,6 @@ class InteractiveCoachViewModel(
         _mentorError.value = null
         _mentorAnswer.value = UiState.Success(defaultMentorGreeting.text)
         persistMentorHistory(reset)
-    }
-
-    fun auditYouTubeUrl(url: String, youtubeApiKey: String) {
-        viewModelScope.launch {
-            _ytAuditState.value = YouTubeAuditUiState(
-                isAuditing = true,
-                statusSummary = "Inspecting channel/playlist/video metadata & public captions..."
-            )
-            val auditRes = youtubeClient.inspectUrl(url, youtubeApiKey)
-            auditRes.onFailure { err ->
-                _ytAuditState.value = YouTubeAuditUiState(
-                    isAuditing = false,
-                    error = err.localizedMessage ?: "Could not inspect YouTube URL."
-                )
-            }.onSuccess { audit ->
-                var extractedCount = 0
-                var extractionError: String? = null
-                audit.videos.forEachIndexed { idx, video ->
-                    _ytAuditState.value = YouTubeAuditUiState(
-                        isAuditing = true,
-                        statusSummary = "Analyzing video ${idx + 1}/${audit.videos.size}: ${video.title.take(40)}..."
-                    )
-                    if (video.extractionStatus == "INACCESSIBLE") {
-                        repository.saveYouTubeAnalysis(
-                            source = YouTubeSource(
-                                videoId = video.videoId,
-                                channelHandle = video.channelHandle,
-                                playlistTitle = video.playlistTitle,
-                                publishedDate = video.publishedDate,
-                                durationSeconds = video.durationSeconds,
-                                title = video.title,
-                                videoUrl = video.videoUrl,
-                                thumbnailUrl = video.thumbnailUrl,
-                                mainTopic = "Inaccessible",
-                                category = "Public Speaking",
-                                difficulty = "Intermediate",
-                                extractionStatus = "INACCESSIBLE",
-                                statusDetail = video.statusDetail,
-                                transcriptAvailable = false
-                            ),
-                            techniques = emptyList()
-                        )
-                    } else {
-                        val bundleRes = effectiveCoordinator.extractYouTubeLessons(
-                            videoId = video.videoId,
-                            videoTitle = video.title,
-                            videoUrl = video.videoUrl,
-                            description = video.description,
-                            transcriptText = video.transcript
-                        )
-                        bundleRes.onSuccess { bundle ->
-                            extractedCount += bundle.techniques.size
-                            repository.saveYouTubeAnalysis(
-                                source = YouTubeSource(
-                                    videoId = video.videoId,
-                                    channelHandle = video.channelHandle,
-                                    playlistTitle = video.playlistTitle,
-                                    publishedDate = video.publishedDate,
-                                    durationSeconds = video.durationSeconds,
-                                    title = video.title,
-                                    videoUrl = video.videoUrl,
-                                    thumbnailUrl = video.thumbnailUrl,
-                                    mainTopic = bundle.mainTopic,
-                                    category = bundle.category,
-                                    difficulty = bundle.difficulty,
-                                    extractionStatus = video.extractionStatus,
-                                    statusDetail = video.statusDetail,
-                                    transcriptAvailable = video.transcript != null
-                                ),
-                                techniques = bundle.techniques
-                            )
-                        }.onFailure { err ->
-                            extractionError = err.localizedMessage ?: "Extraction error"
-                        }
-                    }
-                }
-                _ytAuditState.value = YouTubeAuditUiState(
-                    isAuditing = false,
-                    statusSummary = "${audit.statusNote} Saved $extractedCount source-attributed techniques.",
-                    error = if (extractedCount == 0 && extractionError != null) extractionError else null
-                )
-            }
-        }
     }
 
     override fun onCleared() {

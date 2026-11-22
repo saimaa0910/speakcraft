@@ -56,7 +56,7 @@ object RecommendationEngine {
                     title = "PREP Impromptu Framework",
                     subtitle = "Point -> Reason -> Example -> Point in 60s",
                     reason = "Sharpen thought organization based on your latest session (${latest.articulationScore}/100).",
-                    targetRoute = "lesson_detail/lesson_vinh_prep",
+                    targetRoute = "lesson_detail/lesson_tech_prep",
                     badge = "Structure Focus",
                     ctaLabel = "Practice PREP Lesson"
                 )
@@ -70,7 +70,7 @@ object RecommendationEngine {
             return RecommendedNextAction(
                 title = nextLesson.title,
                 subtitle = nextLesson.objective,
-                reason = "Build your @askvinh communication foundation and record your first baseline.",
+                reason = "Build your core communication foundation and record your first baseline.",
                 targetRoute = "lesson_detail/${nextLesson.id}",
                 badge = "Foundation Lesson",
                 ctaLabel = "Start Lesson"
