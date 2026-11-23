@@ -53,6 +53,29 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v5
 
+      - name: Cache Robolectric android-all jar
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-robolectric-16-13921718-i7
+          restore-keys: |
+            ${{ runner.os }}-robolectric-
+
+      - name: Pre-fetch Robolectric android-all jar
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROBO_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7"
+          ROBO_JAR="$ROBO_DIR/android-all-instrumented-16-robolectric-13921718-i7.jar"
+          if [ ! -f "$ROBO_JAR" ] || [ ! -s "$ROBO_JAR" ]; then
+            echo "Pre-fetching Robolectric Android 16 shadow jar..."
+            mkdir -p "$ROBO_DIR"
+            curl -fSL --retry 5 --retry-connrefused --retry-delay 3 \
+              "https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar" \
+              -o "$ROBO_JAR"
+          fi
+          ls -lh "$ROBO_JAR"
+
       - name: Prepare debug keystore for debug APK verification
         shell: bash
         run: |

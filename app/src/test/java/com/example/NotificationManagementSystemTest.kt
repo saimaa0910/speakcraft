@@ -28,7 +28,7 @@ import java.io.File
 import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [36])
 class NotificationManagementSystemTest {
 
     @get:Rule
