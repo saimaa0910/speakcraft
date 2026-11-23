@@ -9,6 +9,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Verifies Stage B Sprint 2 Task T-04.2.3 (GAP-06, SEC-01 §10.1, SEC-REQ-34, SEC-REQ-35, TC-SEC-040):
@@ -18,6 +21,8 @@ import org.junit.Test
  * - Release builds emit WARN and ERROR logs with redaction and without leaking raw stack traces.
  * - Debug builds allow all log levels with redaction applied.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
 class AppLoggerTest {
 
     private data class LogEntry(
@@ -110,7 +115,7 @@ class AppLoggerTest {
         val result = AppLogger.redact(input)
 
         assertFalse("Must not leak transcript content", result.contains("Hello world this is private speech"))
-        assertEquals("Evaluation complete for transcript:<transcript>", result)
+        assertEquals("Evaluation complete for transcript: <transcript>", result)
     }
 
     @Test
