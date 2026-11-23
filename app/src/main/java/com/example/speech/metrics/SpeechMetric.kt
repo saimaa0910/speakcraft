@@ -43,5 +43,11 @@ data class SpeechMetricValue(
     val displayValue: String,
     val band: String, // e.g. "Target", "Slow", "Fast", "High", "Low", "Pass", "Fail"
     val isIssue: Boolean,
-    val detectedElements: List<String> = emptyList() // For M-STRUCT or cue phrase lists
+    val detectedElements: List<String> = emptyList(), // For M-STRUCT or cue phrase lists
+    /**
+     * Target band actually applied, after any `REBAND` override (ARC-03 `band_target_min/max`), in the
+     * band unit of [TargetBands]; null where the metric has no lower or upper target.
+     */
+    val targetMin: Double? = null,
+    val targetMax: Double? = null
 )

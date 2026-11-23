@@ -35,8 +35,13 @@ class AppContainer(context: Context) {
 
     // Local intelligence engine (EP-06/EP-07, ARC-05; video ARC-07): one recording at a time app-wide.
     val recordingArbiter: com.example.speech.session.RecordingArbiter by lazy { com.example.speech.session.RecordingArbiter() }
+    /** Coach tips: content-pack tips when `assets/content/tips.json` is present and valid, else built-in (ARC-03 §6.9). */
+    val tipCatalog: List<com.example.speech.feedback.TipDefinition> by lazy {
+        com.example.speech.android.AssetTipCatalog.load(appContext)
+    }
     val speechAttemptRunner: com.example.speech.session.SpeechAttemptRunner by lazy {
-        com.example.speech.session.SpeechAttemptRunner(recordingArbiter)
+        // The catalogue is read lazily on the thread that evaluates the attempt, never at app start.
+        com.example.speech.session.SpeechAttemptRunner(recordingArbiter, tipCatalog = { tipCatalog })
     }
     val onlineTranscriptionConsent: com.example.speech.android.OnlineTranscriptionConsentStore by lazy {
         com.example.speech.android.OnlineTranscriptionConsentStore(appContext)

@@ -12,14 +12,6 @@ import com.example.speech.word.WordStageResult
 import com.example.speech.video.VideoEvaluation
 
 /**
- * Per-technique adjustment of issue detection (ARC-03 §6 `issueOverrides`, consistency item CL-60):
- * a technique that asks for deliberate pauses must not be told its pauses are a mistake.
- * Only [SUPPRESS] is implemented; content-pack `REBAND` entries are rejected at build time until
- * band overrides are implemented.
- */
-enum class IssueOverrideAction { SUPPRESS }
-
-/**
  * Standard input payload for an attempt evaluation (ARC-05 §2, §5).
  */
 data class AttemptInput(
@@ -42,7 +34,7 @@ data class AttemptInput(
     val framework: String? = null,
     val techniqueIds: List<String> = emptyList(),
     val previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
-    val issueOverrides: Map<IssueCode, IssueOverrideAction> = emptyMap(),
+    val issueOverrides: Map<IssueCode, IssueOverride> = emptyMap(),
     /** Result of the on-device video analyser when the camera was on (ARC-07; D-42); null for audio-only attempts. */
     val video: VideoEvaluation? = null
 ) {
@@ -65,7 +57,7 @@ data class AttemptInput(
             framework: String? = null,
             techniqueIds: List<String> = emptyList(),
             previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
-            issueOverrides: Map<IssueCode, IssueOverrideAction> = emptyMap(),
+            issueOverrides: Map<IssueCode, IssueOverride> = emptyMap(),
             video: VideoEvaluation? = null
         ): AttemptInput = AttemptInput(
             attemptId = attemptId,

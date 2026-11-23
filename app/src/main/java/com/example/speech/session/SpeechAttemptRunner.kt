@@ -6,7 +6,9 @@ import com.example.speech.metrics.SpeechMetricKey
 import com.example.speech.metrics.SpeechMetricValue
 import com.example.speech.pipeline.AttemptEvaluationResult
 import com.example.speech.pipeline.AttemptInput
-import com.example.speech.pipeline.IssueOverrideAction
+import com.example.speech.feedback.TipDefinition
+import com.example.speech.feedback.TipSelector
+import com.example.speech.pipeline.IssueOverride
 import com.example.speech.pipeline.LocalIntelligencePipeline
 import com.example.speech.recognition.RecognitionError
 import com.example.speech.rules.IssueCode
@@ -27,7 +29,7 @@ data class AttemptRequest(
     val framework: String? = null,
     val techniqueIds: List<String> = emptyList(),
     val previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
-    val issueOverrides: Map<IssueCode, IssueOverrideAction> = emptyMap()
+    val issueOverrides: Map<IssueCode, IssueOverride> = emptyMap()
 )
 
 /** Thread-safe collector for camera frame observations (fed by the MediaPipe analyser; ARC-07 §3). */
@@ -62,7 +64,9 @@ data class AttemptOutcome(
  */
 class SpeechAttemptRunner(
     private val arbiter: RecordingArbiter,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** Coach tips for feedback: the content pack's tips when a valid pack ships, else the built-in list. */
+    private val tipCatalog: () -> List<TipDefinition> = { TipSelector.CATALOG }
 ) {
 
     /** Platform objects for one attempt; which ones are needed depends on the tier. */
@@ -115,7 +119,7 @@ class SpeechAttemptRunner(
                     video = video
                 )
                 return AttemptOutcome(
-                    evaluation = LocalIntelligencePipeline.evaluate(input),
+                    evaluation = LocalIntelligencePipeline.evaluate(input, tipCatalog()),
                     features = features,
                     stopReason = captureResult?.stopReason ?: reason,
                     recognitionError = recognized?.error,

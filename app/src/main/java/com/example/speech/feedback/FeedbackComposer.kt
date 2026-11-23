@@ -121,7 +121,8 @@ object FeedbackComposer {
         metrics: Map<SpeechMetricKey, SpeechMetricValue>,
         issues: List<DetectedIssue>,
         techniqueIds: List<String> = emptyList(),
-        previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null
+        previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
+        tipCatalog: List<TipDefinition> = TipSelector.CATALOG
     ): Feedback {
         val strength = selectStrength(templateId, metrics, previousMetrics)
         val focus = selectFocus(issues)
@@ -131,7 +132,8 @@ object FeedbackComposer {
             metrics = metrics,
             techniqueIds = techniqueIds,
             templateId = templateId,
-            maxExtra = 2
+            maxExtra = 2,
+            catalog = tipCatalog
         )
         val explainability = metrics.keys.mapNotNull { EXPLAINABILITY_MAP[it] }
 

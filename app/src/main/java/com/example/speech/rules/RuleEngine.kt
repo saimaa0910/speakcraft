@@ -2,6 +2,7 @@ package com.example.speech.rules
 
 import com.example.speech.metrics.SpeechMetricKey
 import com.example.speech.metrics.SpeechMetricValue
+import com.example.speech.metrics.TargetBands
 import java.util.Locale
 
 /**
@@ -201,12 +202,14 @@ object RuleEngine {
         // 5. Pace fast or slow (Priority 5)
         val wpmMetric = metrics[SpeechMetricKey.M_WPM]
         if (wpmMetric?.isIssue == true) {
-            val isFast = (wpmMetric.rawValue ?: 0.0) > 160.0
+            // The band word follows the band actually applied, including technique REBAND overrides (ARC-03 §6.8).
+            val isFast = wpmMetric.band == "Fast"
             val code = if (isFast) IssueCode.ISSUE_PACE_FAST else IssueCode.ISSUE_PACE_SLOW
+            val target = wpmMetric.targetRangeText()
             val suggestion = if (isFast) {
-                "Pace was fast (${wpmMetric.displayValue}). Slow down slightly to aim for 120–150 words per minute."
+                "Pace was fast (${wpmMetric.displayValue}). Slow down slightly to aim for $target words per minute."
             } else {
-                "Pace was slow (${wpmMetric.displayValue}). Aim for a continuous conversational flow."
+                "Pace was slow (${wpmMetric.displayValue}). Aim for a continuous conversational flow of $target words per minute."
             }
             issues.add(
                 DetectedIssue(
@@ -272,4 +275,11 @@ object RuleEngine {
         // Sort strictly by authoritative priority table (§8.4)
         return issues.sorted()
     }
+
+    /** "100–160" from the pace band actually applied (defaults when the metric carries none). */
+    private fun SpeechMetricValue.targetRangeText(): String = String.format(
+        Locale.ROOT, "%.0f–%.0f",
+        targetMin ?: TargetBands.DEFAULT.wpmMin,
+        targetMax ?: TargetBands.DEFAULT.wpmMax
+    )
 }

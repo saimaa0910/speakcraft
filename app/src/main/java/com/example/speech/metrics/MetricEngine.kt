@@ -30,6 +30,28 @@ object MetricEngine {
     )
 
     /**
+     * Every band label [computeMetrics] can assign, per metric. Content-pack tip triggers may only name these
+     * (ARC-03 §6.9, V-16); a unit test keeps the list in step with the labels actually produced.
+     */
+    val BAND_LABELS: Map<SpeechMetricKey, Set<String>> = mapOf(
+        SpeechMetricKey.M_DUR to setOf("Measured"),
+        SpeechMetricKey.M_SPK to setOf("Measured"),
+        SpeechMetricKey.M_RATIO to setOf("Active", "Sparse"),
+        SpeechMetricKey.M_WORDS to setOf("Measured"),
+        SpeechMetricKey.M_WPM to setOf("No speech", "Slow", "Comfortable", "Fast"),
+        SpeechMetricKey.M_PAUSE to setOf("Good flow", "High pauses"),
+        SpeechMetricKey.M_LEN to setOf("On target", "Below target"),
+        SpeechMetricKey.M_TARGET to setOf("Pass", "Missing"),
+        SpeechMetricKey.M_MATCH to setOf("Pass", "Review needed"),
+        SpeechMetricKey.M_FILL to setOf("Low", "Frequent"),
+        SpeechMetricKey.M_LEX to setOf("Varied", "Repetitive"),
+        SpeechMetricKey.M_GRAM to setOf("Clean", "Issues detected"),
+        SpeechMetricKey.M_STRUCT to setOf("Complete", "Incomplete"),
+        SpeechMetricKey.M_HEDGE to setOf("Confident", "Frequent"),
+        SpeechMetricKey.M_LEVEL to setOf("Consistent", "Uneven")
+    )
+
+    /**
      * Computes the complete catalogue of metrics for an attempt.
      */
     fun computeMetrics(
@@ -46,7 +68,12 @@ object MetricEngine {
         framework: String? = null, // "STAR" or "PREP"
         grammarHitCount: Int = 0,
         hasTranscript: Boolean = true,
-        grammarRulesAvailable: Boolean = true
+        grammarRulesAvailable: Boolean = true,
+        /**
+         * Target bands after any `REBAND` overrides (ARC-03 §6.8). Values and Measured/Estimated labels never
+         * change; the band word and `isIssue` follow the band applied, so tips and issues agree with it.
+         */
+        bands: TargetBands = TargetBands.DEFAULT
     ): Map<SpeechMetricKey, SpeechMetricValue> {
         val results = mutableMapOf<SpeechMetricKey, SpeechMetricValue>()
         val words = tokenize(transcript)
@@ -94,8 +121,8 @@ object MetricEngine {
         val wpm = if (transcript.isNotBlank()) wordCount.toDouble() / speakingMinutes else 0.0
         val (wpmBand, wpmIssue) = when {
             transcript.isBlank() -> "No speech" to false
-            wpm < 90.0 -> "Slow" to true // < 100 with 10 wpm noise band
-            wpm > 170.0 -> "Fast" to true // > 160 with 10 wpm noise band
+            wpm < bands.wpmMin - TargetBands.WPM_NOISE -> "Slow" to true // default < 100 with 10 wpm noise band
+            wpm > bands.wpmMax + TargetBands.WPM_NOISE -> "Fast" to true // default > 160 with 10 wpm noise band
             else -> "Comfortable" to false
         }
         results[SpeechMetricKey.M_WPM] = SpeechMetricValue(
@@ -103,18 +130,21 @@ object MetricEngine {
             rawValue = wpm,
             displayValue = String.format(Locale.ROOT, "%.0f wpm", wpm),
             band = wpmBand,
-            isIssue = wpmIssue
+            isIssue = wpmIssue,
+            targetMin = bands.wpmMin,
+            targetMax = bands.wpmMax
         )
 
-        // 6. M-PAUSE (Long pauses >= 1.0 s)
+        // 6. M-PAUSE (Long pauses >= 1.0 s; stored as a count, band checked per minute of speaking)
         val pausesPerMin = pauseCount.toDouble() / speakingMinutes
-        val pauseIssue = pausesPerMin > 3.0 // > 2.0 with ±1 noise band
+        val pauseIssue = pausesPerMin > bands.pausesPerMinMax + TargetBands.PAUSE_NOISE // default > 2 with ±1 noise band
         results[SpeechMetricKey.M_PAUSE] = SpeechMetricValue(
             key = SpeechMetricKey.M_PAUSE,
             rawValue = pauseCount.toDouble(),
             displayValue = "$pauseCount",
             band = if (pauseIssue) "High pauses" else "Good flow",
-            isIssue = pauseIssue
+            isIssue = pauseIssue,
+            targetMax = bands.pausesPerMinMax
         )
 
         // 7. M-LEN (Length vs target)
@@ -125,7 +155,9 @@ object MetricEngine {
                 rawValue = wordCount.toDouble(),
                 displayValue = "$wordCount / $targetMinWords target",
                 band = if (isTooShort) "Below target" else "On target",
-                isIssue = isTooShort
+                isIssue = isTooShort,
+                targetMin = targetMinWords.toDouble(),
+                targetMax = targetMaxWords?.toDouble()
             )
         }
 
@@ -158,25 +190,27 @@ object MetricEngine {
         // 10. M-FILL (Fillers per minute)
         val fillerCount = countFillers(transcript, words)
         val fillerRate = fillerCount.toDouble() / speakingMinutes
-        val fillerIssue = fillerRate > 4.0 // > 3 with ±1 noise band
+        val fillerIssue = fillerRate > bands.fillersPerMinMax + TargetBands.FILL_NOISE // default > 3 with ±1 noise band
         results[SpeechMetricKey.M_FILL] = SpeechMetricValue(
             key = SpeechMetricKey.M_FILL,
             rawValue = fillerRate,
             displayValue = String.format(Locale.ROOT, "%.1f / min", fillerRate),
             band = if (fillerIssue) "Frequent" else "Low",
-            isIssue = fillerIssue
+            isIssue = fillerIssue,
+            targetMax = bands.fillersPerMinMax
         )
 
         // 11. M-LEX (MATTR vocabulary variety)
         val mattr = computeMattr(words, windowSize = 25)
         if (mattr != null) {
-            val lexIssue = mattr < 0.50 // < 0.55 with ±0.05 noise band
+            val lexIssue = mattr < bands.mattrMin - TargetBands.MATTR_NOISE // default < 0.55 with ±0.05 noise band
             results[SpeechMetricKey.M_LEX] = SpeechMetricValue(
                 key = SpeechMetricKey.M_LEX,
                 rawValue = mattr,
                 displayValue = String.format(Locale.ROOT, "%.2f", mattr),
                 band = if (lexIssue) "Repetitive" else "Varied",
-                isIssue = lexIssue
+                isIssue = lexIssue,
+                targetMin = bands.mattrMin
             )
         }
 
@@ -208,13 +242,14 @@ object MetricEngine {
         // 14. M-HEDGE (Hedging per 100 words)
         val hedgeCount = countHedges(transcript, words)
         val hedgeRate = if (wordCount > 0) (hedgeCount.toDouble() / wordCount.toDouble()) * 100.0 else 0.0
-        val hedgeIssue = hedgeRate > 4.0 // > 3 with ±1 noise band
+        val hedgeIssue = hedgeRate > bands.hedgesPer100Max + TargetBands.HEDGE_NOISE // default > 3 with ±1 noise band
         results[SpeechMetricKey.M_HEDGE] = SpeechMetricValue(
             key = SpeechMetricKey.M_HEDGE,
             rawValue = hedgeRate,
             displayValue = String.format(Locale.ROOT, "%.1f / 100w", hedgeRate),
             band = if (hedgeIssue) "Frequent" else "Confident",
-            isIssue = hedgeIssue
+            isIssue = hedgeIssue,
+            targetMax = bands.hedgesPer100Max
         )
 
         // 15. M-LEVEL (Loudness CV)

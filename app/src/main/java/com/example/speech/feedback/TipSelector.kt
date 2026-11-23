@@ -12,7 +12,8 @@ import kotlin.math.abs
  */
 data class TipDefinition(
     val tipId: String,
-    val techniqueId: String,
+    /** Technique the tip belongs to; null for a global general tip (content pack, ARC-03 §6.9). */
+    val techniqueId: String?,
     val title: String,
     val text: String,
     val triggerIssueCode: IssueCode? = null,
@@ -20,7 +21,12 @@ data class TipDefinition(
     val triggerMetricBand: String? = null,
     val triggerTemplate: String? = null,
     val priority: Int = 1,
-    val sourceVideoUrl: String? = null
+    val sourceVideoUrl: String? = null,
+    /**
+     * Content-pack triggers (ARC-03 §6.9): when non-null they replace the single `trigger*` fields above.
+     * The tip matches if any trigger matches; an empty list marks the general tip of [techniqueId].
+     */
+    val triggers: List<TipTrigger>? = null
 )
 
 /**
@@ -203,26 +209,25 @@ object TipSelector {
         metrics: Map<SpeechMetricKey, SpeechMetricValue>,
         techniqueIds: List<String> = emptyList(),
         templateId: String? = null,
-        maxExtra: Int = 2
+        maxExtra: Int = 2,
+        /** Tips to choose from: a validated content pack ([TipPackLoader]) or the built-in [CATALOG]. */
+        catalog: List<TipDefinition> = CATALOG
     ): List<CoachTip> {
         val selectedTips = mutableListOf<CoachTip>()
         val chosenTipIds = mutableSetOf<String>()
 
         // 1. If issues exist, find candidate tips
-        val rankedCandidates = CATALOG.mapNotNull { tip ->
-            val specificity = when {
-                tip.triggerIssueCode != null && issues.any { it.code == tip.triggerIssueCode } -> 4
-                tip.triggerMetricKey != null && metrics[tip.triggerMetricKey]?.band == tip.triggerMetricBand -> 3
-                techniqueIds.contains(tip.techniqueId) -> 2
-                tip.triggerTemplate != null && tip.triggerTemplate.equals(templateId, ignoreCase = true) -> 1
-                tip.triggerIssueCode == null && tip.triggerMetricKey == null && tip.triggerTemplate == null -> 0 // Fallback
-                else -> -1
+        val rankedCandidates = catalog.mapNotNull { tip ->
+            val (specificity, forIssue) = if (tip.triggers != null) {
+                packMatch(tip, tip.triggers, issues, metrics, techniqueIds, templateId)
+            } else {
+                builtInSpecificity(tip, issues, metrics, techniqueIds, templateId) to tip.triggerIssueCode
             }
 
             if (specificity >= 0) {
                 // Stable deterministic hash of tipId + attemptId to vary phrasing without cloud AI
                 val stableHash = abs((tip.tipId + attemptId).hashCode()) % 1000
-                CandidateTip(tip, specificity, tip.priority, stableHash)
+                CandidateTip(tip, specificity, tip.priority, stableHash, forIssue)
             } else null
         }.sortedWith(
             compareByDescending<CandidateTip> { it.specificity }
@@ -232,7 +237,12 @@ object TipSelector {
 
         // ARC-05 §8.4 Step 4 & CMP-75: If no issue detected, return exactly one general tip
         if (issues.isEmpty()) {
-            val generalCandidate = rankedCandidates.firstOrNull { it.tip.techniqueId in techniqueIds }
+            // Content pack (ARC-03 §6.9 step 4): the activity technique's general tip, else the global general tip.
+            val generalCandidate = rankedCandidates.firstOrNull {
+                it.tip.isPackGeneral() && it.tip.techniqueId != null && it.tip.techniqueId in techniqueIds
+            }
+                ?: rankedCandidates.firstOrNull { it.tip.isPackGeneral() && it.tip.techniqueId == null }
+                ?: rankedCandidates.firstOrNull { it.tip.techniqueId != null && it.tip.techniqueId in techniqueIds }
                 ?: rankedCandidates.firstOrNull { it.specificity >= 0 }
                 ?: CandidateTip(CATALOG.first { it.techniqueId == "TECH-DELIVERY-GENERAL" }, 0, 3, 0)
 
@@ -251,7 +261,7 @@ object TipSelector {
 
         // 2. Select focus tip for the highest priority issue
         val highestPriorityIssue = issues.first()
-        val focusMatch = rankedCandidates.firstOrNull { it.tip.triggerIssueCode == highestPriorityIssue.code }
+        val focusMatch = rankedCandidates.firstOrNull { it.forIssue == highestPriorityIssue.code }
             ?: rankedCandidates.firstOrNull()
 
         if (focusMatch != null) {
@@ -261,7 +271,7 @@ object TipSelector {
                     techniqueId = focusMatch.tip.techniqueId,
                     title = focusMatch.tip.title,
                     text = focusMatch.tip.text,
-                    forIssue = focusMatch.tip.triggerIssueCode,
+                    forIssue = focusMatch.forIssue,
                     isFocusTip = true,
                     sourceVideoUrl = focusMatch.tip.sourceVideoUrl
                 )
@@ -280,7 +290,7 @@ object TipSelector {
                     techniqueId = candidate.tip.techniqueId,
                     title = candidate.tip.title,
                     text = candidate.tip.text,
-                    forIssue = candidate.tip.triggerIssueCode,
+                    forIssue = candidate.forIssue,
                     isFocusTip = false,
                     sourceVideoUrl = candidate.tip.sourceVideoUrl
                 )
@@ -291,10 +301,59 @@ object TipSelector {
         return selectedTips
     }
 
+    /** Built-in tips: one trigger field each, ranked issue code > metric band > technique > template (ARC-05 §8.4). */
+    private fun builtInSpecificity(
+        tip: TipDefinition,
+        issues: List<DetectedIssue>,
+        metrics: Map<SpeechMetricKey, SpeechMetricValue>,
+        techniqueIds: List<String>,
+        templateId: String?
+    ): Int = when {
+        tip.triggerIssueCode != null && issues.any { it.code == tip.triggerIssueCode } -> 4
+        tip.triggerMetricKey != null && metrics[tip.triggerMetricKey]?.band == tip.triggerMetricBand -> 3
+        tip.techniqueId != null && tip.techniqueId in techniqueIds -> 2
+        tip.triggerTemplate != null && tip.triggerTemplate.equals(templateId, ignoreCase = true) -> 1
+        tip.triggerIssueCode == null && tip.triggerMetricKey == null && tip.triggerTemplate == null -> 0 // Fallback
+        else -> -1
+    }
+
+    /**
+     * Content-pack tips (ARC-03 §6.9): the most specific matching trigger counts. A tip without triggers is the
+     * general tip of its technique (counts as a technique match) or, with no technique, the global general tip.
+     * Returns the specificity (-1 = no match) and the issue the tip answers: the highest-priority detected issue
+     * named by a matching trigger.
+     */
+    private fun packMatch(
+        tip: TipDefinition,
+        triggers: List<TipTrigger>,
+        issues: List<DetectedIssue>,
+        metrics: Map<SpeechMetricKey, SpeechMetricValue>,
+        techniqueIds: List<String>,
+        templateId: String?
+    ): Pair<Int, IssueCode?> {
+        if (triggers.isEmpty()) {
+            val specificity = when {
+                tip.techniqueId == null -> 0
+                tip.techniqueId in techniqueIds -> 2
+                else -> -1
+            }
+            return specificity to null
+        }
+        val matching = triggers.filter { it.matches(issues, metrics, techniqueIds, templateId) }
+        if (matching.isEmpty()) return -1 to null
+        val named = matching.mapNotNull { it.issueCode }.toSet()
+        return matching.maxOf { it.specificity } to issues.firstOrNull { it.code in named }?.code
+    }
+
+    /** A content-pack general tip: no triggers, or only template triggers (global general tip for a template). */
+    private fun TipDefinition.isPackGeneral(): Boolean =
+        triggers != null && triggers.all { it.issueCode == null && it.metricKey == null && it.techniqueId == null }
+
     private data class CandidateTip(
         val tip: TipDefinition,
         val specificity: Int,
         val priority: Int,
-        val stableHash: Int
+        val stableHash: Int,
+        val forIssue: IssueCode? = null
     )
 }

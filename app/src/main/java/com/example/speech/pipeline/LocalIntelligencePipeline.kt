@@ -3,6 +3,8 @@ package com.example.speech.pipeline
 import com.example.speech.evidence.EvidenceGate
 import com.example.speech.evidence.EvidenceGateResult
 import com.example.speech.feedback.FeedbackComposer
+import com.example.speech.feedback.TipDefinition
+import com.example.speech.feedback.TipSelector
 import com.example.speech.metrics.MetricEngine
 import com.example.speech.metrics.SpeechMetricKey
 import com.example.speech.metrics.SpeechMetricValue
@@ -27,6 +29,10 @@ object LocalIntelligencePipeline {
      * Semantic version of rule set + metric definitions, stored with every attempt (SRS-FR-EVAL-011).
      *
      * Changelog:
+     * - 1.4.0 (2026-11-23): technique/activity `REBAND` overrides move one side of a metric's target band
+     *   (ARC-03 §6.8; CL-60) and the applied band is recorded on the metric; pace advice quotes the band applied;
+     *   coach tips can come from a validated content-pack `tips.json` (ARC-03 §6.9) instead of the built-in list.
+     *   With no overrides and the built-in tips, issues and tips are unchanged from 1.3.0.
      * - 1.3.0 (2026-11-23): on-device video metrics V-FRAME, V-CAMERA, V-GESTURE, V-POSTURE, V-STEADY, V-SMILE and
      *   video issues (ARC-07; D-42); self-checks drop items the video measured; placeholder source links removed;
      *   acoustic noise floor also uses the quietest 200 ms stretch (short lead-ins).
@@ -40,12 +46,18 @@ object LocalIntelligencePipeline {
      *   auxiliary/modal contexts.
      * - 1.0.0: initial pipeline.
      */
-    const val EVALUATION_VERSION = "1.3.0"
+    const val EVALUATION_VERSION = "1.4.0"
 
     /**
      * Executes the complete deterministic local evaluation pipeline.
+     *
+     * @param tipCatalog coach tips to choose from: the content pack's tips when a valid pack is loaded
+     *   ([com.example.speech.feedback.TipPackLoader]), otherwise the built-in list.
      */
-    fun evaluate(input: AttemptInput): AttemptEvaluationResult {
+    fun evaluate(
+        input: AttemptInput,
+        tipCatalog: List<TipDefinition> = TipSelector.CATALOG
+    ): AttemptEvaluationResult {
         val startTimeNs = System.nanoTime()
         val tokens = MetricEngine.tokenize(input.transcript)
         val wordCount = tokens.size
@@ -97,7 +109,8 @@ object LocalIntelligencePipeline {
             framework = input.framework,
             grammarHitCount = grammarHitCount,
             hasTranscript = input.hasTranscript,
-            grammarRulesAvailable = grammarRulesAvailable
+            grammarRulesAvailable = grammarRulesAvailable,
+            bands = IssueOverrides.targetBands(input.issueOverrides) // REBAND overrides (ARC-03 §6.8)
         ).filterKeys { MetricEngine.isApplicable(it, input.templateId, input.hasTranscript) } // ARC-05 §6 templates
 
         // 4. Word-Stage Evaluation (if applicable, ARC-05 §9)
@@ -147,7 +160,7 @@ object LocalIntelligencePipeline {
             templateId = input.templateId,
             targetWord = input.targetWord
         )
-        val suppressed = input.issueOverrides.filterValues { it == IssueOverrideAction.SUPPRESS }.keys
+        val suppressed = IssueOverrides.suppressed(input.issueOverrides)
         // Word-stage evidence is more specific than the generic metric check, so it goes first; one entry
         // per issue code, except grammar observations which carry distinct spans (max 2, SRS-FR-EVAL-006).
         // Video issues (ARC-07 §6) rank after audio issues by priority, so a voice problem stays the focus.
@@ -164,7 +177,8 @@ object LocalIntelligencePipeline {
             metrics = metrics,
             issues = allIssues,
             techniqueIds = input.techniqueIds,
-            previousMetrics = input.previousMetrics
+            previousMetrics = input.previousMetrics,
+            tipCatalog = tipCatalog
         )
         // Self-checks cover only what was not measured (ARC-05 §8.4): drop items the video analyser measured.
         val measuredByVideo = selfChecksMeasuredBy(input.video)

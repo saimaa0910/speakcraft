@@ -73,16 +73,16 @@ class GoldenFixturesTest {
         )
     )
 
-    /** Pinned at evaluationVersion 1.3.0 (reviewed 2026-11-23 against ARC-05 §6–§9). */
+    /** Pinned at evaluationVersion 1.4.0 (reviewed 2026-11-23 against ARC-05 §6–§9; outcomes identical to 1.3.0). */
     private val expected: Map<String, String> = mapOf(
-        "G1 read pass" to "v=1.3.0 VALID headline=[M-MATCH, M-WPM, M-PAUSE] issues=[PACE_SLOW] strength=STR_ALL_RECOGNISED focus=PACE_SLOW tips=[TIP-PACE-SLOW-01, TIP-TECH-GENERAL-02, TIP-TECH-GENERAL-01] passed=true score=100",
-        "G2 read fail" to "v=1.3.0 VALID headline=[M-MATCH, M-WPM, M-PAUSE] issues=[WORD_NOT_RECOGNISED, PACE_SLOW, PAUSES_LONG] strength=STR_COMPLETED focus=WORD_NOT_RECOGNISED tips=[TIP-WORD-RECOG-01, TIP-PAUSES-01, TIP-PACE-SLOW-01] passed=false score=66",
-        "G3 answer fluent" to "v=1.3.0 VALID headline=[M-WPM, M-FILL, M-LEN] issues=[] strength=STR_PACE_IN_BAND focus=none tips=[TIP-TECH-GENERAL-02] passed=null score=null",
-        "G4 answer messy" to "v=1.3.0 VALID headline=[M-WPM, M-FILL] issues=[FILLERS_HIGH, PACE_FAST, PAUSES_LONG, GRAMMAR_POSSIBLE, GRAMMAR_POSSIBLE, HEDGING_HIGH] strength=STR_GOOD_VARIETY focus=FILLERS_HIGH tips=[TIP-FILLERS-PAUSE-01, TIP-GRAMMAR-01, TIP-HEDGING-01] passed=null score=null",
-        "G5 star missing result" to "v=1.3.0 VALID headline=[M-STRUCT, M-WPM, M-FILL] issues=[STRUCT_ELEMENT_MISSING, PACE_SLOW] strength=STR_FEW_PAUSES focus=STRUCT_ELEMENT_MISSING tips=[TIP-STRUCT-STAR-01, TIP-PACE-SLOW-01, TIP-TECH-GENERAL-02] passed=null score=null",
-        "G6 word say wrong form" to "v=1.3.0 VALID headline=[M-TARGET, M-WORDS] issues=[TARGET_WORD_MISSING] strength=STR_COMPLETED focus=TARGET_WORD_MISSING tips=[TIP-TARGET-01, TIP-TECH-GENERAL-02, TIP-TECH-GENERAL-01] passed=false score=0",
-        "G7 audio only pauses" to "v=1.3.0 VALID headline=[M-SPK, M-PAUSE, M-RATIO] issues=[PAUSES_LONG] strength=STR_COMPLETED focus=PAUSES_LONG tips=[TIP-PAUSES-01, TIP-TECH-GENERAL-02, TIP-TECH-GENERAL-01] passed=null score=null",
-        "G8 too short" to "v=1.3.0 INCONCLUSIVE reason=TOO_SHORT"
+        "G1 read pass" to "v=1.4.0 VALID headline=[M-MATCH, M-WPM, M-PAUSE] issues=[PACE_SLOW] strength=STR_ALL_RECOGNISED focus=PACE_SLOW tips=[TIP-PACE-SLOW-01, TIP-TECH-GENERAL-02, TIP-TECH-GENERAL-01] passed=true score=100",
+        "G2 read fail" to "v=1.4.0 VALID headline=[M-MATCH, M-WPM, M-PAUSE] issues=[WORD_NOT_RECOGNISED, PACE_SLOW, PAUSES_LONG] strength=STR_COMPLETED focus=WORD_NOT_RECOGNISED tips=[TIP-WORD-RECOG-01, TIP-PAUSES-01, TIP-PACE-SLOW-01] passed=false score=66",
+        "G3 answer fluent" to "v=1.4.0 VALID headline=[M-WPM, M-FILL, M-LEN] issues=[] strength=STR_PACE_IN_BAND focus=none tips=[TIP-TECH-GENERAL-02] passed=null score=null",
+        "G4 answer messy" to "v=1.4.0 VALID headline=[M-WPM, M-FILL] issues=[FILLERS_HIGH, PACE_FAST, PAUSES_LONG, GRAMMAR_POSSIBLE, GRAMMAR_POSSIBLE, HEDGING_HIGH] strength=STR_GOOD_VARIETY focus=FILLERS_HIGH tips=[TIP-FILLERS-PAUSE-01, TIP-GRAMMAR-01, TIP-HEDGING-01] passed=null score=null",
+        "G5 star missing result" to "v=1.4.0 VALID headline=[M-STRUCT, M-WPM, M-FILL] issues=[STRUCT_ELEMENT_MISSING, PACE_SLOW] strength=STR_FEW_PAUSES focus=STRUCT_ELEMENT_MISSING tips=[TIP-STRUCT-STAR-01, TIP-PACE-SLOW-01, TIP-TECH-GENERAL-02] passed=null score=null",
+        "G6 word say wrong form" to "v=1.4.0 VALID headline=[M-TARGET, M-WORDS] issues=[TARGET_WORD_MISSING] strength=STR_COMPLETED focus=TARGET_WORD_MISSING tips=[TIP-TARGET-01, TIP-TECH-GENERAL-02, TIP-TECH-GENERAL-01] passed=false score=0",
+        "G7 audio only pauses" to "v=1.4.0 VALID headline=[M-SPK, M-PAUSE, M-RATIO] issues=[PAUSES_LONG] strength=STR_COMPLETED focus=PAUSES_LONG tips=[TIP-PAUSES-01, TIP-TECH-GENERAL-02, TIP-TECH-GENERAL-01] passed=null score=null",
+        "G8 too short" to "v=1.4.0 INCONCLUSIVE reason=TOO_SHORT"
     )
 
     @Test
