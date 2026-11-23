@@ -149,4 +149,14 @@ jobs:
             exit 1
           fi
 
+          # 7. ADR-004 (T-04.1.3): In-app APK updater, install intents, GitHub Releases API calls, publish script, and release collections must stay removed
+          if [ -e "scripts/publish_firestore_release.mjs" ]; then
+            echo "::error::Retired scripts/publish_firestore_release.mjs must not exist."
+            exit 1
+          fi
+          if grep -rnE 'REQUEST_INSTALL_PACKAGES|ACTION_INSTALL_PACKAGE|vnd\.android\.package-archive|api\.github\.com/repos|GitHubReleaseClient|ReleaseUpdateRepository|UpdateBackupManager|AppUpdateScreen|UpdateAvailableDialog|applicationReleases|applicationUpdateEvents' app/src/main firestore.rules; then
+            echo "::error::Prohibited in-app updater, install-intent, GitHub Releases API, or retired release collection reference detected."
+            exit 1
+          fi
+
           echo "All static security and workflow hygiene checks passed."

@@ -3,8 +3,6 @@ package com.example.data.firebase
 import android.content.Context
 import com.example.R
 import com.example.data.model.AdminUser
-import com.example.data.model.ApplicationRelease
-import com.example.data.model.ApplicationUpdateEvent
 import com.example.data.model.ConversationSession
 import com.example.data.model.DailyActivity
 import com.example.data.model.LearningChallenge
@@ -25,7 +23,6 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -329,80 +326,6 @@ class SpeakCraftRepository(
             db.collection("learningChallenges")
                 .snapshots()
                 .map { it.toObjects(LearningChallenge::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
-                .catch { emit(emptyList()) }
-        )
-    }
-
-    fun observeEnabledReleases(): Flow<List<ApplicationRelease>> = flow {
-        if (auth.currentUser == null) {
-            emit(emptyList())
-            return@flow
-        }
-        emitAll(
-            db.collection("applicationReleases")
-                .whereEqualTo("enabled", true)
-                .snapshots()
-                .map { it.toObjects(ApplicationRelease::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
-                .catch { emit(emptyList()) }
-        )
-    }
-
-    suspend fun fetchEnabledReleasesOnce(): Result<List<ApplicationRelease>> = runCatching {
-        if (auth.currentUser == null) return@runCatching emptyList()
-        val snap = runCatching {
-            db.collection("applicationReleases")
-                .whereEqualTo("enabled", true)
-                .get(Source.SERVER)
-                .await()
-        }.getOrElse {
-            db.collection("applicationReleases")
-                .whereEqualTo("enabled", true)
-                .get()
-                .await()
-        }
-        snap.toObjects(ApplicationRelease::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
-    }
-
-    fun observeAdminReleases(): Flow<List<ApplicationRelease>> = flow {
-        if (auth.currentUser == null) {
-            emit(emptyList())
-            return@flow
-        }
-        emitAll(
-            db.collection("applicationReleases")
-                .orderBy("versionCode", Query.Direction.DESCENDING)
-                .snapshots()
-                .map { it.toObjects(ApplicationRelease::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
-                .catch { emit(emptyList()) }
-        )
-    }
-
-    fun observeUserUpdateEvents(userId: String): Flow<List<ApplicationUpdateEvent>> = flow {
-        val uid = auth.currentUser?.uid
-        if (uid == null || uid != userId) {
-            emit(emptyList())
-            return@flow
-        }
-        emitAll(
-            db.collection("applicationUpdateEvents")
-                .whereEqualTo("userId", uid)
-                .snapshots()
-                .map { it.toObjects(ApplicationUpdateEvent::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
-                .catch { emit(emptyList()) }
-        )
-    }
-
-    fun observeAllUpdateEventsForAdmin(): Flow<List<ApplicationUpdateEvent>> = flow {
-        if (auth.currentUser == null) {
-            emit(emptyList())
-            return@flow
-        }
-        emitAll(
-            db.collection("applicationUpdateEvents")
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(50)
-                .snapshots()
-                .map { it.toObjects(ApplicationUpdateEvent::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE) }
                 .catch { emit(emptyList()) }
         )
     }
@@ -799,28 +722,6 @@ class SpeakCraftRepository(
             batch.commit().await()
         }
 
-    suspend fun logUpdateEvent(
-        fromVersion: String,
-        toVersion: String,
-        channel: String,
-        status: String,
-        detail: String
-    ): Result<Unit> = runMutation(OperationType.CREATE, "applicationUpdateEvents") { uid ->
-        val docRef = db.collection("applicationUpdateEvents").document()
-        val safeStatus = if (status in listOf("CHECKED", "DOWNLOADED", "VERIFIED", "INSTALL_LAUNCHED", "INSTALLED", "FAILED", "ROLLED_BACK")) status else "CHECKED"
-        db.collection("applicationUpdateEvents").document(docRef.id).set(
-            mapOf(
-                "userId" to uid,
-                "fromVersion" to fromVersion.take(32),
-                "toVersion" to toVersion.take(32),
-                "channel" to (if (channel == "beta") "beta" else "stable"),
-                "status" to safeStatus,
-                "detail" to detail.take(500),
-                "createdAt" to FieldValue.serverTimestamp()
-            )
-        ).await()
-    }
-
     // ==================== ADMIN CONSOLE MUTATIONS (GATED BY adminUsers/{uid}) ====================
 
     suspend fun adminSaveSharedLesson(lesson: Lesson): Result<Unit> =
@@ -862,43 +763,6 @@ class SpeakCraftRepository(
                 )
             ).await()
         }
-
-    suspend fun adminPublishRelease(release: ApplicationRelease): Result<Unit> =
-        runMutation(OperationType.WRITE, "applicationReleases") { _ ->
-            val safeId = sanitizeId(release.id.ifBlank { "rel_${release.versionName.replace('.', '_')}_${release.versionCode}" }, 120)
-            val docRef = db.collection("applicationReleases").document(safeId)
-            val existing = docRef.get().await()
-            val payload = mutableMapOf<String, Any>(
-                "versionName" to release.versionName.trim(),
-                "versionCode" to release.versionCode.coerceAtLeast(1L),
-                "channel" to if (release.channel == "beta") "beta" else "stable",
-                "releaseDate" to release.releaseDate.take(40),
-                "releaseNotes" to release.releaseNotes.take(4000),
-                "features" to release.features.take(30).map { it.take(500) },
-                "bugFixes" to release.bugFixes.take(30).map { it.take(500) },
-                "securityImprovements" to release.securityImprovements.take(30).map { it.take(500) },
-                "downloadUrl" to release.downloadUrl.trim().take(600),
-                "installerFileName" to release.installerFileName.take(200),
-                "fileSizeBytes" to release.fileSizeBytes.coerceAtLeast(0L),
-                "sha256Checksum" to release.sha256Checksum.trim().lowercase(),
-                "signingCertSha256" to release.signingCertSha256.trim().lowercase(),
-                "minSupportedVersion" to release.minSupportedVersion.trim(),
-                "minSdk" to release.minSdk.coerceIn(21L, 40L),
-                "mandatory" to release.mandatory,
-                "enabled" to release.enabled,
-                "supportedOs" to release.supportedOs.take(10),
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-            if (!existing.exists()) {
-                payload["createdAt"] = FieldValue.serverTimestamp()
-                docRef.set(payload).await()
-            } else {
-                docRef.update(payload).await()
-            }
-        }
-
-    suspend fun adminToggleReleaseEnabled(release: ApplicationRelease): Result<Unit> =
-        adminPublishRelease(release.copy(enabled = !release.enabled))
 
     suspend fun adminPublishAnnouncement(
         title: String,

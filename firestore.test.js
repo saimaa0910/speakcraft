@@ -168,47 +168,25 @@ test("Admin RBAC: ordinary users cannot self-promote, publish releases, or edit 
     })
   );
 
-  // Ordinary user cannot publish an application release
-  const validRelease = {
+  // Retired in-app updater collections (ADR-004 / T-04.1.3) must be denied for BOTH ordinary users and admins
+  const retiredRelease = {
     versionName: "1.1.0",
     versionCode: 2,
     channel: "stable",
     releaseDate: "2026-11-17",
-    releaseNotes: "Added Record & Review pause/resume and CameraX.",
-    features: ["Pause/Resume Recording", "In-App Updater"],
-    bugFixes: ["Fixed media duration inspection"],
-    securityImprovements: ["SHA-256 package verification"],
+    releaseNotes: "Retired collection test.",
     downloadUrl: "https://releases.speakcraft.app/android/stable/speakcraft-1.1.0.apk",
-    installerFileName: "speakcraft-1.1.0.apk",
-    fileSizeBytes: 24500000,
     sha256Checksum: "a".repeat(64),
-    signingCertSha256: "b".repeat(64),
     minSupportedVersion: "1.0.0",
-    minSdk: 24,
     mandatory: false,
     enabled: true,
-    supportedOs: ["Android 7.0+"],
-    downloadCount: 0,
     createdAt: past,
     updatedAt: past,
   };
-  await assertFails(aliceDb.collection("applicationReleases").doc("rel_1_1_0").set(validRelease));
-
-  // Admin CAN publish valid release
-  await assertSucceeds(adminDb.collection("applicationReleases").doc("rel_1_1_0").set(validRelease));
-
-  // Reject release with non-HTTPS downloadUrl even from admin
-  await assertFails(
-    adminDb.collection("applicationReleases").doc("rel_bad").set({
-      ...validRelease,
-      downloadUrl: "http://insecure.example.com/app.apk",
-    })
-  );
-
-  // Ordinary user CAN read enabled releases
-  await assertSucceeds(
-    aliceDb.collection("applicationReleases").where("enabled", "==", true).get()
-  );
+  await assertFails(aliceDb.collection("applicationReleases").doc("rel_1_1_0").set(retiredRelease));
+  await assertFails(adminDb.collection("applicationReleases").doc("rel_1_1_0").set(retiredRelease));
+  await assertFails(aliceDb.collection("applicationReleases").where("enabled", "==", true).get());
+  await assertFails(adminDb.collection("applicationReleases").get());
 
   // Admin can create moderated technique; regular user sees only PUBLISHED
   await assertSucceeds(
@@ -219,7 +197,7 @@ test("Admin RBAC: ordinary users cannot self-promote, publish releases, or edit 
       creatorAdvice: "Pending transcript audit.",
       practicalExercise: "Pending review.",
       sourceVideoTitle: "Pending Video",
-      sourceVideoUrl: "https://www.youtube.com/@askvinh",
+      sourceVideoUrl: "https://example.com/pending",
       moderationStatus: "PENDING_REVIEW",
       isCreatorDerived: true,
       createdAt: past,
@@ -233,8 +211,8 @@ test("Admin RBAC: ordinary users cannot self-promote, publish releases, or edit 
       difficulty: "Beginner",
       creatorAdvice: "Align visual, vocal, and verbal channels.",
       practicalExercise: "Audit a 60s recording across all 3 passes.",
-      sourceVideoTitle: "How to Speak Better Than 99% of People",
-      sourceVideoUrl: "https://www.youtube.com/@askvinh",
+      sourceVideoTitle: "Communication Fundamentals",
+      sourceVideoUrl: "https://example.com/fundamentals",
       moderationStatus: "PUBLISHED",
       isCreatorDerived: true,
       createdAt: past,
@@ -248,28 +226,19 @@ test("Admin RBAC: ordinary users cannot self-promote, publish releases, or edit 
     aliceDb.collection("extractedTechniques").where("moderationStatus", "==", "PUBLISHED").get()
   );
 
-  // User can log own update event, cannot spoof another user's ID
-  await assertSucceeds(
+  // Retired applicationUpdateEvents collection must also be default-denied for all callers
+  await assertFails(
     aliceDb.collection("applicationUpdateEvents").doc("evt_1").set({
       userId: ALICE_UID,
       fromVersion: "1.0.0",
       toVersion: "1.1.0",
       channel: "stable",
       status: "CHECKED",
-      detail: "Update check succeeded.",
+      detail: "Retired telemetry test.",
       createdAt: past,
     })
   );
-  await assertFails(
-    aliceDb.collection("applicationUpdateEvents").doc("evt_spoof").set({
-      userId: BOB_UID,
-      fromVersion: "1.0.0",
-      toVersion: "1.1.0",
-      status: "CHECKED",
-      createdAt: past,
-    })
-  );
-  await assertSucceeds(adminDb.collection("applicationUpdateEvents").get());
+  await assertFails(adminDb.collection("applicationUpdateEvents").get());
 });
 
 test("Activity Engine: activityProgress, activityAttempts, savedActivities, and dailyPracticePlans security & schema bounds", async () => {

@@ -14,8 +14,6 @@ import com.example.data.media.AudioRecorderManager
 import com.example.data.preferences.AISettingsRepository
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.preferences.TutorialStateManager
-import com.example.data.update.ReleaseUpdateRepository
-import com.example.data.update.UpdateBackupManager
 import com.google.firebase.firestore.FirebaseFirestore
 
 class AppContainer(context: Context) {
@@ -78,18 +76,6 @@ class AppContainer(context: Context) {
 
     val tutorialStateManager: TutorialStateManager by lazy {
         TutorialStateManager(appContext)
-    }
-
-    val backupManager: UpdateBackupManager by lazy {
-        UpdateBackupManager(appContext)
-    }
-
-    val releaseUpdateRepository: ReleaseUpdateRepository by lazy {
-        ReleaseUpdateRepository(appContext, backupManager)
-    }
-
-    val githubReleaseClient: com.example.data.update.GitHubReleaseClient by lazy {
-        com.example.data.update.GitHubReleaseClient()
     }
 
     val activityRepository: com.example.data.firebase.ActivityFirestoreRepository by lazy {

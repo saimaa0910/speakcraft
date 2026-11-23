@@ -261,7 +261,7 @@ private val directlyNavigableTutorialRoutes = setOf(
     "dashboard", "daily_practice", "learning_paths", "vocabulary", "speaking_lab",
     "challenges", "articulation_lab", "pronunciation", "voice_training", "conversation",
     "listening_lab", "grammar_speaking", "public_speaking", "real_world_tasks",
-    "analytics", "ai_mentor", "settings", "app_updates"
+    "analytics", "ai_mentor", "settings"
 )
 
 @Composable

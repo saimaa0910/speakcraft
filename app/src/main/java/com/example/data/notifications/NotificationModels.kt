@@ -107,8 +107,7 @@ data class NotificationStoreState(
 
 /**
  * Isolation boundary ensuring the Notification Management System NEVER ingests, stores,
- * or routes to App Update / OTA Release payloads. This keeps the bell-icon drawer 100%
- * independent from [com.example.data.update.ReleaseUpdateRepository] and `app_updates`.
+ * or routes to app-update / sideload-installer payloads (ADR-004).
  */
 object UpdateSystemIsolationGuard {
     private val blockedRoutePrefixes = listOf(

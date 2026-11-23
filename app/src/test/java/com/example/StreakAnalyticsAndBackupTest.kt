@@ -4,9 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.model.SpeakingSession
 import com.example.data.model.StreakAndAnalyticsHelper
-import com.example.data.preferences.AppPreferences
-import com.example.data.preferences.ThemePreference
-import com.example.data.update.UpdateBackupManager
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -105,34 +102,17 @@ class StreakAnalyticsAndBackupTest {
     }
 
     @Test
-    fun `backup manager creates and restores snapshot preferences`() {
-        val ctx = ApplicationProvider.getApplicationContext<Context>()
-        val mgr = UpdateBackupManager(ctx)
-        val snapshot = mgr.createPreUpdateBackup(
-            prefs = AppPreferences(themeMode = ThemePreference.DARK, ttsRate = 1.15f, updateChannel = "beta"),
-            currentVersionName = "1.0.0",
-            currentVersionCode = 1L,
-            targetVersionName = "1.1.0"
-        ).getOrThrow()
-
-        val restored = mgr.restoreBackupSnapshot(snapshot.fileName).getOrThrow()
-        assertEquals(ThemePreference.DARK, restored.themeMode)
-        assertEquals(1.15f, restored.ttsRate, 0.01f)
-        assertEquals("beta", restored.updateChannel)
-        assertTrue(mgr.listBackups().any { it.fileName == snapshot.fileName })
-    }
-
-    @Test
-    fun `feature tutorial registry covers all 23 active features with steps and improvement benefits`() {
+    fun `feature tutorial registry covers all 22 active features with steps and improvement benefits`() {
         val requiredKeys = listOf(
             "auth", "onboarding", "dashboard", "daily_practice", "learning_paths",
             "vocabulary", "speaking_lab", "challenges", "articulation_lab", "pronunciation",
             "voice_training", "conversation", "listening_lab", "grammar_speaking",
             "public_speaking", "real_world_tasks", "module_lessons", "lesson_detail",
-            "analytics", "ai_mentor", "settings", "app_updates", "admin_console"
+            "analytics", "ai_mentor", "settings", "admin_console"
         )
         val registryKeys = com.example.data.model.FeatureTutorialRegistry.allTutorials.map { it.featureKey }.toSet()
         assertFalse("Removed youtube_library tutorial must not exist", registryKeys.contains("youtube_library"))
+        assertFalse("Removed app_updates tutorial must not exist", registryKeys.contains("app_updates"))
         requiredKeys.forEach { key ->
             assertTrue("Missing tutorial for $key", registryKeys.contains(key))
         }

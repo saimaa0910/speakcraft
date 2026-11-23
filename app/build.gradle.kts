@@ -26,8 +26,6 @@ val versionNameOverride =
     ?: "1.1.0-beta.1"
 val buildChannelOverride =
   providers.gradleProperty("buildChannelOverride").orNull?.takeIf { it.isNotBlank() } ?: "beta"
-val githubReleaseRepoOverride =
-  providers.gradleProperty("githubReleaseRepoOverride").orNull?.trim().orEmpty()
 
 fun escapeBuildConfigString(value: String): String =
   value.replace("\\", "\\\\").replace("\"", "\\\"")
@@ -49,11 +47,6 @@ android {
       "String",
       "BUILD_CHANNEL",
       "\"${escapeBuildConfigString(buildChannelOverride)}\""
-    )
-    buildConfigField(
-      "String",
-      "GITHUB_RELEASE_REPO",
-      "\"${escapeBuildConfigString(githubReleaseRepoOverride)}\""
     )
   }
 

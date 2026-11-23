@@ -800,51 +800,6 @@ fun LessonAttributionBadge(
 }
 
 @Composable
-fun UpdateBannerCard(
-    versionName: String,
-    mandatory: Boolean,
-    onOpenUpdater: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (mandatory) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
-        ),
-        modifier = Modifier.fillMaxWidth().testTag("update_banner_card")
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                Icons.Default.SystemUpdate,
-                contentDescription = "Update available",
-                tint = if (mandatory) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (mandatory) "Required Update Available: v$versionName" else "SpeakCraft v$versionName Available",
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = if (mandatory) "Update required for continued release compatibility." else "Includes verified release notes and integrity check.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            TextButton(onClick = onOpenUpdater, modifier = Modifier.testTag("open_updater_button")) {
-                Text("View")
-            }
-            if (!mandatory) {
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Dismiss update banner")
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun ShimmerSkeletonCard(heightDp: Int = 110) {
     val reducedMotion = rememberReducedMotionEnabled()
     val alpha = if (reducedMotion) {

@@ -24,15 +24,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -395,12 +394,8 @@ fun SettingsScreen(
     prefs: AppPreferences,
     userEmail: String,
     isAdmin: Boolean,
-    updateStatusSummary: String,
     onSetTheme: (ThemePreference) -> Unit,
     onSetTtsRate: (Float) -> Unit,
-    onSetUpdateChannel: (String) -> Unit,
-    onOpenUpdater: () -> Unit,
-    onCreateBackupNow: () -> Unit,
     onOpenAdminConsole: () -> Unit,
     onClearHistory: () -> Unit,
     onSignOut: () -> Unit,
@@ -448,54 +443,30 @@ fun SettingsScreen(
         val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
         val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
 
-        val updatesCard: @Composable () -> Unit = {
+        val appInfoCard: @Composable () -> Unit = {
             Card(
+                modifier = Modifier.testTag("settings_app_info_card"),
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
             ) {
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SettingsCardHeader(
-                        icon = Icons.Default.SystemUpdate,
+                        icon = Icons.Default.Info,
                         tint = ext.info,
                         bg = ext.infoContainer,
-                        title = "Software Updates & Backups"
+                        title = "App Version & Distribution"
                     )
-                    Text(updateStatusSummary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
-                        listOf("stable", "beta").forEach { ch ->
-                            FilterChip(
-                                selected = prefs.updateChannel == ch,
-                                onClick = { onSetUpdateChannel(ch) },
-                                label = { Text("${ch.replaceFirstChar { it.uppercase() }} Channel") },
-                                modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
-                        Button(
-                            onClick = onOpenUpdater,
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("settings_check_updates_button")
-                        ) {
-                            Icon(Icons.Default.SystemUpdate, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Check for Updates")
-                        }
-                        OutlinedButton(
-                            onClick = onCreateBackupNow,
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("settings_backup_button")
-                        ) {
-                            Icon(Icons.Default.Backup, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Backup Data")
-                        }
-                    }
+                    Text(
+                        "SpeakCraft v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "App updates are delivered through official release distribution channels. SpeakCraft does not download or install APK packages in-app.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     if (isAdmin) {
                         OutlinedButton(
                             onClick = onOpenAdminConsole,
@@ -926,7 +897,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            updatesCard()
+                            appInfoCard()
                         }
                         Column(
                             modifier = Modifier.weight(1f),
@@ -965,7 +936,7 @@ fun SettingsScreen(
                 item { aiSpeechControlsCard() }
                 item { aiSpeechDiagnosticsCard() }
                 item { aiVideoPrivacyCard() }
-                item { updatesCard() }
+                item { appInfoCard() }
                 item { appearanceAndTutorialsCard() }
                 item { integrationsCard() }
                 item { privacyCard() }

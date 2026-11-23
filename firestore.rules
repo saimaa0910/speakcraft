@@ -300,34 +300,6 @@ service cloud.firestore {
              (!('linkedSessionId' in data) || (data.linkedSessionId is string && data.linkedSessionId.size() <= 128));
     }
 
-    function isValidRelease(data) {
-      return data.versionName is string && data.versionName.matches('^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$') &&
-             data.versionCode is int && data.versionCode >= 1 &&
-             data.channel in ['stable', 'beta'] &&
-             data.releaseDate is string && data.releaseDate.size() >= 8 && data.releaseDate.size() <= 40 &&
-             data.releaseNotes is string && data.releaseNotes.size() >= 1 && data.releaseNotes.size() <= 4000 &&
-             data.downloadUrl is string && data.downloadUrl.matches('^https://.*') && data.downloadUrl.size() <= 600 &&
-             data.sha256Checksum is string && data.sha256Checksum.matches('^[a-fA-F0-9]{64}$') &&
-             data.minSupportedVersion is string && data.minSupportedVersion.matches('^[0-9]+\\.[0-9]+\\.[0-9]+$') &&
-             data.mandatory is bool &&
-             data.enabled is bool &&
-             (!('fileSizeBytes' in data) || (data.fileSizeBytes is int && data.fileSizeBytes >= 0)) &&
-             (!('minSdk' in data) || (data.minSdk is int && data.minSdk >= 21 && data.minSdk <= 40)) &&
-             (!('signingCertSha256' in data) || (data.signingCertSha256 is string && data.signingCertSha256.size() <= 128)) &&
-             (!('features' in data) || isBoundedStringList(data.features, 30)) &&
-             (!('bugFixes' in data) || isBoundedStringList(data.bugFixes, 30)) &&
-             (!('securityImprovements' in data) || isBoundedStringList(data.securityImprovements, 30));
-    }
-
-    function isValidUpdateEvent(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.fromVersion is string && data.fromVersion.size() >= 1 && data.fromVersion.size() <= 32 &&
-             data.toVersion is string && data.toVersion.size() >= 1 && data.toVersion.size() <= 32 &&
-             data.status in ['CHECKED', 'DOWNLOADED', 'VERIFIED', 'INSTALL_LAUNCHED', 'INSTALLED', 'FAILED', 'ROLLED_BACK'] &&
-             (!('channel' in data) || (data.channel is string && data.channel.size() <= 20)) &&
-             (!('detail' in data) || (data.detail is string && data.detail.size() <= 500));
-    }
-
     // ==================== USER-SCOPED COLLECTIONS ====================
     match /users/{userId} {
       allow get: if (isOwner(userId) && isValidId(userId)) || isAdmin();
@@ -836,30 +808,6 @@ service cloud.firestore {
     match /learningChallenges/{challengeId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin() && isValidId(challengeId);
-    }
-
-    match /applicationReleases/{releaseId} {
-      allow get, list: if isSignedIn() && (existing().enabled == true || isAdmin());
-      allow create: if isAdmin() && isValidId(releaseId) &&
-                       incoming().keys().hasAll(['versionName', 'versionCode', 'channel', 'releaseDate', 'releaseNotes', 'downloadUrl', 'sha256Checksum', 'minSupportedVersion', 'mandatory', 'enabled', 'createdAt', 'updatedAt']) &&
-                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
-                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
-                       isValidRelease(incoming());
-      allow update: if isAdmin() && isValidId(releaseId) &&
-                       incoming().createdAt == existing().createdAt &&
-                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
-                       isValidRelease(incoming());
-      allow delete: if isAdmin() && isValidId(releaseId);
-    }
-
-    match /applicationUpdateEvents/{eventId} {
-      allow get, list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
-      allow create: if isSignedIn() && isValidId(eventId) &&
-                       incoming().keys().hasAll(['userId', 'fromVersion', 'toVersion', 'status', 'createdAt']) &&
-                       incoming().keys().hasOnly(['userId', 'fromVersion', 'toVersion', 'channel', 'status', 'detail', 'createdAt']) &&
-                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
-                       isValidUpdateEvent(incoming(), request.auth.uid);
-      allow update, delete: if false;
     }
   }
 }

@@ -185,12 +185,8 @@ class PrivacyAndTranscriptUploadTest {
                     prefs = AppPreferences(),
                     userEmail = "speaker@speakcraft.app",
                     isAdmin = false,
-                    updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetUpdateChannel = {},
-                    onOpenUpdater = {},
-                    onCreateBackupNow = {},
                     onOpenAdminConsole = {},
                     onClearHistory = {},
                     onSignOut = {}

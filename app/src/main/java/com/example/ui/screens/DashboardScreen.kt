@@ -48,7 +48,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Card
@@ -85,7 +84,6 @@ import com.example.data.model.StreakAndAnalyticsHelper
 import com.example.data.model.UserLearningProgress
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabularyEntry
-import com.example.data.update.UpdateEvaluation
 import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeatureTutorialDialog
@@ -100,7 +98,6 @@ import com.example.ui.components.StreakHighlightCard
 import com.example.ui.components.StudioMetricCard
 import com.example.ui.components.TodaysPracticePlanCard
 import com.example.ui.components.TodaysProgressRingCard
-import com.example.ui.components.UpdateBannerCard
 import com.example.ui.components.WeeklyGoalCard
 import com.example.ui.components.WelcomeBackBanner
 import com.example.ui.theme.SpeakCraftSpacing
@@ -150,11 +147,8 @@ fun DashboardScreen(
     learningProgress: List<UserLearningProgress>,
     realWorldTasks: List<RealWorldTaskRecord>,
     recommendedNextAction: RecommendedNextAction,
-    updateEvaluation: UpdateEvaluation?,
-    showUpdateBanner: Boolean,
     isAdmin: Boolean,
     todayDateKey: String,
-    onDismissUpdateBanner: (String) -> Unit,
     onNavigate: (String) -> Unit,
     learningSnapshot: PersistedLearningSnapshot? = null,
     reducedMotion: Boolean = false,
@@ -297,9 +291,8 @@ fun DashboardScreen(
             add(ModuleTileSpec("real_world_tasks", "Field Tasks", "Real-world log", Icons.AutoMirrored.Filled.DirectionsRun, "Tools"))
             add(ModuleTileSpec("analytics", "Analytics", "Mistakes & trends", Icons.Default.Analytics, "Tools"))
             add(ModuleTileSpec("ai_mentor", "AI Mentor", "Personal coach chat", Icons.Default.Psychology, "Tools"))
-            add(ModuleTileSpec("app_updates", "App Updates", "Version & backups", Icons.Default.SystemUpdate, "Tools"))
             if (isAdmin) {
-                add(ModuleTileSpec("admin_console", "Admin Studio", "RBAC & Releases", Icons.Default.AdminPanelSettings, "Tools"))
+                add(ModuleTileSpec("admin_console", "Admin Studio", "RBAC & Catalog", Icons.Default.AdminPanelSettings, "Tools"))
             }
         }
         core15 + utilityTools
@@ -330,18 +323,6 @@ fun DashboardScreen(
             contentPadding = PaddingValues(SpeakCraftSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg)
         ) {
-            if (showUpdateBanner && updateEvaluation?.latestRelease != null && updateEvaluation.isUpdateAvailable) {
-                item {
-                    val rel = updateEvaluation.latestRelease
-                    UpdateBannerCard(
-                        versionName = rel.versionName,
-                        mandatory = updateEvaluation.isMandatory,
-                        onOpenUpdater = { onNavigate("app_updates") },
-                        onDismiss = { onDismissUpdateBanner(rel.versionName) }
-                    )
-                }
-            }
-
             // Single Clean Animated Welcome-Back Greeting + Search Bar
             item {
                 DashboardStudioHeader(
@@ -630,7 +611,7 @@ fun DashboardScreen(
                             .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                             .testTag("browse_all_tutorials_button")
                     ) {
-                        Text("Explore Tutorials for All 23 Features & Benefits")
+                        Text("Explore Tutorials for All 22 Features & Benefits")
                     }
                 }
             }

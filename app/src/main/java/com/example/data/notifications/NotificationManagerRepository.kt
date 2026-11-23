@@ -24,8 +24,7 @@ import java.util.UUID
  *
  * Isolation guarantee:
  * - Persists into its own `notification_store/alerts_<uid>.json` directory.
- * - Never reads, writes, or modifies `ReleaseUpdateRepository`, `AppPreferencesRepository`,
- *   or any OTA update state.
+ * - Never reads, writes, or modifies `AppPreferencesRepository` or any app-update payloads.
  * - Rejects update-system payloads via [UpdateSystemIsolationGuard].
  */
 class NotificationManagerRepository(

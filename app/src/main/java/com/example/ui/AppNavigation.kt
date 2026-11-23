@@ -45,7 +45,6 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Home
@@ -124,14 +123,12 @@ import com.example.ui.components.SpeakCraftLaunchOverlay
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
 import com.example.ui.components.TutorialOverlayStep
-import com.example.ui.components.UpdateAvailableDialog
 import com.example.ui.components.rememberReducedMotionEnabled
 import com.example.ui.screens.ActivityDiscoveryScreen
 import com.example.ui.screens.ActivityScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.AnalyticsScreen
-import com.example.ui.screens.AppUpdateScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.ChallengesScreen
 import com.example.ui.screens.ConversationSimulatorScreen
@@ -197,7 +194,6 @@ private val routeTitles = mapOf(
     "ai_mentor" to "AI Mentor",
     "settings" to "Settings",
     "profile" to "My Profile",
-    "app_updates" to "App Updates & Backups",
     "admin_console" to "Admin Console",
     "activity_library" to "Activity Engine (150)"
 )
@@ -305,10 +301,6 @@ private fun AuthenticatedAppShell(
         onDispose { ttsHelper.release() }
     }
 
-    LaunchedEffect(userId) {
-        prefsRepo.recordUpdateCheck(System.currentTimeMillis())
-    }
-
     val mainVm: MainCoachViewModel = viewModel(
         key = "main_$userId",
         factory = viewModelFactory {
@@ -365,12 +357,7 @@ private fun AuthenticatedAppShell(
             initializer {
                 checkNotNull(this[APPLICATION_KEY])
                 UpdateAndAdminViewModel(
-                    repository = container.repository,
-                    updateRepository = container.releaseUpdateRepository,
-                    backupManager = container.backupManager,
-                    prefsRepo = container.preferencesRepository,
-                    currentUserId = userId,
-                    githubReleaseClient = container.githubReleaseClient
+                    repository = container.repository
                 )
             }
         }
@@ -408,7 +395,6 @@ private fun AuthenticatedAppShell(
     val actionMessage by mainVm.actionMessage.collectAsStateWithLifecycle()
     val vocabEvalState by mainVm.vocabEvalState.collectAsStateWithLifecycle()
 
-    val updateEvaluation by updateAdminVm.updateEvaluation.collectAsStateWithLifecycle()
     val updateStatusMessage by updateAdminVm.statusMessage.collectAsStateWithLifecycle()
     val activityStatusBanner by activityVm.statusBanner.collectAsStateWithLifecycle()
     val activeAnnouncements by mainVm.activeAnnouncements.collectAsStateWithLifecycle()
@@ -430,11 +416,6 @@ private fun AuthenticatedAppShell(
         if (!msg.isNullOrBlank()) {
             snackbarHostState.showSnackbar(msg)
             mainVm.clearActionMessage()
-        }
-    }
-    LaunchedEffect(prefsLoaded, prefs.githubReleaseRepo) {
-        if (prefsLoaded && prefs.githubReleaseRepo.isNotBlank()) {
-            updateAdminVm.refreshReleasesSilently(prefs)
         }
     }
     LaunchedEffect(updateStatusMessage) {
@@ -504,10 +485,6 @@ private fun AuthenticatedAppShell(
                 val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
                 val enrollments = (enrollState as? UiState.Success)?.data.orEmpty()
                 val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
-
-                val latestReleaseVer = updateEvaluation.latestRelease?.versionName.orEmpty()
-                val showUpdateBanner = updateEvaluation.isUpdateAvailable &&
-                    (updateEvaluation.isMandatory || latestReleaseVer != prefs.dismissedReleaseVersion)
 
                 val topBarTitle = when {
                     currentRoute.startsWith("module_lessons") && !currentSlugArg.isNullOrBlank() ->
@@ -626,39 +603,6 @@ private fun AuthenticatedAppShell(
                     else -> "Module Quick Guide"
                 }
 
-                var dismissedDialogVersionThisSession by remember { mutableStateOf("") }
-                val latestRelease = updateEvaluation.latestRelease
-                val showUpdateDialog = prefsLoaded &&
-                    !activeOverlayVisible &&
-                    !showFeatureGuideDialog &&
-                    !showNotificationDrawer &&
-                    currentRoute != "app_updates" &&
-                    updateEvaluation.isUpdateAvailable &&
-                    latestRelease != null &&
-                    (updateEvaluation.isMandatory ||
-                        (latestReleaseVer != prefs.dismissedReleaseVersion &&
-                            latestReleaseVer != dismissedDialogVersionThisSession))
-
-                if (showUpdateDialog && latestRelease != null) {
-                    UpdateAvailableDialog(
-                        evaluation = updateEvaluation,
-                        release = latestRelease,
-                        onDismiss = {
-                            dismissedDialogVersionThisSession = latestRelease.versionName
-                            scope.launch { prefsRepo.dismissReleaseBanner(latestRelease.versionName) }
-                        },
-                        onInstallViaUpdater = {
-                            dismissedDialogVersionThisSession = latestRelease.versionName
-                            navigateTo("app_updates")
-                            updateAdminVm.downloadAndVerifyRelease(latestRelease, prefs)
-                        },
-                        onOpenDirectDownload = {
-                            dismissedDialogVersionThisSession = latestRelease.versionName
-                            updateAdminVm.openDirectDownloadLink(latestRelease)
-                        }
-                    )
-                }
-
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val useSidebar = maxWidth >= 840.dp
                     val useRail = maxWidth >= 600.dp && !useSidebar
@@ -669,7 +613,6 @@ private fun AuthenticatedAppShell(
                         if (useSidebar) {
                             SpeakCraftIndigoSidebar(
                                 currentRoute = currentRoute,
-                                hasUpdateAvailable = updateEvaluation.isUpdateAvailable,
                                 onNavigate = navigateTo
                             )
                         }
@@ -906,13 +849,8 @@ private fun AuthenticatedAppShell(
                                         learningProgress = learningProgress,
                                         realWorldTasks = realWorldList,
                                         recommendedNextAction = recommendedNextAction,
-                                        updateEvaluation = updateEvaluation,
-                                        showUpdateBanner = showUpdateBanner,
                                         isAdmin = isAdmin,
                                         todayDateKey = mainVm.todayDateKey,
-                                        onDismissUpdateBanner = { ver ->
-                                            scope.launch { prefsRepo.dismissReleaseBanner(ver) }
-                                        },
                                         onNavigate = navigateTo,
                                         learningSnapshot = learningSnapshot,
                                         onCompleteDailyTask = { taskId ->
@@ -1079,14 +1017,6 @@ private fun AuthenticatedAppShell(
                                         ttsHelper = ttsHelper
                                     )
                                 }
-                                composable("app_updates") {
-                                    AppUpdateScreen(
-                                        vm = updateAdminVm,
-                                        prefs = prefs,
-                                        onSetUpdateChannel = { ch -> updateAdminVm.selectUpdateChannel(ch, prefs) },
-                                        onSetGithubReleaseRepo = { repo -> updateAdminVm.setGithubReleaseRepo(repo, prefs) }
-                                    )
-                                }
                                 composable("admin_console") {
                                     AdminDashboardScreen(
                                         vm = updateAdminVm,
@@ -1099,15 +1029,8 @@ private fun AuthenticatedAppShell(
                                         prefs = prefs,
                                         userEmail = userEmail,
                                         isAdmin = isAdmin,
-                                        updateStatusSummary = updateEvaluation.statusSummary,
                                         onSetTheme = { mode -> scope.launch { prefsRepo.setThemeMode(mode) } },
                                         onSetTtsRate = { rate -> scope.launch { prefsRepo.setTtsRate(rate) } },
-                                        onSetUpdateChannel = { ch -> updateAdminVm.selectUpdateChannel(ch, prefs) },
-                                        onOpenUpdater = {
-                                            updateAdminVm.checkForUpdatesManual(prefs)
-                                            navigateTo("app_updates")
-                                        },
-                                        onCreateBackupNow = { updateAdminVm.createManualBackup(prefs) },
                                         onOpenAdminConsole = { navigateTo("admin_console") },
                                         onClearHistory = { mainVm.clearSpeakingHistory() },
                                         onSignOut = { signOut(credentialManager, scope) },
@@ -1289,7 +1212,6 @@ private data class SidebarDestination(
 @Composable
 private fun SpeakCraftIndigoSidebar(
     currentRoute: String,
-    hasUpdateAvailable: Boolean,
     onNavigate: (String) -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
@@ -1433,7 +1355,7 @@ private fun SpeakCraftIndigoSidebar(
                 }
             }
 
-            // Functional Bottom Studio Utility Card (App Updates & Backups — real feature, no dead-end upsell)
+            // Footer Studio Privacy & On-Device Badge (links to Settings)
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = ext.onHeroTitle.copy(alpha = 0.12f),
@@ -1450,24 +1372,20 @@ private fun SpeakCraftIndigoSidebar(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.SystemUpdate,
+                            imageVector = Icons.Default.Settings,
                             contentDescription = null,
                             tint = ext.onHeroBadge,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = if (hasUpdateAvailable) "Update Ready" else "Studio Sync",
+                            text = "On-Device Studio",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = ext.onHeroTitle
                         )
                     }
                     Text(
-                        text = if (hasUpdateAvailable) {
-                            "A verified new SpeakCraft release is ready to install."
-                        } else {
-                            "Check OTA releases, verify signatures & manage backups."
-                        },
+                        text = "v${com.example.BuildConfig.VERSION_NAME} • Local speech analysis & privacy controls.",
                         style = MaterialTheme.typography.bodySmall,
                         color = ext.sidebarTextIdle
                     )
@@ -1478,7 +1396,7 @@ private fun SpeakCraftIndigoSidebar(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(50))
-                            .clickable { onNavigate("app_updates") }
+                            .clickable { onNavigate("settings") }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1486,7 +1404,7 @@ private fun SpeakCraftIndigoSidebar(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (hasUpdateAvailable) "Install Update" else "Check Updates",
+                                text = "Open Settings",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = ext.sidebarTop
                             )

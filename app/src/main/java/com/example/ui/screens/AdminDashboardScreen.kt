@@ -7,56 +7,35 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Publish
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.model.ApplicationRelease
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.LearningChallenge
 import com.example.data.model.Lesson
 import com.example.ui.components.FeatureGuideStrip
-import com.example.ui.components.MetricTile
 import com.example.ui.components.SectionHeader
-import com.example.ui.theme.AcousticTeal
-import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.viewmodel.UpdateAndAdminViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun AdminDashboardScreen(
@@ -86,244 +65,129 @@ fun AdminDashboardScreen(
         return
     }
 
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val releases by vm.adminReleases.collectAsStateWithLifecycle()
-    val updateEvents by vm.adminUpdateEvents.collectAsStateWithLifecycle()
+    var lessonTitle by remember { mutableStateOf("") }
+    var lessonObj by remember { mutableStateOf("") }
+    var lessonSlug by remember { mutableStateOf(CurriculumCatalog.contentModules.first().slug) }
+    var chalTitle by remember { mutableStateOf("") }
+    var chalPrompt by remember { mutableStateOf("") }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val tier = SpeakCraftSpacing.tierForWidth(maxWidth)
         val containerMaxWidth = SpeakCraftSpacing.contentMaxWidthFor(tier)
 
         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 FeatureGuideStrip(featureKey = "admin_console", modifier = Modifier.widthIn(max = containerMaxWidth))
-            }
-            TabRow(selectedTabIndex = selectedTab, modifier = Modifier.widthIn(max = containerMaxWidth)) {
-                listOf("Catalog", "Releases", "Telemetry").forEachIndexed { idx, label ->
-                    Tab(selected = selectedTab == idx, onClick = { selectedTab = idx }, text = { Text(label) })
-                }
             }
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                when (selectedTab) {
-                    0 -> {
-                        var lessonTitle by remember { mutableStateOf("") }
-                        var lessonObj by remember { mutableStateOf("") }
-                        var lessonSlug by remember { mutableStateOf(CurriculumCatalog.contentModules.first().slug) }
-                        var chalTitle by remember { mutableStateOf("") }
-                        var chalPrompt by remember { mutableStateOf("") }
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        SectionHeader("Shared Curriculum Catalog", "Publish curated lessons and speaking challenges")
+                    }
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                         ) {
-                            item {
-                                SectionHeader("Shared Curriculum Catalog", "Publish curated lessons and speaking challenges")
-                            }
-                            item {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                                ) {
-                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("Publish Shared Lesson", style = MaterialTheme.typography.titleMedium)
-                                        OutlinedTextField(value = lessonSlug, onValueChange = { lessonSlug = it }, label = { Text("Module Slug (e.g. storytelling)") }, modifier = Modifier.fillMaxWidth())
-                                        OutlinedTextField(value = lessonTitle, onValueChange = { lessonTitle = it }, label = { Text("Lesson Title") }, modifier = Modifier.fillMaxWidth())
-                                        OutlinedTextField(value = lessonObj, onValueChange = { lessonObj = it }, label = { Text("Objective & Explanation") }, modifier = Modifier.fillMaxWidth())
-                                        Button(
-                                            onClick = {
-                                                if (lessonTitle.isNotBlank()) {
-                                                    vm.saveSharedLesson(
-                                                        Lesson(
-                                                            id = "shared_${System.currentTimeMillis()}",
-                                                            moduleSlug = lessonSlug.trim(),
-                                                            title = lessonTitle.trim(),
-                                                            objective = lessonObj.trim().ifBlank { "Communication practice" },
-                                                            sourceVideoUrl = "",
-                                                            timestampLabel = "Curated",
-                                                            explanation = lessonObj.trim(),
-                                                            instructions = listOf("Study the framework", "Record a 60s practice clip"),
-                                                            practicePrompt = lessonObj.trim(),
-                                                            status = "PUBLISHED"
-                                                        )
-                                                    )
-                                                    lessonTitle = ""; lessonObj = ""
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("Publish Lesson") }
-                                    }
-                                }
-                            }
-                            item {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                                ) {
-                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("Publish Shared Speaking Challenge", style = MaterialTheme.typography.titleMedium)
-                                        OutlinedTextField(value = chalTitle, onValueChange = { chalTitle = it }, label = { Text("Challenge Title") }, modifier = Modifier.fillMaxWidth())
-                                        OutlinedTextField(value = chalPrompt, onValueChange = { chalPrompt = it }, label = { Text("Speaking Prompt") }, modifier = Modifier.fillMaxWidth())
-                                        Button(
-                                            onClick = {
-                                                if (chalTitle.isNotBlank() && chalPrompt.isNotBlank()) {
-                                                    vm.saveSharedChallenge(
-                                                        LearningChallenge(
-                                                            id = "shared_chal_${System.currentTimeMillis()}",
-                                                            title = chalTitle.trim(),
-                                                            challengeType = "DAILY",
-                                                            durationSeconds = 60L,
-                                                            prompt = chalPrompt.trim(),
-                                                            frameworkHint = "Clarity & intentional pauses",
-                                                            sourceReference = "Admin Curated",
-                                                            active = true
-                                                        )
-                                                    )
-                                                    chalTitle = ""; chalPrompt = ""
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("Publish Challenge") }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    1 -> {
-                    var versionName by remember { mutableStateOf(com.example.BuildConfig.VERSION_NAME) }
-                    var versionCode by remember { mutableStateOf(com.example.BuildConfig.VERSION_CODE.toString()) }
-                    var channel by remember { mutableStateOf(com.example.BuildConfig.BUILD_CHANNEL) }
-                    var releaseNotes by remember {
-                        mutableStateOf("Premium native Jetpack Compose launch animation with deliberate 2.9s/2.1s pacing, adaptive light/dark studio lighting, and non-blocking auth initialization.")
-                    }
-                    var featuresCsv by remember {
-                        mutableStateOf("Native Acoustic Aperture Compose Launch Animation, Non-blocking initialization & auth flow, Beta channel update verification")
-                    }
-                    var downloadUrl by remember { mutableStateOf("https://") }
-                    var sha256 by remember { mutableStateOf("") }
-                    var minSupported by remember { mutableStateOf("1.0.0") }
-                    var mandatory by remember { mutableStateOf(false) }
-                    val todayIso = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            SectionHeader("Application Release Manager", "Publish SHA-256 verified HTTPS updates & toggle rollout")
-                        }
-                        item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Publish New Release", style = MaterialTheme.typography.titleMedium)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(value = versionName, onValueChange = { versionName = it }, label = { Text("SemVer (X.Y.Z)") }, modifier = Modifier.weight(1f))
-                                        OutlinedTextField(value = versionCode, onValueChange = { versionCode = it }, label = { Text("Build #") }, modifier = Modifier.weight(1f))
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        listOf("stable", "beta").forEach { ch ->
-                                            FilterChip(selected = channel == ch, onClick = { channel = ch }, label = { Text(ch) })
-                                        }
-                                    }
-                                    OutlinedTextField(value = downloadUrl, onValueChange = { downloadUrl = it }, label = { Text("HTTPS Installer URL (https://...)") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = sha256, onValueChange = { sha256 = it }, label = { Text("SHA-256 Checksum (64 hex chars)") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = minSupported, onValueChange = { minSupported = it }, label = { Text("Min Supported Version (X.Y.Z)") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = featuresCsv, onValueChange = { featuresCsv = it }, label = { Text("Feature Highlights (comma-separated)") }, modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(value = releaseNotes, onValueChange = { releaseNotes = it }, label = { Text("Release Notes") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Checkbox(checked = mandatory, onCheckedChange = { mandatory = it })
-                                        Text("Mandatory update", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                    Button(
-                                        onClick = {
-                                            vm.publishRelease(
-                                                ApplicationRelease(
-                                                    versionName = versionName.trim(),
-                                                    versionCode = versionCode.toLongOrNull() ?: 2L,
-                                                    channel = channel,
-                                                    releaseDate = todayIso,
-                                                    releaseNotes = releaseNotes.ifBlank { "SpeakCraft update v$versionName" },
-                                                    features = featuresCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                                                    downloadUrl = downloadUrl.trim(),
-                                                    installerFileName = "speakcraft_${versionName.trim()}.apk",
-                                                    sha256Checksum = sha256.trim().lowercase(),
-                                                    minSupportedVersion = minSupported.trim(),
-                                                    mandatory = mandatory,
-                                                    enabled = true
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Publish Shared Lesson", style = MaterialTheme.typography.titleMedium)
+                                OutlinedTextField(
+                                    value = lessonSlug,
+                                    onValueChange = { lessonSlug = it },
+                                    label = { Text("Module Slug (e.g. storytelling)") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = lessonTitle,
+                                    onValueChange = { lessonTitle = it },
+                                    label = { Text("Lesson Title") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = lessonObj,
+                                    onValueChange = { lessonObj = it },
+                                    label = { Text("Objective & Explanation") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Button(
+                                    onClick = {
+                                        if (lessonTitle.isNotBlank()) {
+                                            vm.saveSharedLesson(
+                                                Lesson(
+                                                    id = "shared_${System.currentTimeMillis()}",
+                                                    moduleSlug = lessonSlug.trim(),
+                                                    title = lessonTitle.trim(),
+                                                    objective = lessonObj.trim().ifBlank { "Communication practice" },
+                                                    sourceVideoUrl = "",
+                                                    timestampLabel = "Curated",
+                                                    explanation = lessonObj.trim(),
+                                                    instructions = listOf("Study the framework", "Record a 60s practice clip"),
+                                                    practicePrompt = lessonObj.trim(),
+                                                    status = "PUBLISHED"
                                                 )
                                             )
-                                        },
-                                        modifier = Modifier.fillMaxWidth().testTag("admin_publish_release_button")
-                                    ) {
-                                        Icon(Icons.Default.Publish, contentDescription = null)
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("Publish Verified Release")
-                                    }
-                                }
-                            }
-                        }
-
-                        items(releases, key = { it.id.ifBlank { it.versionName + it.versionCode } }) { rel ->
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("v${rel.versionName} (build ${rel.versionCode}) • ${rel.channel}", style = MaterialTheme.typography.titleMedium)
-                                        Text(if (rel.enabled) "Enabled • ${rel.releaseDate}" else "Disabled", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                    OutlinedButton(onClick = { vm.toggleReleaseEnabled(rel) }) {
-                                        Text(if (rel.enabled) "Disable" else "Enable")
-                                    }
-                                }
+                                            lessonTitle = ""
+                                            lessonObj = ""
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text("Publish Lesson") }
                             }
                         }
                     }
-                }
-
-                else -> {
-                    val failures = updateEvents.count { it.status == "FAILED" }
-                    val verified = updateEvents.count { it.status == "VERIFIED" || it.status == "INSTALL_LAUNCHED" }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            SectionHeader("System Health & Update Telemetry", "Monitor release integrity & client update funnel")
-                        }
-                        item {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                MetricTile("Published Releases", "${releases.size}", "${releases.count { it.enabled }} active", AcousticTeal, Modifier.weight(1f))
-                                MetricTile("Verified Installs", "$verified", "$failures failures logged", EmeraldSuccess, Modifier.weight(1f))
-                            }
-                        }
-                        items(updateEvents.take(25)) { ev ->
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("${ev.status} • v${ev.fromVersion} -> v${ev.toVersion} (${ev.channel})", style = MaterialTheme.typography.labelLarge)
-                                    if (ev.detail.isNotBlank()) Text(ev.detail, style = MaterialTheme.typography.bodySmall)
-                                }
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Publish Shared Speaking Challenge", style = MaterialTheme.typography.titleMedium)
+                                OutlinedTextField(
+                                    value = chalTitle,
+                                    onValueChange = { chalTitle = it },
+                                    label = { Text("Challenge Title") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = chalPrompt,
+                                    onValueChange = { chalPrompt = it },
+                                    label = { Text("Speaking Prompt") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Button(
+                                    onClick = {
+                                        if (chalTitle.isNotBlank() && chalPrompt.isNotBlank()) {
+                                            vm.saveSharedChallenge(
+                                                LearningChallenge(
+                                                    id = "shared_chal_${System.currentTimeMillis()}",
+                                                    title = chalTitle.trim(),
+                                                    challengeType = "DAILY",
+                                                    durationSeconds = 60L,
+                                                    prompt = chalPrompt.trim(),
+                                                    frameworkHint = "Clarity & intentional pauses",
+                                                    sourceReference = "Admin Curated",
+                                                    active = true
+                                                )
+                                            )
+                                            chalTitle = ""
+                                            chalPrompt = ""
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text("Publish Challenge") }
                             }
                         }
                     }
                 }
             }
         }
-    }
     }
 }

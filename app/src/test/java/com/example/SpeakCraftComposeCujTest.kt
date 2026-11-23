@@ -17,22 +17,16 @@ import com.example.data.ai.RecommendationEngine
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.media.TtsAndSpeechHelper
-import com.example.data.model.ApplicationRelease
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UserProfile
 import com.example.data.preferences.AppPreferences
-import com.example.data.preferences.AppPreferencesRepository
-import com.example.data.update.UpdateBackupManager
-import com.example.data.update.UpdateEvaluation
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
-import com.example.ui.components.UpdateAvailableDialog
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.AnalyticsScreen
-import com.example.ui.screens.AppUpdateScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.LessonDetailScreen
 import com.example.ui.screens.OnboardingAssessmentScreen
@@ -45,7 +39,6 @@ import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.viewmodel.InteractiveCoachViewModel
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
 import com.example.ui.viewmodel.UpdateAndAdminViewModel
-import com.google.firebase.FirebaseApp
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import org.junit.Assert.assertEquals
@@ -74,24 +67,8 @@ class SpeakCraftComposeCujTest {
     }
 
     @Test
-    fun `dashboard renders recommended next action, update banner, and searchable modules`() {
+    fun `dashboard renders recommended next action, omits update banner, and searches modules`() {
         var navigatedRoute = ""
-        val release = ApplicationRelease(
-            id = "1_1_0",
-            versionCode = 2L,
-            versionName = "1.1.0",
-            channel = "stable",
-            releaseNotes = "Added faster pause rhythm calibration.",
-            enabled = true
-        )
-        val evaluation = UpdateEvaluation(
-            currentVersionCode = 1L,
-            currentVersionName = "1.0.0",
-            latestRelease = release,
-            isUpdateAvailable = true,
-            isMandatory = false,
-            statusSummary = "Update v1.1.0 available"
-        )
         val recommendation = RecommendationEngine.recommendNextAction(
             profile = UserProfile(userId = "u1", displayName = "Alex"),
             sessions = emptyList(),
@@ -109,18 +86,15 @@ class SpeakCraftComposeCujTest {
                     learningProgress = emptyList(),
                     realWorldTasks = emptyList(),
                     recommendedNextAction = recommendation,
-                    updateEvaluation = evaluation,
-                    showUpdateBanner = true,
                     isAdmin = false,
                     todayDateKey = "2026-11-18",
-                    onDismissUpdateBanner = {},
                     onNavigate = { navigatedRoute = it }
                 )
             }
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag("update_banner_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("update_banner_card").assertDoesNotExist()
         composeRule.onNodeWithTag("recommended_action_button").assertIsDisplayed().performClick()
         assertTrue(navigatedRoute.isNotBlank())
 
@@ -196,17 +170,9 @@ class SpeakCraftComposeCujTest {
 
     @Test
     fun `admin console blocks unauthorized user`() {
-        val ctx = ApplicationProvider.getApplicationContext<Context>()
         val db = ensureFirestore()
         val repo = SpeakCraftRepository(db)
-        val backupMgr = UpdateBackupManager(ctx)
-        val vm = UpdateAndAdminViewModel(
-            repository = repo,
-            updateRepository = com.example.data.update.ReleaseUpdateRepository(ctx, backupMgr),
-            backupManager = backupMgr,
-            prefsRepo = AppPreferencesRepository(ctx),
-            currentUserId = "regular_user_1"
-        )
+        val vm = UpdateAndAdminViewModel(repository = repo)
 
         composeRule.setContent {
             SpeakCraftTheme {
@@ -219,41 +185,6 @@ class SpeakCraftComposeCujTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Admin Access Restricted").assertIsDisplayed()
-    }
-
-    @Test
-    fun `app update screen renders update check, backup creation, and restore button`() {
-        val ctx = ApplicationProvider.getApplicationContext<Context>()
-        val db = ensureFirestore()
-        val repo = SpeakCraftRepository(db)
-        val backupMgr = UpdateBackupManager(ctx)
-        val snap = backupMgr.createPreUpdateBackup(AppPreferences(), "1.0.0", 1L, "1.1.0").getOrThrow()
-        val vm = UpdateAndAdminViewModel(
-            repository = repo,
-            updateRepository = com.example.data.update.ReleaseUpdateRepository(ctx, backupMgr),
-            backupManager = backupMgr,
-            prefsRepo = AppPreferencesRepository(ctx),
-            currentUserId = "regular_user_1"
-        )
-
-        composeRule.setContent {
-            SpeakCraftTheme {
-                AppUpdateScreen(
-                    vm = vm,
-                    prefs = AppPreferences(),
-                    onSetUpdateChannel = {}
-                )
-            }
-        }
-        composeRule.waitForIdle()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("check_for_updates_button"))
-        composeRule.onNodeWithTag("check_for_updates_button").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("create_backup_button"))
-        composeRule.onNodeWithTag("create_backup_button").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("restore_backup_button_${snap.fileName}"))
-        composeRule.onNodeWithTag("restore_backup_button_${snap.fileName}").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("confirm_destructive_dialog").assertIsDisplayed()
     }
 
     @Test
@@ -332,12 +263,8 @@ class SpeakCraftComposeCujTest {
                     prefs = AppPreferences(),
                     userEmail = "speaker@example.com",
                     isAdmin = false,
-                    updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetUpdateChannel = {},
-                    onOpenUpdater = {},
-                    onCreateBackupNow = {},
                     onOpenAdminConsole = {},
                     onClearHistory = { cleared = true },
                     onSignOut = {}
@@ -467,11 +394,8 @@ class SpeakCraftComposeCujTest {
                     learningProgress = emptyList(),
                     realWorldTasks = emptyList(),
                     recommendedNextAction = recommendation,
-                    updateEvaluation = null,
-                    showUpdateBanner = false,
                     isAdmin = false,
                     todayDateKey = "2026-11-18",
-                    onDismissUpdateBanner = {},
                     onNavigate = {}
                 )
             }
@@ -550,12 +474,8 @@ class SpeakCraftComposeCujTest {
                     prefs = AppPreferences(firstUseTutorialsEnabled = true),
                     userEmail = "speaker@example.com",
                     isAdmin = false,
-                    updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetUpdateChannel = {},
-                    onOpenUpdater = {},
-                    onCreateBackupNow = {},
                     onOpenAdminConsole = {},
                     onClearHistory = {},
                     onSignOut = {},
@@ -572,101 +492,6 @@ class SpeakCraftComposeCujTest {
 
         composeRule.onNodeWithTag("settings_replay_tutorials_button").performClick()
         assertTrue(replayed)
-    }
-
-    @Test
-    fun `update available dialog shows release notes, direct apk link, and triggers callbacks`() {
-        var openedDirectUrl = ""
-        var installClicked = false
-        var dismissed = false
-        val release = ApplicationRelease(
-            id = "rel_1_2_0",
-            versionCode = 5L,
-            versionName = "1.2.0",
-            channel = "stable",
-            releaseDate = "2026-11-19",
-            downloadUrl = "https://github.com/octocat/speakcraft/releases/download/v1.2.0/speakcraft_1.2.0.apk",
-            fileSizeBytes = 15_728_640L,
-            releaseNotes = "Improved editorial cards and OTA signing verification.",
-            features = listOf("Pre-flight signing check", "Direct APK download link"),
-            enabled = true
-        )
-        val evaluation = UpdateEvaluation(
-            currentVersionCode = 2L,
-            currentVersionName = "1.1.0-beta.1",
-            latestRelease = release,
-            isUpdateAvailable = true,
-            isMandatory = false,
-            statusSummary = "Update v1.2.0 available"
-        )
-
-        composeRule.setContent {
-            SpeakCraftTheme {
-                UpdateAvailableDialog(
-                    evaluation = evaluation,
-                    release = release,
-                    onDismiss = { dismissed = true },
-                    onInstallViaUpdater = { installClicked = true },
-                    onOpenDirectDownload = { openedDirectUrl = it }
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        composeRule.onNodeWithTag("update_available_dialog").assertIsDisplayed()
-        composeRule.onNodeWithTag("update_dialog_release_notes").assertIsDisplayed()
-        composeRule.onNodeWithText("Improved editorial cards and OTA signing verification.").assertIsDisplayed()
-        composeRule.onNodeWithTag("update_dialog_direct_download_link").performScrollTo().performClick()
-        assertEquals(release.downloadUrl, openedDirectUrl)
-
-        composeRule.onNodeWithTag("update_dialog_confirm_button").performClick()
-        assertTrue(installClicked)
-
-        composeRule.onNodeWithTag("update_dialog_dismiss_button").performClick()
-        assertTrue(dismissed)
-    }
-
-    @Test
-    fun `update available dialog highlights signing key conflict and prioritizes direct apk download`() {
-        var openedDirectUrl = ""
-        val release = ApplicationRelease(
-            id = "rel_1_2_0_signed",
-            versionCode = 6L,
-            versionName = "1.2.0",
-            channel = "stable",
-            downloadUrl = "https://github.com/octocat/speakcraft/releases/download/v1.2.0/speakcraft_1.2.0.apk",
-            releaseNotes = "Signed with production upload keystore.",
-            signingCertSha256 = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
-            enabled = true
-        )
-        val conflictEval = UpdateEvaluation(
-            currentVersionCode = 2L,
-            currentVersionName = "1.1.0-beta.1",
-            latestRelease = release,
-            isUpdateAvailable = true,
-            isMandatory = false,
-            statusSummary = "Signing conflict detected",
-            hasSigningConflictWithInstalled = true,
-            installedCertFingerprint = "3f7d14b32df7635fe1b48db5d09857df02a000e2204568323d9a60025fa75f9f",
-            releaseCertFingerprint = release.signingCertSha256
-        )
-
-        composeRule.setContent {
-            SpeakCraftTheme {
-                UpdateAvailableDialog(
-                    evaluation = conflictEval,
-                    release = release,
-                    onDismiss = {},
-                    onInstallViaUpdater = {},
-                    onOpenDirectDownload = { openedDirectUrl = it }
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        composeRule.onNodeWithTag("update_dialog_signing_conflict_notice").assertIsDisplayed()
-        composeRule.onNodeWithTag("update_dialog_confirm_button").performClick()
-        assertEquals(release.downloadUrl, openedDirectUrl)
     }
 
     @Test

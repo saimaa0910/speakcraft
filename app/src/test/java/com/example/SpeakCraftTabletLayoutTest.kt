@@ -16,20 +16,14 @@ import com.example.data.media.AudioRecorderManager
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UserProfile
 import com.example.data.preferences.AppPreferences
-import com.example.data.preferences.AppPreferencesRepository
-import com.example.data.update.ReleaseUpdateRepository
-import com.example.data.update.UpdateBackupManager
 import com.example.ui.components.TutorialOverlay
 import com.example.ui.components.TutorialOverlayCatalog
 import com.example.ui.screens.AnalyticsScreen
-import com.example.ui.screens.AppUpdateScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SpeakingLabScreen
 import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
-import com.example.ui.viewmodel.UpdateAndAdminViewModel
-import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -99,11 +93,8 @@ class SpeakCraftTabletLayoutTest {
                     learningProgress = emptyList(),
                     realWorldTasks = emptyList(),
                     recommendedNextAction = recommendation,
-                    updateEvaluation = null,
-                    showUpdateBanner = false,
                     isAdmin = false,
                     todayDateKey = "2026-11-18",
-                    onDismissUpdateBanner = {},
                     onNavigate = {}
                 )
             }
@@ -124,43 +115,6 @@ class SpeakCraftTabletLayoutTest {
         assertTrue(hoursBounds.left < wordsBounds.left)
         assertTrue(wordsBounds.left < recordingsBounds.left)
         assertTrue(recordingsBounds.left < lessonsBounds.left)
-    }
-
-    @Test
-    fun `app update screen on tablet displays check updates and backups side by side`() {
-        val ctx = ApplicationProvider.getApplicationContext<Context>()
-        val db = ensureFirestore()
-        val repo = SpeakCraftRepository(db)
-        val backupMgr = UpdateBackupManager(ctx)
-        val vm = UpdateAndAdminViewModel(
-            repository = repo,
-            updateRepository = ReleaseUpdateRepository(ctx, backupMgr),
-            backupManager = backupMgr,
-            prefsRepo = AppPreferencesRepository(ctx),
-            currentUserId = "tablet_user_1"
-        )
-
-        composeRule.setContent {
-            SpeakCraftTheme {
-                AppUpdateScreen(
-                    vm = vm,
-                    prefs = AppPreferences(),
-                    onSetUpdateChannel = {}
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        val checkBtn = composeRule.onNodeWithTag("check_for_updates_button").assertIsDisplayed()
-        val backupBtn = composeRule.onNodeWithTag("create_backup_button").assertIsDisplayed()
-
-        assertTrue(
-            "Expected check button on left (${checkBtn.getBoundsInRoot().left}) and backup on right (${backupBtn.getBoundsInRoot().left})",
-            checkBtn.getBoundsInRoot().left < backupBtn.getBoundsInRoot().left
-        )
-
-        checkBtn.performClick()
-        composeRule.waitForIdle()
     }
 
     @Test
@@ -189,19 +143,15 @@ class SpeakCraftTabletLayoutTest {
     }
 
     @Test
-    fun `settings screen on tablet shows updates and tutorials switches side by side`() {
+    fun `settings screen on tablet shows app info and tutorials switches side by side`() {
         composeRule.setContent {
             SpeakCraftTheme {
                 SettingsScreen(
                     prefs = AppPreferences(firstUseTutorialsEnabled = true),
                     userEmail = "tablet@example.com",
                     isAdmin = false,
-                    updateStatusSummary = "Up to date",
                     onSetTheme = {},
                     onSetTtsRate = {},
-                    onSetUpdateChannel = {},
-                    onOpenUpdater = {},
-                    onCreateBackupNow = {},
                     onOpenAdminConsole = {},
                     onClearHistory = {},
                     onSignOut = {},
@@ -211,11 +161,12 @@ class SpeakCraftTabletLayoutTest {
         }
         composeRule.waitForIdle()
 
-        val checkUpdates = composeRule.onNodeWithTag("settings_check_updates_button").assertIsDisplayed().getBoundsInRoot()
+        composeRule.onNodeWithTag("settings_check_updates_button").assertDoesNotExist()
+        val appInfoCard = composeRule.onNodeWithTag("settings_app_info_card").assertIsDisplayed().getBoundsInRoot()
         val tutorialSwitch = composeRule.onNodeWithTag("settings_first_use_tutorials_switch").assertIsDisplayed().getBoundsInRoot()
         assertTrue(
-            "Expected updates card left (${checkUpdates.left}) < appearance/tutorials card left (${tutorialSwitch.left})",
-            checkUpdates.left < tutorialSwitch.left
+            "Expected app info card left (${appInfoCard.left}) < appearance/tutorials card left (${tutorialSwitch.left})",
+            appInfoCard.left < tutorialSwitch.left
         )
     }
 

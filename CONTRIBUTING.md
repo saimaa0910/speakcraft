@@ -93,6 +93,7 @@ All pull requests and pushes to `main` run `.github/workflows/ci.yml` with **zer
    - Scans `app/src` for private key material.
    - Enforces **ADR-003 (`T-04.1.2`)**: `firebase-ai` cloud AI SDK must stay absent from `app/build.gradle.kts`, `gradle/libs.versions.toml`, and `app/src/main`.
    - Enforces **ADR-011 (`T-04.1.1`)**: YouTube Intelligence symbols and creator branding must stay absent from `app/src/main`.
+   - Enforces **ADR-004 (`T-04.1.3`)**: In-app APK updater, install intents, GitHub Releases API calls, `scripts/publish_firestore_release.mjs`, and retired `applicationReleases`/`applicationUpdateEvents` collections must stay absent from `app/src/main` and `firestore.rules`.
 
 ### Release Pipeline Policy (`T-01.3.1`)
 

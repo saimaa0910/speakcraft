@@ -363,11 +363,11 @@ object FeatureTutorialRegistry {
             title = "Settings, Voice Speed & Privacy",
             categoryBadge = "Preferences",
             estimatedTime = "1 min",
-            summary = "Customize light/dark theme, reference TTS voice speed, software update channel, and local/cloud history controls.",
+            summary = "Customize light/dark theme, reference TTS voice speed, on-device AI controls, and local/cloud history settings.",
             howToUseSteps = listOf(
                 "Choose System, Light, or Dark appearance and drag 'Reference Voice Speed' (0.65x–1.35x) to match your listening comfort.",
-                "Switch between Stable or Beta update channels, create an immediate data snapshot backup, or open App Updates.",
-                "Review on-device privacy guarantees and manage your speaking history or account deletion safely."
+                "Manage on-device speech recognition, audio/video analysis toggles, and first-use feature tutorials.",
+                "Review on-device privacy guarantees and manage your speaking history or account sign-out safely."
             ),
             whatImproves = listOf(
                 "Makes listening models easier to shadow by tuning TTS speed to your current comprehension level.",
@@ -376,32 +376,14 @@ object FeatureTutorialRegistry {
             coachTip = "Lower Reference Voice Speed to 0.85x while mastering tricky intonation patterns, then raise it back to 1.0x–1.15x."
         ),
         FeatureTutorial(
-            featureKey = "app_updates",
-            title = "Verified Updates & Snapshot Backups",
-            categoryBadge = "Reliability & Rollback",
-            estimatedTime = "1–2 min",
-            summary = "Check for SemVer app releases verified with SHA-256 checksums, create local preference snapshots, and restore saved snapshots safely.",
-            howToUseSteps = listOf(
-                "Tap 'Check for Updates Now' to compare your installed version against the selected Stable or Beta channel.",
-                "Review release notes and SHA-256 verification status before downloading and launching an installer.",
-                "Tap 'Create Manual Snapshot Backup Now' anytime, or tap 'Restore' on any snapshot card to roll back preferences."
-            ),
-            whatImproves = listOf(
-                "Protects against corrupted downloads or unexpected update interruptions via pre-update snapshots.",
-                "Gives 1-tap rollback safety for your theme, voice speed, and channel preferences."
-            ),
-            coachTip = "Create a manual snapshot backup right before switching to the Beta channel."
-        ),
-        FeatureTutorial(
             featureKey = "admin_console",
             title = "Admin & Content Studio (RBAC)",
             categoryBadge = "Administration",
             estimatedTime = "Admin workflow",
-            summary = "Role-restricted studio for publishing curated shared lessons and challenges, managing releases, and monitoring telemetry.",
+            summary = "Role-restricted studio for publishing curated shared lessons and speaking challenges to the community catalog.",
             howToUseSteps = listOf(
-                "Catalog tab: Publish curated shared lessons and speaking challenges to the community catalog.",
-                "Releases tab: Publish SHA-256 verified SemVer updates and toggle release availability.",
-                "Telemetry tab: Inspect verified update check, download, and install telemetry."
+                "Publish curated shared lessons linked to any curriculum module slug.",
+                "Publish daily speaking challenges with prompts and framework hints for learners."
             ),
             whatImproves = listOf(
                 "Ensures shared community lessons and challenges stay curated, accurate, and high-quality.",

@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -508,13 +507,6 @@ fun UserProfileScreen(
                             title = "App Settings",
                             subtitle = "Theme, voice speed, tutorials & privacy",
                             onClick = { onNavigate("settings") }
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                        ProfileShortcutRow(
-                            icon = Icons.Default.SystemUpdate,
-                            title = "App Updates & Backups",
-                            subtitle = "Check releases, verify signatures & snapshots",
-                            onClick = { onNavigate("app_updates") }
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         ProfileShortcutRow(

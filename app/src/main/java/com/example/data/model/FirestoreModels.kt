@@ -265,46 +265,6 @@ data class RealWorldTaskRecord(
 
 @Keep
 @IgnoreExtraProperties
-data class ApplicationRelease(
-    @DocumentId val id: String = "",
-    val versionName: String = "1.0.0",
-    val versionCode: Long = 1L,
-    val channel: String = "stable",
-    val releaseDate: String = "",
-    val releaseNotes: String = "",
-    val features: List<String> = emptyList(),
-    val bugFixes: List<String> = emptyList(),
-    val securityImprovements: List<String> = emptyList(),
-    val downloadUrl: String = "",
-    val installerFileName: String = "",
-    val fileSizeBytes: Long = 0L,
-    val sha256Checksum: String = "",
-    val signingCertSha256: String = "",
-    val minSupportedVersion: String = "1.0.0",
-    val minSdk: Long = 24L,
-    val mandatory: Boolean = false,
-    val enabled: Boolean = true,
-    val supportedOs: List<String> = listOf("Android 7.0+"),
-    val downloadCount: Long = 0L,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
-data class ApplicationUpdateEvent(
-    @DocumentId val id: String = "",
-    val userId: String = "",
-    val fromVersion: String = "",
-    val toVersion: String = "",
-    val channel: String = "stable",
-    val status: String = "CHECKED",
-    val detail: String = "",
-    @ServerTimestamp val createdAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
 data class AdminUser(
     @DocumentId val id: String = "",
     val userId: String = "",
