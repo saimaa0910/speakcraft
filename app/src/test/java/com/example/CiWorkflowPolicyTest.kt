@@ -39,7 +39,10 @@ class CiWorkflowPolicyTest {
         assertTrue("ci.yml must compile release Kotlin", content.contains(":app:compileReleaseKotlin"))
         assertTrue("ci.yml must run testDebugUnitTest", content.contains(":app:testDebugUnitTest"))
         assertTrue("ci.yml must run lintDebug", content.contains(":app:lintDebug"))
-        assertTrue("ci.yml must upload test and lint reports", content.contains("actions/upload-artifact@v4"))
+        assertTrue(
+            "ci.yml must upload test and lint reports",
+            content.contains("actions/upload-artifact@v5") || content.contains("actions/upload-artifact@v4")
+        )
         assertTrue("ci.yml must include static security checks job", content.contains("security-static:"))
 
         assertFalse(

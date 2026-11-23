@@ -84,7 +84,7 @@ npx firebase emulators:exec --only firestore --project demo-speakcraft "node --t
 
 All pull requests and pushes to `main` run `.github/workflows/ci.yml` with **zero repository secrets**:
 
-1. **Validate Gradle Wrapper (`wrapper-validation`)**: Runs `gradle/actions/wrapper-validation@v4` to verify `gradle/wrapper/gradle-wrapper.jar` against official Gradle checksums (`T-01.1.1`).
+1. **Validate Gradle Wrapper (`wrapper-validation`)**: Runs `gradle/actions/wrapper-validation@v5` to verify `gradle/wrapper/gradle-wrapper.jar` against official Gradle checksums (`T-01.1.1`).
 2. **Build & Test (`build-test`)**: Runs `./gradlew :app:assembleDebug :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintDebug` and uploads JUnit XML/HTML, Lint reports, and a 7-day reviewer debug APK (`T-01.2.1`).
 3. **Static Security & Hygiene (`security-static`)**:
    - Verifies legacy `release_on_push.yml` stays deleted (`T-01.3.1`).
