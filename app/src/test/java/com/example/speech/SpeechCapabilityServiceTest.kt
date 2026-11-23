@@ -21,10 +21,11 @@ class SpeechCapabilityServiceTest {
 
     @Test
     fun `detectTier selects T1 when offline recognizer and pipe are functional on API 36`() {
-        // Under Robolectric, create service with pipeWorkingOverride = true
-        val service = object : SpeechCapabilityService(context, isPipeWorkingOverride = true) {
-            override fun isOfflineRecognitionSupported(): Boolean = true
-        }
+        val service = SpeechCapabilityService(
+            context = context,
+            isPipeWorkingOverride = true,
+            isOfflineSupportedOverride = true
+        )
 
         val tier = service.detectTier(userConsentedToOnline = false, pipeDemoted = false)
         assertEquals(SpeechTier.T1_FULL_ON_DEVICE, tier)
@@ -35,9 +36,11 @@ class SpeechCapabilityServiceTest {
 
     @Test
     fun `detectTier demotes to T2 when audio-source pipe fails or is demoted on API 36`() {
-        val service = object : SpeechCapabilityService(context, isPipeWorkingOverride = false) {
-            override fun isOfflineRecognitionSupported(): Boolean = true
-        }
+        val service = SpeechCapabilityService(
+            context = context,
+            isPipeWorkingOverride = false,
+            isOfflineSupportedOverride = true
+        )
 
         val tier = service.detectTier(userConsentedToOnline = false, pipeDemoted = true)
         assertEquals(SpeechTier.T2_ON_DEVICE_MIC, tier)
@@ -48,9 +51,10 @@ class SpeechCapabilityServiceTest {
 
     @Test
     fun `detectTier selects T3A when offline recognizer unavailable but user consented to online`() {
-        val service = object : SpeechCapabilityService(context) {
-            override fun isOfflineRecognitionSupported(): Boolean = false
-        }
+        val service = SpeechCapabilityService(
+            context = context,
+            isOfflineSupportedOverride = false
+        )
 
         val tier = service.detectTier(userConsentedToOnline = true, pipeDemoted = false)
         assertEquals(SpeechTier.T3A_ONLINE_CONSENTED, tier)
@@ -61,9 +65,10 @@ class SpeechCapabilityServiceTest {
 
     @Test
     fun `detectTier selects T3B audio-only fallback when offline unavailable and no online consent`() {
-        val service = object : SpeechCapabilityService(context) {
-            override fun isOfflineRecognitionSupported(): Boolean = false
-        }
+        val service = SpeechCapabilityService(
+            context = context,
+            isOfflineSupportedOverride = false
+        )
 
         val tier = service.detectTier(userConsentedToOnline = false, pipeDemoted = false)
         assertEquals(SpeechTier.T3B_AUDIO_ONLY, tier)

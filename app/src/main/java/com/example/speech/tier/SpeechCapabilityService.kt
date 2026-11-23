@@ -12,9 +12,10 @@ private const val TAG = "SpeechCapabilityService"
  * Inspects device platform capabilities and user consent to determine active [SpeechTier]
  * (CMP-24, ADR-009, ARC-05 §3, FS-12).
  */
-class SpeechCapabilityService(
+open class SpeechCapabilityService(
     private val context: Context,
-    private val isPipeWorkingOverride: Boolean? = null
+    private val isPipeWorkingOverride: Boolean? = null,
+    private val isOfflineSupportedOverride: Boolean? = null
 ) {
 
     /**
@@ -63,7 +64,10 @@ class SpeechCapabilityService(
     /**
      * Checks whether platform on-device speech recognition is available on this device.
      */
-    fun isOfflineRecognitionSupported(): Boolean {
+    open fun isOfflineRecognitionSupported(): Boolean {
+        if (isOfflineSupportedOverride != null) {
+            return isOfflineSupportedOverride
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             return false
         }
