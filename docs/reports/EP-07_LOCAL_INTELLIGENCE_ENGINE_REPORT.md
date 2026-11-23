@@ -89,6 +89,7 @@ D-08 safeguards: original wording (agents checked for 5-word runs shared with th
 |---|---|---|
 | `41b5192` acoustic features, SPK-02, session layer, video | `assembleDebug` and `compileReleaseKotlin` passed; `testDebugUnitTest` **316/316 passed**; `lintDebug` crashed inside lint's Kotlin analyser because source files were edited while lint was running (not a code finding) | Run 45197335962: **success** (build, unit/Robolectric tests, lint, static security checks) |
 | `7b5c232` REBAND + content-pack tips | `testDebugUnitTest --tests com.example.speech.*`: **148/148 passed** (20 classes) | Run 45200167132: **success** |
+| `b1a9515` content pack v1 | `testDebugUnitTest --tests com.example.speech.*`: **155/155 passed** (incl. `ContentPackAssetsTest` 7/7) | Run 45203035859: **success** |
 
 ## 6. Open items
 
