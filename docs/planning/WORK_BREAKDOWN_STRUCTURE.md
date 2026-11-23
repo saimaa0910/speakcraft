@@ -47,6 +47,7 @@
 | **IN-4 Reach (conditional)** | EP-25 Store launch | R3 | — | 5–8 d | D-03, DEP-03 |
 | | EP-26 Video self-review | R3 | — | 8–12 d | ADR-010 revisit |
 | | EP-27 Recognition research (SPK-03; re-scoped to include ML Kit GenAI speech recognition, ARC-06 §12) | R3 | — | 6–10 d | ADR-009 |
+| | EP-29 On-device video analyser and local replay (D-42; ARC-07) — T-29.1 video metrics engine (done, JVM-tested) · T-29.2 CameraX capture + MediaPipe frame analyser · T-29.3 replay mux · T-29.4 camera permission and privacy text · T-29.5 SPK-06 tuning on consented recordings | R1 (added 2026-11-23) | P1 | 8–12 d † | CameraX, MediaPipe (in build), EP-06 |
 | | EP-28 Optional AI augmentation (conditional; ARC-06 §12.5) | R3+ | — | ≈ 37–53 d † on-device option (+ 6–9 d better transcripts; + 10–15 d cloud option) | D-37…D-41, ADR-016, SEC-01 §9.7 review |
 
 **Totals (preliminary):** R0 ≈ 38–55 d · R1 ≈ 101–146 d · R2 ≈ 31–46 d.

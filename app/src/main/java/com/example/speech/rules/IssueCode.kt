@@ -23,7 +23,12 @@ enum class IssueCode(
     ISSUE_TOO_SHORT(7, "Response was shorter than target", MetricMethodology.MEASURED),
     ISSUE_GRAMMAR_POSSIBLE(8, "Possible grammar check hit", MetricMethodology.ESTIMATED),
     ISSUE_HEDGING_HIGH(9, "Frequent hedging phrases", MetricMethodology.ESTIMATED),
-    ISSUE_LOW_VARIETY(10, "Vocabulary variety was repetitive", MetricMethodology.ESTIMATED)
+    ISSUE_LOW_VARIETY(10, "Vocabulary variety was repetitive", MetricMethodology.ESTIMATED),
+
+    // Video issues (ARC-07 §6; D-42). Shown after audio issues; all Estimated (landmark models).
+    ISSUE_FACE_OUT_OF_FRAME(11, "Face was often out of frame", MetricMethodology.ESTIMATED),
+    ISSUE_LOOKING_AWAY(12, "Often not facing the camera", MetricMethodology.ESTIMATED),
+    ISSUE_POSTURE_TILTED(13, "Shoulders were often tilted", MetricMethodology.ESTIMATED)
 }
 
 /**

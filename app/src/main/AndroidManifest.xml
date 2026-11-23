@@ -18,6 +18,10 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- Text-to-speech engine visibility on API 30+ (reference audio; SRS-FR-PLAT-002, CL-75). -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <application

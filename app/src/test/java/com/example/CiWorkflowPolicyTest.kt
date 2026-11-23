@@ -23,7 +23,8 @@ class CiWorkflowPolicyTest {
     fun `ci workflow exists and triggers on pull_request and push to main`() {
         val ciFile = File(repoRoot(), ".github/workflows/ci.yml")
         assertTrue("ci.yml must exist under .github/workflows/", ciFile.exists())
-        val content = ciFile.readText()
+        // Normalise line endings: Windows checkouts (core.autocrlf=true) have CRLF.
+        val content = ciFile.readText().replace("\r\n", "\n")
 
         assertTrue("ci.yml must trigger on pull_request", content.contains("pull_request:"))
         assertTrue("ci.yml must trigger on push to main", content.contains("push:") && content.contains("- main"))

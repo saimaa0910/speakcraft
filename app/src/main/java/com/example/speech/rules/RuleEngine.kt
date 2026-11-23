@@ -21,9 +21,12 @@ data class GrammarRule(
 object RuleEngine {
 
     /**
-     * Qualified rules verified for precision >= 0.90 (SPK-02, ARC-05 §8.1).
+     * Candidate rules (ARC-05 §8.1 "expected initial survivors"). They are NOT yet qualified: a rule
+     * may only produce user-facing observations after SPK-02 has measured its precision ≥ 0.90 on a
+     * labelled corpus (SRS-FR-EVAL-006, NFR-QUAL-003). See [RuleQualificationRegistry] and
+     * [activeRules]; tests exercise the candidates directly.
      */
-    val QUALIFIED_RULES: List<GrammarRule> = listOf(
+    val CANDIDATE_RULES: List<GrammarRule> = listOf(
         GrammarRule(
             id = "R-AGREE-01",
             name = "Third-person singular agreement",
@@ -34,7 +37,15 @@ object RuleEngine {
         GrammarRule(
             id = "R-AGREE-02",
             name = "Third-person singular have/has",
-            regex = Regex("""\b(he|she|it)\s+have\b""", RegexOption.IGNORE_CASE),
+            // Excludes contexts where "he/she/it have" is correct: auxiliaries and modals ("does she
+            // have", "would he have known"), infinitives ("to have"), causatives ("make it have",
+            // "let it have") and pronoun-coordinated subjects ("he and she have", "you or he have").
+            // A noun-coordinated subject ("the parents and she have") still fires — measured in SPK-02.
+            regex = Regex(
+                """(?<!\b(?:do|does|did|would|could|should|will|can|might|must|may|shall|to|make|makes|made|let|lets|help|helps|helped)\s)""" +
+                    """(?<!\b(?:i|you|he|she|it|we|they|him|her|me|us|them)\s(?:and|or|nor)\s)\b(he|she|it)\s+have\b""",
+                RegexOption.IGNORE_CASE
+            ),
             explanation = "Use 'has' instead of 'have' with he, she, or it."
         ) { match -> "${match.groupValues[1]} has" },
 
@@ -80,14 +91,23 @@ object RuleEngine {
     )
 
     /**
-     * Executes qualified grammar rules across the raw transcript.
+     * Rules allowed to produce user-facing observations: candidates with a recorded SPK-02
+     * qualification. Empty until SPK-02 results are recorded, so no grammar observation is shown and
+     * M-GRAM is omitted rather than reported as "clean".
      */
-    fun evaluateGrammar(transcript: String): List<DetectedIssue> {
+    val activeRules: List<GrammarRule>
+        get() = CANDIDATE_RULES.filter { RuleQualificationRegistry.isQualified(it.id) }
+
+    /**
+     * Executes grammar rules across the raw transcript. Defaults to [activeRules]; pass
+     * [CANDIDATE_RULES] to test rule logic or to run the SPK-02 harness.
+     */
+    fun evaluateGrammar(transcript: String, rules: List<GrammarRule> = activeRules): List<DetectedIssue> {
         if (transcript.isBlank()) return emptyList()
 
         val issues = mutableListOf<DetectedIssue>()
 
-        for (rule in QUALIFIED_RULES) {
+        for (rule in rules) {
             val matches = rule.regex.findAll(transcript)
             for (m in matches) {
                 val span = m.value

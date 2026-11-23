@@ -262,6 +262,22 @@ Inflection acceptance uses explicit inflection lists in the content pack (not st
 - Fixture suite: WAV fixtures (silence, noise, short, normal, fast, many pauses) + transcript fixtures; golden outputs per version; runs in CI (JVM).
 - "How we measured this" text is generated from the metric catalogue entries (single source).
 
+### 10.1 Implementation status (Stage B, as of 2026-11-23)
+
+The engine is implemented in pure Kotlin under `app/src/main/java/com/example/speech/` (packages `analysis`, `evidence`, `metrics`, `rules`, `feedback`, `word`, `pipeline`, `session`, `video`), with Android adapters in `speech/android` and `speech/video/android`, at `evaluationVersion` **1.3.0**. Report: `docs/reports/EP-07_LOCAL_INTELLIGENCE_ENGINE_REPORT.md`.
+
+Updates since 1.1.0: six grammar rules qualified on corpus SPK02-v1 (precision 0.939–1.000) and active; metrics limited to the templates they apply to (§6); one issue per code; golden fixtures pinned per version (`GoldenFixturesTest`); EP-06 session layer (`CaptureController`, `RecordingArbiter`, `RecognitionSession`, `SpeechAttemptRunner`) with Android adapters (`AudioRecordSource`, `WavFileSink`, `RecognizerPipe`, `PlatformRecognizerEngine`, `LanguagePackManager`, `OnlineTranscriptionConsentStore`); video analyser (ARC-07, D-42); WAV→AAC transcoding and replay muxing.
+
+| Design element | Implementation | Note |
+|---|---|---|
+| §4.1 streaming features (CMP-30) | `StreamingFeatureExtractor` (PCM, 20 ms frames, adaptive noise floor, hangover 200 ms †, click removal 60 ms †, long pauses ≥ 1.0 s inside speech, clipping ratio); `RmsSeriesFeatureExtractor` for T2/T3a `onRmsChanged` levels (relative scale; clipping not observable) | Thresholds † tuned on SPK-01 recordings |
+| §5 evidence gate | `EvidenceGate`; the level check runs only when level evidence exists (no default level) | — |
+| §6 metrics | `MetricEngine`; transcript-based metrics are omitted without a transcript (T3b); M-GRAM is omitted until a rule is qualified | SRS-BR-002 |
+| §8.1 rules | `RuleEngine.CANDIDATE_RULES` + `RuleQualificationHarness` (≥ 30/30 examples, precision ≥ 0.90) + `RuleQualificationRegistry` (empty) → **no grammar observation is shown until SPK-02 records results** | SRS-FR-EVAL-006 |
+| §8.2/§8.4 feedback, issues, tips | `FeedbackComposer`, `RuleEngine.detectIssues`, `TipSelector`; technique `issueOverrides` support SUPPRESS (REBAND not yet) | Tip catalogue is built-in until the content pack (ARC-03 §6) exists |
+| §9 word stages | `WordStageEvaluator` | — |
+| Not yet built | Microphone capture and recognition sessions (EP-06; after SPK-01), content-pack tip loading, persistence of results (EP-03), UI (EP-08) | — |
+
 ## 11. Performance budget
 
 | Step | Budget (60 s attempt, RD-MID) † |

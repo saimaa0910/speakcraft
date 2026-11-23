@@ -91,6 +91,7 @@ Gates G1–G3 may be reviewed in one sitting; each must be recorded separately i
 | D-05 Account model | 2026-11-21 | **Approved — Optional account (local profile; Google Sign-In to back up)** | Recommended default |
 | D-06 Composite overall score (free speaking) | 2026-11-21 | **Approved — Do not show in R1** | Recommended default; revisit after beta (RSK-14) |
 | D-07 Monetisation | 2026-11-21 | **Approved — Out of scope until after R1** | Recommended default |
+| D-42 Audio and video analyser | 2026-11-23 | **Approved — analysis + local replay** | Product Owner's answers in the session: on-device video analysis with local replay; verify with a local Android SDK and CI on each pushed increment; download and bundle the official MediaPipe face and pose models. Amends RD-16 NG-07 and supersedes ADR-010 in part (ADR-017, ARC-07; GR-06) |
 | D-08 Creator-derived content | 2026-11-21 | **Approved — Option B ("original wording, link out")** | Techniques re-expressed in original wording with specific source video links and zero creator branding (PRD-FR-056/057, SRS-BR-028) |
 | D-09 Success measurement | 2026-11-21 | **Approved — Option A (no analytics SDK in R1 beta)** | Recommended default (ADR-013) |
 | D-10 Recording retention default | 2026-11-21 | **Approved — 30 days, user-changeable** | Recommended default (ADR-015) |

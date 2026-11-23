@@ -43,7 +43,8 @@ class ReleaseWorkflowPolicyTest {
 
     @Test
     fun `release workflow enforces release-only signing with zero debug fallback and no OTA Firestore publish`() {
-        val content = File(workflowsDir(), "release.yml").readText()
+        // Normalise line endings: Windows checkouts (core.autocrlf=true) have CRLF.
+        val content = File(workflowsDir(), "release.yml").readText().replace("\r\n", "\n")
 
         assertTrue("release.yml must build release APK and AAB", content.contains(":app:assembleRelease :app:bundleRelease"))
         assertTrue("release.yml must verify APK signature", content.contains("apksigner") && content.contains("verify --print-certs"))

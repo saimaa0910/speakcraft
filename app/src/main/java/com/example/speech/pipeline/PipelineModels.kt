@@ -1,12 +1,23 @@
 package com.example.speech.pipeline
 
+import com.example.speech.analysis.AcousticFeatures
 import com.example.speech.evidence.InconclusiveReason
 import com.example.speech.feedback.Feedback
 import com.example.speech.feedback.FocusFeedback
 import com.example.speech.metrics.SpeechMetricKey
 import com.example.speech.metrics.SpeechMetricValue
 import com.example.speech.rules.DetectedIssue
+import com.example.speech.rules.IssueCode
 import com.example.speech.word.WordStageResult
+import com.example.speech.video.VideoEvaluation
+
+/**
+ * Per-technique adjustment of issue detection (ARC-03 §6 `issueOverrides`, consistency item CL-60):
+ * a technique that asks for deliberate pauses must not be told its pauses are a mistake.
+ * Only [SUPPRESS] is implemented; content-pack `REBAND` entries are rejected at build time until
+ * band overrides are implemented.
+ */
+enum class IssueOverrideAction { SUPPRESS }
 
 /**
  * Standard input payload for an attempt evaluation (ARC-05 §2, §5).
@@ -30,8 +41,57 @@ data class AttemptInput(
     val targetMaxWords: Int? = null,
     val framework: String? = null,
     val techniqueIds: List<String> = emptyList(),
-    val previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null
-)
+    val previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
+    val issueOverrides: Map<IssueCode, IssueOverrideAction> = emptyMap(),
+    /** Result of the on-device video analyser when the camera was on (ARC-07; D-42); null for audio-only attempts. */
+    val video: VideoEvaluation? = null
+) {
+    companion object {
+        /**
+         * Builds an input from measured acoustic evidence ([com.example.speech.analysis.StreamingFeatureExtractor]
+         * or [com.example.speech.analysis.RmsSeriesFeatureExtractor]) so no acoustic field is ever filled in by
+         * hand. [transcript] is `null` when no recognition output exists (tier T3b).
+         */
+        fun fromFeatures(
+            attemptId: String,
+            templateId: String,
+            features: AcousticFeatures,
+            transcript: String?,
+            referenceText: String? = null,
+            targetWord: String? = null,
+            targetWordInflections: List<String> = emptyList(),
+            targetMinWords: Int? = null,
+            targetMaxWords: Int? = null,
+            framework: String? = null,
+            techniqueIds: List<String> = emptyList(),
+            previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
+            issueOverrides: Map<IssueCode, IssueOverrideAction> = emptyMap(),
+            video: VideoEvaluation? = null
+        ): AttemptInput = AttemptInput(
+            attemptId = attemptId,
+            templateId = templateId,
+            durationMs = features.durationMs,
+            voicedDurationMs = features.voicedDurationMs,
+            transcript = transcript.orEmpty(),
+            pauseCount = features.pauseCount,
+            activeFrameRmsList = features.activeFrameRms,
+            noiseFloorRms = features.noiseFloorRms,
+            clippingRatio = features.clippingRatio ?: 0.0,
+            hasAudio = true,
+            hasTranscript = transcript != null,
+            referenceText = referenceText,
+            targetWord = targetWord,
+            targetWordInflections = targetWordInflections,
+            targetMinWords = targetMinWords,
+            targetMaxWords = targetMaxWords,
+            framework = framework,
+            techniqueIds = techniqueIds,
+            previousMetrics = previousMetrics,
+            issueOverrides = issueOverrides,
+            video = video
+        )
+    }
+}
 
 /**
  * Versioned outcome of evaluating an attempt through LocalIntelligencePipeline (ARC-05 §2, §10).
@@ -52,6 +112,7 @@ sealed interface AttemptEvaluationResult {
         val score: Int?,
         val hasClippingWarning: Boolean = false,
         val wordStageResult: WordStageResult? = null,
+        val video: VideoEvaluation? = null,
         val evaluationLatencyMs: Long
     ) : AttemptEvaluationResult
 

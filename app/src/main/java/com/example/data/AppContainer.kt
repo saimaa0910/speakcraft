@@ -33,6 +33,18 @@ class AppContainer(context: Context) {
     val dispatchers: DispatcherProvider by lazy { StandardDispatcherProvider }
     val appScope: CoroutineScope by lazy { CoroutineScope(SupervisorJob() + dispatchers.default) }
 
+    // Local intelligence engine (EP-06/EP-07, ARC-05; video ARC-07): one recording at a time app-wide.
+    val recordingArbiter: com.example.speech.session.RecordingArbiter by lazy { com.example.speech.session.RecordingArbiter() }
+    val speechAttemptRunner: com.example.speech.session.SpeechAttemptRunner by lazy {
+        com.example.speech.session.SpeechAttemptRunner(recordingArbiter)
+    }
+    val onlineTranscriptionConsent: com.example.speech.android.OnlineTranscriptionConsentStore by lazy {
+        com.example.speech.android.OnlineTranscriptionConsentStore(appContext)
+    }
+    val languagePackManager: com.example.speech.android.LanguagePackManager by lazy {
+        com.example.speech.android.LanguagePackManager(appContext)
+    }
+
     val firestore: FirebaseFirestore by lazy {
         FirebaseFirestore.getInstance(appContext.getString(R.string.firestore_database_id))
     }

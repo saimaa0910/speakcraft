@@ -1,0 +1,2 @@
+# MediaPipe model bundles are zip archives: never apply line-ending conversion.
+*.task binary

@@ -58,7 +58,7 @@ Platform/engineering capabilities without a user-facing feature spec (covered in
 | NG-04 | **Exam band prediction (IELTS, TOEFL, CEFR certification)** | Requires validated scoring; would be dishonest (PP-1) |
 | NG-05 | **Teaching English from zero** (grammar curriculum, alphabet, A1 vocabulary) | Different product; Duolingo-class content investment |
 | NG-06 | **Social features** (leaderboards, friends, sharing recordings, communities) | Privacy positioning; manipulation risk (PP-7) |
-| NG-07 | **Automated body-language / facial analysis scoring** | Models absent, heuristics weak, privacy-sensitive; video self-review without scoring is deferred to R3 |
+| NG-07 | **Automated body-language / facial analysis *scoring*** (composite presence/confidence scores, emotion classification, eye tracking, face recognition) | Privacy-sensitive and not measurable honestly. **Amended 2026-11-23 (D-42, ADR-017):** an optional on-device video analyser with local replay is in scope — Estimated, labelled metrics (face in frame, facing the camera, hand movement, shoulder tilt, head movement, smiling) with an evidence gate and no scores (ARC-07) |
 | NG-08 | **Content scraped from third parties** (YouTube or otherwise) | Legal and fragility risk (PP-8). Hand-curated re-expression of the channel's techniques with source-video links is in scope (PRD-FR-056/057) — only automated scraping, caption download and verbatim copying are excluded |
 | NG-09 | **Web, desktop or iOS clients** | Android-native constraint (PO-REQ-1119) |
 | NG-10 | **In-app admin console** in R1–R2 | Content ships with the app; no server-side authorisation backend exists; insecure admin would violate PO-REQ-1119 Phase 7 rules |

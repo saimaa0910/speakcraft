@@ -18,3 +18,5 @@ APK size reduction (MediaPipe native libraries) and removal of a 16 KB page-alig
 
 ## Approval status
 Pending — Product Owner.
+
+**Superseded in part on 2026-11-23 by ADR-017 (decision D-42):** on-device video analysis with local replay is now in scope. This ADR's principle of *no automated scoring* is kept.

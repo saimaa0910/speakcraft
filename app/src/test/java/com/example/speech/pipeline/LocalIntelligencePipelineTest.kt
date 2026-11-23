@@ -27,7 +27,7 @@ class LocalIntelligencePipelineTest {
         assertTrue(result is AttemptEvaluationResult.Inconclusive)
         val inc = result as AttemptEvaluationResult.Inconclusive
         assertEquals(InconclusiveReason.TOO_SHORT, inc.reason)
-        assertEquals("1.0.0", inc.evaluationVersion)
+        assertEquals("1.3.0", inc.evaluationVersion)
         assertNotNull(inc.advice)
     }
 
@@ -48,7 +48,7 @@ class LocalIntelligencePipelineTest {
         assertTrue(result is AttemptEvaluationResult.Valid)
         val valid = result as AttemptEvaluationResult.Valid
 
-        assertEquals("1.0.0", valid.evaluationVersion)
+        assertEquals("1.3.0", valid.evaluationVersion)
         assertEquals(true, valid.passed)
         assertEquals(100, valid.score)
 

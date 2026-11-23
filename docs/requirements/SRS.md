@@ -268,12 +268,23 @@ Architecture detail: ARC-01.
 | SRS-FR-SPCH-009 | Continuous recognition shall capture the full attempt: segmented session (T1) or automatic restart on end-of-segment with stitching (T2/T3a); duplicate text on stop shall be prevented | PRD-FR-031 |
 | SRS-FR-SPCH-010 | Recogniser errors shall be classified (no match, network, busy, audio, permission, unavailable); "no match" shall lead to Inconclusive, not to a capability failure state | PRD-FR-110 |
 
+### 6.12a Video analysis and replay (VID) — D-42, ARC-07 (added 2026-11-23)
+
+| ID | Requirement | Trace |
+|---|---|---|
+| SRS-FR-VID-001 | The camera shall be optional per speaking attempt; CAMERA permission shall be requested only when the user turns the camera on, and denial shall leave audio-only practice fully available | PRD-FR-048 |
+| SRS-FR-VID-002 | Camera frames shall be analysed on the device only (MediaPipe face and pose landmarkers, bundled models); no frame, landmark or result shall be transmitted | PRD-FR-048 |
+| SRS-FR-VID-003 | The video analyser shall apply its own evidence gate (too few frames, too dark, face not visible → video Inconclusive with a reason) without changing the audio result | PRD-FR-048 |
+| SRS-FR-VID-004 | Video metrics V-FRAME, V-CAMERA, V-GESTURE, V-POSTURE, V-STEADY and V-SMILE shall be labelled Estimated, computed only from frames where their inputs were detected, and never combined into a score; "facing the camera" shall be described as head orientation, not eye contact (ARC-07 §5) | PRD-FR-048 |
+| SRS-FR-VID-005 | Only face out of frame, not facing the camera and tilted shoulders shall be reported as mistakes (ARC-05 §8.4 priorities 11–13, after audio issues); hand movement, head movement and smiling shall be informational | PRD-FR-048, PRD-FR-047 |
+| SRS-FR-VID-006 | The attempt's video shall be stored locally for replay with its audio (muxed after evaluation), under the same retention, deletion and backup-exclusion rules as audio recordings (ADR-015, SRS-BR-022), and never synced | PRD-FR-048 |
+
 ### 6.13 Platform (PLAT) — transition
 
 | ID | Requirement | Trace |
 |---|---|---|
 | SRS-FR-PLAT-001 | The build shall not include: Firebase AI Logic, MediaPipe, TensorFlow Lite, CameraX, the YouTube client, the self-updater, the admin console, the AI Mentor, the conversation simulator, the tutorial overlay system, or creator-branded content (subject to ADR approvals) | PRD-FR-120 |
-| SRS-FR-PLAT-002 | The app manifest shall declare only permissions used: INTERNET, RECORD_AUDIO, POST_NOTIFICATIONS (Android 13+); plus `<queries>` for `android.speech.RecognitionService` and for the `android.intent.action.TTS_SERVICE` intent (text-to-speech engine visibility on API 30+). Permissions merged in by approved libraries are allowed only if they are listed in the merged-manifest allow-list (TC-SEC-011); for WorkManager (ADR-005) these are expected to include RECEIVE_BOOT_COMPLETED, WAKE_LOCK, ACCESS_NETWORK_STATE and FOREGROUND_SERVICE, to be confirmed from the merged manifest | PRD-FR-120 |
+| SRS-FR-PLAT-002 | The app manifest shall declare only permissions used: INTERNET, RECORD_AUDIO, CAMERA (optional video analyser, D-42; `android.hardware.camera` not required), POST_NOTIFICATIONS (Android 13+); plus `<queries>` for `android.speech.RecognitionService` and for the `android.intent.action.TTS_SERVICE` intent (text-to-speech engine visibility on API 30+). Permissions merged in by approved libraries are allowed only if they are listed in the merged-manifest allow-list (TC-SEC-011); for WorkManager (ADR-005) these are expected to include RECEIVE_BOOT_COMPLETED, WAKE_LOCK, ACCESS_NETWORK_STATE and FOREGROUND_SERVICE, to be confirmed from the merged manifest | PRD-FR-120 |
 | SRS-FR-PLAT-003 | Distributed builds shall be release builds, R8-minified, release-signed; debug-only code (App Check debug provider) shall be in the debug source set | PRD-FR-121 |
 
 ## 7. Non-functional requirements

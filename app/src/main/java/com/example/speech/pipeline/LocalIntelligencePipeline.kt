@@ -7,7 +7,11 @@ import com.example.speech.metrics.MetricEngine
 import com.example.speech.metrics.SpeechMetricKey
 import com.example.speech.metrics.SpeechMetricValue
 import com.example.speech.rules.DetectedIssue
+import com.example.speech.rules.IssueCode
 import com.example.speech.rules.RuleEngine
+import com.example.speech.video.VideoAnalyzer
+import com.example.speech.video.VideoEvaluation
+import com.example.speech.video.VideoMetricKey
 import com.example.speech.word.WordStageEvaluator
 import com.example.speech.word.WordStageResult
 import java.util.Locale
@@ -19,7 +23,24 @@ import java.util.Locale
  */
 object LocalIntelligencePipeline {
 
-    const val EVALUATION_VERSION = "1.0.0"
+    /**
+     * Semantic version of rule set + metric definitions, stored with every attempt (SRS-FR-EVAL-011).
+     *
+     * Changelog:
+     * - 1.3.0 (2026-11-23): on-device video metrics V-FRAME, V-CAMERA, V-GESTURE, V-POSTURE, V-STEADY, V-SMILE and
+     *   video issues (ARC-07; D-42); self-checks drop items the video measured; placeholder source links removed;
+     *   acoustic noise floor also uses the quietest 200 ms stretch (short lead-ins).
+     * - 1.2.0 (2026-11-23): six grammar rules qualified by SPK-02 corpus SPK02-v1 (precision 0.939–1.000)
+     *   and active; R-AGREE-02 also excludes causatives and pronoun-coordinated subjects; metrics limited to
+     *   the templates they apply to (ARC-05 §6); one issue per code (grammar spans excepted); no pace headline on
+     *   word stages.
+     * - 1.1.0 (2026-11-23): grammar observations only from SPK-02-qualified rules (none yet, so M-GRAM
+     *   is omitted); transcript-based metrics omitted without a transcript (T3b); no default level when
+     *   no voiced frames were measured; technique issue overrides (SUPPRESS); R-AGREE-02 excludes
+     *   auxiliary/modal contexts.
+     * - 1.0.0: initial pipeline.
+     */
+    const val EVALUATION_VERSION = "1.3.0"
 
     /**
      * Executes the complete deterministic local evaluation pipeline.
@@ -33,7 +54,8 @@ object LocalIntelligencePipeline {
         val gateResult = EvidenceGate.evaluate(
             durationMs = input.durationMs,
             voicedDurationMs = input.voicedDurationMs,
-            meanActiveRms = if (input.activeFrameRmsList.isNotEmpty()) input.activeFrameRmsList.average() else 0.05,
+            // No level evidence → null; never an invented default (SRS-BR-002).
+            meanActiveRms = input.activeFrameRmsList.takeIf { it.isNotEmpty() }?.average(),
             noiseFloorRms = input.noiseFloorRms,
             wordCount = wordCount,
             templateId = input.templateId,
@@ -55,8 +77,9 @@ object LocalIntelligencePipeline {
 
         val hasClipping = (gateResult as? EvidenceGateResult.Valid)?.hasClippingWarning ?: false
 
-        // 2. High-precision Grammar Rule Evaluation (ARC-05 §8.1)
-        val grammarIssues = RuleEngine.evaluateGrammar(input.transcript)
+        // 2. Grammar rules — only SPK-02-qualified rules may run (ARC-05 §8.1, SRS-FR-EVAL-006)
+        val grammarRulesAvailable = input.hasTranscript && RuleEngine.activeRules.isNotEmpty()
+        val grammarIssues = if (grammarRulesAvailable) RuleEngine.evaluateGrammar(input.transcript) else emptyList()
         val grammarHitCount = grammarIssues.size
 
         // 3. Metric Engine Calculation (ARC-05 §6)
@@ -72,8 +95,10 @@ object LocalIntelligencePipeline {
             targetMinWords = input.targetMinWords,
             targetMaxWords = input.targetMaxWords,
             framework = input.framework,
-            grammarHitCount = grammarHitCount
-        )
+            grammarHitCount = grammarHitCount,
+            hasTranscript = input.hasTranscript,
+            grammarRulesAvailable = grammarRulesAvailable
+        ).filterKeys { MetricEngine.isApplicable(it, input.templateId, input.hasTranscript) } // ARC-05 §6 templates
 
         // 4. Word-Stage Evaluation (if applicable, ARC-05 §9)
         var wordStageResult: WordStageResult? = null
@@ -122,10 +147,18 @@ object LocalIntelligencePipeline {
             templateId = input.templateId,
             targetWord = input.targetWord
         )
-        val allIssues = (metricIssues + extraIssues).distinctBy { it.code to it.evidenceText }.sorted()
+        val suppressed = input.issueOverrides.filterValues { it == IssueOverrideAction.SUPPRESS }.keys
+        // Word-stage evidence is more specific than the generic metric check, so it goes first; one entry
+        // per issue code, except grammar observations which carry distinct spans (max 2, SRS-FR-EVAL-006).
+        // Video issues (ARC-07 §6) rank after audio issues by priority, so a voice problem stays the focus.
+        val videoIssues = VideoAnalyzer.detectIssues(input.video)
+        val allIssues = (extraIssues + metricIssues + videoIssues)
+            .distinctBy { if (it.code == IssueCode.ISSUE_GRAMMAR_POSSIBLE) it.code to it.evidenceText else it.code to "" }
+            .filterNot { it.code in suppressed } // technique overrides (CL-60)
+            .sorted()
 
         // 6. Feedback & Tip Composition (ARC-05 §8.2, §8.4)
-        val feedback = FeedbackComposer.compose(
+        val composed = FeedbackComposer.compose(
             attemptId = input.attemptId,
             templateId = input.templateId,
             metrics = metrics,
@@ -133,6 +166,10 @@ object LocalIntelligencePipeline {
             techniqueIds = input.techniqueIds,
             previousMetrics = input.previousMetrics
         )
+        // Self-checks cover only what was not measured (ARC-05 §8.4): drop items the video analyser measured.
+        val measuredByVideo = selfChecksMeasuredBy(input.video)
+        val feedback = if (measuredByVideo.isEmpty()) composed
+        else composed.copy(selfCheckItems = composed.selfCheckItems.filterNot { it.id in measuredByVideo })
 
         // 7. Headline Metrics Selection (ARC-05 §7)
         val headlineKeys = selectHeadlineKeys(input.templateId, input.hasTranscript)
@@ -159,8 +196,19 @@ object LocalIntelligencePipeline {
             score = score,
             hasClippingWarning = hasClipping,
             wordStageResult = wordStageResult,
+            video = input.video,
             evaluationLatencyMs = latencyMs
         )
+    }
+
+    /** Self-check items made redundant by a measured video metric (eye line, posture, gestures). */
+    private fun selfChecksMeasuredBy(video: VideoEvaluation?): Set<String> {
+        if (video !is VideoEvaluation.Valid) return emptySet()
+        val ids = HashSet<String>()
+        if (VideoMetricKey.V_CAMERA in video.metrics) ids += "SC-EYE-01"
+        if (VideoMetricKey.V_POSTURE in video.metrics) ids += "SC-POSTURE-01"
+        if (VideoMetricKey.V_GESTURE in video.metrics) ids += "SC-GESTURE-01"
+        return ids
     }
 
     /**
@@ -177,8 +225,8 @@ object LocalIntelligencePipeline {
             "TPL-ANSWER", "ANSWER" -> listOf(SpeechMetricKey.M_WPM, SpeechMetricKey.M_FILL, SpeechMetricKey.M_LEN)
             "TPL-STRUCT", "STRUCT" -> listOf(SpeechMetricKey.M_STRUCT, SpeechMetricKey.M_WPM, SpeechMetricKey.M_FILL)
             "TPL-STORY", "STORY" -> listOf(SpeechMetricKey.M_LEN, SpeechMetricKey.M_PAUSE, SpeechMetricKey.M_LEX)
-            "TPL-WORD-SAY" -> listOf(SpeechMetricKey.M_TARGET, SpeechMetricKey.M_WORDS, SpeechMetricKey.M_WPM)
-            "TPL-WORD-USE" -> listOf(SpeechMetricKey.M_MATCH, SpeechMetricKey.M_WORDS, SpeechMetricKey.M_WPM)
+            "TPL-WORD-SAY" -> listOf(SpeechMetricKey.M_TARGET, SpeechMetricKey.M_WORDS)
+            "TPL-WORD-USE" -> listOf(SpeechMetricKey.M_MATCH, SpeechMetricKey.M_WORDS)
             "TPL-WORD-OWN" -> listOf(SpeechMetricKey.M_TARGET, SpeechMetricKey.M_WORDS, SpeechMetricKey.M_GRAM)
             else -> listOf(SpeechMetricKey.M_WPM, SpeechMetricKey.M_FILL, SpeechMetricKey.M_PAUSE)
         }

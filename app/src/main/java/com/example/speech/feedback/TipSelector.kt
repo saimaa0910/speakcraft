@@ -53,7 +53,6 @@ object TipSelector {
             text = "Over-articulate final consonants (t, d, k, p). In English, the ends of words carry crucial grammatical meaning.",
             triggerIssueCode = IssueCode.ISSUE_WORD_NOT_RECOGNISED,
             priority = 1,
-            sourceVideoUrl = "https://youtube.com/watch?v=speech_consonants_drill"
         ),
         // Target word missing or wrong form
         TipDefinition(
@@ -80,7 +79,6 @@ object TipSelector {
             text = "End your story with the concrete outcome: What changed because of what you did? Use signposts like 'As a result' or 'Ultimately'.",
             triggerIssueCode = IssueCode.ISSUE_STRUCT_ELEMENT_MISSING,
             priority = 1,
-            sourceVideoUrl = "https://youtube.com/watch?v=star_framework_mastery"
         ),
         // Filler words
         TipDefinition(
@@ -90,7 +88,6 @@ object TipSelector {
             text = "Whenever you feel 'um' or 'like' coming on, close your lips and pause for one second. Silence conveys confidence and authority.",
             triggerIssueCode = IssueCode.ISSUE_FILLERS_HIGH,
             priority = 1,
-            sourceVideoUrl = "https://youtube.com/watch?v=master_the_silent_pause"
         ),
         // Fast pace
         TipDefinition(
@@ -162,7 +159,6 @@ object TipSelector {
             title = "Vocal Resonance & Posture",
             text = "Stand or sit tall with an open chest. Speaking from your diaphragm creates warm, natural authority in any conversation.",
             priority = 3,
-            sourceVideoUrl = "https://youtube.com/watch?v=vocal_resonance_foundation"
         ),
         TipDefinition(
             tipId = "TIP-TECH-GENERAL-02",
@@ -170,6 +166,31 @@ object TipSelector {
             title = "Land Your Final Sentence",
             text = "Avoid trailing off with 'so yeah' or 'that's it'. Deliver your closing sentence with downward inflection and hold a calm pause.",
             priority = 3
+        ),
+        // Video issues (ARC-07 §6; D-42). Original wording; links are added only after CNT-01 verification.
+        TipDefinition(
+            tipId = "TIP-VIDEO-FRAME-01",
+            techniqueId = "TECH-CAMERA-FRAMING",
+            title = "Frame Yourself",
+            text = "Prop the phone at eye level about an arm's length away, so your head and shoulders stay in view while you speak.",
+            triggerIssueCode = IssueCode.ISSUE_FACE_OUT_OF_FRAME,
+            priority = 1
+        ),
+        TipDefinition(
+            tipId = "TIP-VIDEO-CAMERA-01",
+            techniqueId = "TECH-CAMERA-CONNECTION",
+            title = "Talk to the Lens",
+            text = "Treat the camera as the person you're speaking to. Glance at notes if you need them, then bring your face back to the lens for each key point.",
+            triggerIssueCode = IssueCode.ISSUE_LOOKING_AWAY,
+            priority = 1
+        ),
+        TipDefinition(
+            tipId = "TIP-VIDEO-POSTURE-01",
+            techniqueId = "TECH-GROUNDED-POSTURE",
+            title = "Level Shoulders",
+            text = "Sit or stand evenly on both sides, relax your shoulders down and keep them level — it looks calmer and helps your voice carry.",
+            triggerIssueCode = IssueCode.ISSUE_POSTURE_TILTED,
+            priority = 1
         )
     )
 

@@ -162,6 +162,8 @@ Every new document begins with the table: Document ID, Version, Date, Status, Ow
 | ARC-04 | `docs/architecture/API_AND_INTEGRATION_SPEC.md` | API and Integration Specification | Solution Architect | Draft |
 | ARC-05 | `docs/architecture/LOCAL_INTELLIGENCE_ARCHITECTURE.md` | Local Intelligence Architecture | AI/ML Engineer | Draft |
 | ADR-nnn | `docs/architecture/ADR/` | Architecture Decision Records (ADR-001…ADR-016) | Solution Architect | Proposed |
+| ARC-07 | `docs/architecture/VIDEO_ANALYSIS_ARCHITECTURE.md` | Video Analysis Architecture — on-device analyser with local replay (D-42, ADR-017; added 2026-11-23) | AI/ML Engineer / Android Tech Lead | Draft (decision approved) |
+| RPT-EP07-01 | `docs/reports/EP-07_LOCAL_INTELLIGENCE_ENGINE_REPORT.md` | Local intelligence engine increment report (Stage B) | Android Tech Lead | Draft |
 | ARC-06 | `docs/architecture/AI_FUTURE_ARCHITECTURE.md` | Future AI Architecture — optional AI layer for R3+ (added 2026-11-21 at the Product Owner's request) | Solution Architect / AI/ML Engineer | Proposed — future, conditional (D-37…D-41) |
 | SEC-01 | `docs/security/SECURITY_DESIGN.md` | Security Design | Security Engineer | Draft |
 | TST-01 | `docs/testing/TEST_STRATEGY.md` | Test Strategy | QA Architect | Draft |

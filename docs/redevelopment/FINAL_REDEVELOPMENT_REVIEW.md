@@ -229,6 +229,12 @@ The design for optional future AI is ARC-06, with ADR-016 (both **Proposed — R
 | D-40 | Which AI use cases first | Better on-device transcripts, tip rewording and proofreading (on-device) · answer-content feedback (cloud) · none | **On-device first**: better transcripts (SPK-03), then tip rewording and proofreading; answer-content feedback later | G1 for R3 | Pending |
 | D-41 | AI in no-account mode | No AI without an account · on-device AI after opt-in · on-device and cloud after consent | **On-device AI after opt-in; no cloud** (keeps no-account mode free of network calls) | G1 for R3 | Pending |
 
+### 8.2 Video analyser decision (added 2026-11-23)
+
+| ID | Decision | Options | Outcome | Status |
+|---|---|---|---|---|
+| D-42 | Audio and video analyser in the app | Self-review only (ADR-010) · live analysis, no video saved · analysis + local replay | **Analysis + local replay**, on-device only, Estimated metrics, no scores, video under recording retention (ADR-017, ARC-07; NG-07 amended) | **DECIDED 2026-11-23 — Product Owner** |
+
 ## 9. Recommended execution sequence
 
 ```mermaid

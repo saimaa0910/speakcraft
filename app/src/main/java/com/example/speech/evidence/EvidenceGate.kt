@@ -42,11 +42,15 @@ object EvidenceGate {
 
     /**
      * Evaluates attempt evidence against strict quality and honesty thresholds.
+     *
+     * [meanActiveRms] is `null` when no level evidence exists (no voiced frames were measured). The
+     * level check is then skipped rather than evaluated against an invented value; the voiced-speech
+     * checks still apply.
      */
     fun evaluate(
         durationMs: Long,
         voicedDurationMs: Long,
-        meanActiveRms: Double,
+        meanActiveRms: Double?,
         noiseFloorRms: Double,
         wordCount: Int,
         templateId: String,
@@ -70,8 +74,9 @@ object EvidenceGate {
                 return EvidenceGateResult.Inconclusive(InconclusiveReason.NO_SPEECH)
             }
 
-            // Audio level must be distinguishably above noise floor (delta > 3 dB or 1.4x factor)
-            if (meanActiveRms <= noiseFloorRms * 1.15) {
+            // Audio level must be distinguishably above the noise floor (factor 1.15 ≈ +1.2 dB) —
+            // evaluated only when level evidence exists.
+            if (meanActiveRms != null && meanActiveRms <= noiseFloorRms * 1.15) {
                 return EvidenceGateResult.Inconclusive(InconclusiveReason.TOO_QUIET)
             }
         }

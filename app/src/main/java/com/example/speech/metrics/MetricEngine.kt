@@ -44,7 +44,9 @@ object MetricEngine {
         targetMinWords: Int? = null,
         targetMaxWords: Int? = null,
         framework: String? = null, // "STAR" or "PREP"
-        grammarHitCount: Int = 0
+        grammarHitCount: Int = 0,
+        hasTranscript: Boolean = true,
+        grammarRulesAvailable: Boolean = true
     ): Map<SpeechMetricKey, SpeechMetricValue> {
         val results = mutableMapOf<SpeechMetricKey, SpeechMetricValue>()
         val words = tokenize(transcript)
@@ -230,8 +232,49 @@ object MetricEngine {
             )
         }
 
+        // SRS-BR-002: a metric without its required inputs is null, never a default.
+        // Without a transcript (tier T3b audio-only), transcript-based metrics are not computable —
+        // reporting "0 fillers" or "0 grammar issues" would be a false claim of quality.
+        if (!hasTranscript) results.keys.removeAll(TRANSCRIPT_METRICS)
+        // M-GRAM may only come from rules that passed SPK-02 qualification (SRS-FR-EVAL-006).
+        if (!grammarRulesAvailable) results.remove(SpeechMetricKey.M_GRAM)
+
         return results
     }
+
+    /**
+     * Whether [key] applies to [templateId] (ARC-05 §6 "Templates" column, reconciled with the §7
+     * headline table: READ shows M-PAUSE; audio-only attempts show M-RATIO and M-PAUSE). A metric that
+     * does not apply is neither shown nor praised nor reported as a mistake — e.g. no pace for a
+     * one-word "Say it" stage, no filler rate for read-aloud. Unknown templates keep every metric.
+     */
+    fun isApplicable(key: SpeechMetricKey, templateId: String, hasTranscript: Boolean = true): Boolean {
+        val t = templateId.uppercase(Locale.ROOT).removePrefix("TPL-")
+        val free = t == "ANSWER" || t == "STRUCT" || t == "STORY"
+        val known = free || t in setOf("READ", "REPEAT", "ROLE", "WORD-SAY", "WORD-USE", "WORD-OWN", "WORD-RECALL")
+        if (!known) return true
+        return when (key) {
+            SpeechMetricKey.M_DUR, SpeechMetricKey.M_SPK, SpeechMetricKey.M_LEVEL -> true
+            SpeechMetricKey.M_RATIO -> free || !hasTranscript
+            SpeechMetricKey.M_PAUSE -> free || t == "READ" || !hasTranscript
+            SpeechMetricKey.M_WPM -> free || t == "READ"
+            SpeechMetricKey.M_WORDS -> true
+            SpeechMetricKey.M_LEN -> free || t == "WORD-OWN"
+            SpeechMetricKey.M_TARGET -> t == "WORD-SAY" || t == "WORD-USE" || t == "WORD-OWN" || t == "WORD-RECALL"
+            SpeechMetricKey.M_MATCH -> t == "READ" || t == "REPEAT" || t == "WORD-USE"
+            SpeechMetricKey.M_FILL, SpeechMetricKey.M_LEX -> free
+            SpeechMetricKey.M_GRAM -> free || t == "WORD-OWN"
+            SpeechMetricKey.M_STRUCT -> t == "STRUCT"
+            SpeechMetricKey.M_HEDGE -> t == "ANSWER" || t == "STRUCT"
+        }
+    }
+
+    /** Metrics that require a transcript; omitted when none exists (ARC-05 §6 "Inputs" column). */
+    val TRANSCRIPT_METRICS: Set<SpeechMetricKey> = setOf(
+        SpeechMetricKey.M_WORDS, SpeechMetricKey.M_WPM, SpeechMetricKey.M_LEN, SpeechMetricKey.M_TARGET,
+        SpeechMetricKey.M_MATCH, SpeechMetricKey.M_FILL, SpeechMetricKey.M_LEX, SpeechMetricKey.M_GRAM,
+        SpeechMetricKey.M_STRUCT, SpeechMetricKey.M_HEDGE
+    )
 
     /**
      * Computes Moving-Average Type-Token Ratio (MATTR) over a sliding token window (ARC-05 §6).
