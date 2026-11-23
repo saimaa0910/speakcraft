@@ -30,8 +30,8 @@ class Spk01SpikeHarnessTest {
         val hypothesis = "explain the main architectural"
 
         val wer = runner.computeWordErrorRate(hypothesis, reference)
-        // 2 errors out of 4 reference words = 0.50
-        assertEquals(0.50f, wer, 0.01f)
+        // 2 errors (1 substitution, 1 deletion) out of 5 reference words = 0.40
+        assertEquals(0.40f, wer, 0.01f)
     }
 
     @Test
