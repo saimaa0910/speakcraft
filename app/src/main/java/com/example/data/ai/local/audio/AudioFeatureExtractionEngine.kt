@@ -1,6 +1,6 @@
 package com.example.data.ai.local.audio
 
-import android.util.Log
+import com.example.core.logging.AppLogger
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.ln
@@ -224,7 +224,7 @@ class AudioFeatureExtractionEngine {
 
     fun extractFromFile(audioFile: File, transcript: String = ""): AcousticFeatures? {
         val samples = AudioResampler.resampleToWhisperFormat(audioFile) ?: run {
-            Log.e(TAG, "Resampling failed for ${audioFile.name}")
+            AppLogger.e(TAG, "Resampling failed for ${audioFile.name}")
             return null
         }
         return extract(samples, SAMPLE_RATE_DEFAULT, transcript)

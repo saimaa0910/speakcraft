@@ -2,7 +2,7 @@ package com.example.data.ai.local.video
 
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
-import android.util.Log
+import com.example.core.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -75,7 +75,7 @@ class VideoFrameProcessingEngine {
                 corruptionDetected = false
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to extract metadata — possible corruption", e)
+            AppLogger.e(TAG, "Failed to extract metadata — possible corruption", e)
             VideoMetadata(
                 durationMs = 0L,
                 width = 0,
@@ -133,7 +133,7 @@ class VideoFrameProcessingEngine {
                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                     )
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to get frame at ${timestampMs}ms", e)
+                    AppLogger.w(TAG, "Failed to get frame at ${timestampMs}ms", e)
                     null
                 }
 
@@ -155,7 +155,7 @@ class VideoFrameProcessingEngine {
 
             onProgress(total, total)
         } catch (e: Exception) {
-            Log.e(TAG, "Frame extraction failed — video may be corrupted", e)
+            AppLogger.e(TAG, "Frame extraction failed — video may be corrupted", e)
         } finally {
             try { retriever.release() } catch (_: Exception) {}
         }
@@ -201,7 +201,7 @@ class VideoFrameProcessingEngine {
                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                     )
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to get frame at ${timestampMs}ms", e)
+                    AppLogger.w(TAG, "Failed to get frame at ${timestampMs}ms", e)
                     null
                 }
 
@@ -225,7 +225,7 @@ class VideoFrameProcessingEngine {
             }
             onProgress(total, total)
         } catch (e: Exception) {
-            Log.e(TAG, "Frame processing failed — video may be corrupted", e)
+            AppLogger.e(TAG, "Frame processing failed — video may be corrupted", e)
         } finally {
             try { retriever.release() } catch (_: Exception) {}
         }

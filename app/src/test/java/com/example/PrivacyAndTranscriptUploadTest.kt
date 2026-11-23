@@ -100,7 +100,26 @@ class PrivacyAndTranscriptUploadTest {
         assertEquals("SPEAKING_LAB", payload["moduleType"])
         assertEquals(84L, payload["fluencyScore"])
         assertEquals(132L, payload["wordsPerMinute"])
-        assertEquals("COMPLETED", payload["evaluationStatus"])
+        assertEquals("High", payload["confidenceLevel"])
+
+        // GAP-20 / ISS-01: un-whitelisted fields must not be uploaded to Firestore
+        assertFalse("speakingSessions must not contain un-whitelisted evaluationStatus", payload.containsKey("evaluationStatus"))
+        assertFalse("speakingSessions must not contain un-whitelisted isPartialEvaluation", payload.containsKey("isPartialEvaluation"))
+        assertFalse("speakingSessions must not contain un-whitelisted evaluatedDimensionKeys", payload.containsKey("evaluatedDimensionKeys"))
+        assertFalse("speakingSessions must not contain un-whitelisted unavailableDimensionKeys", payload.containsKey("unavailableDimensionKeys"))
+        assertFalse("speakingSessions must not contain un-whitelisted evidenceSummary", payload.containsKey("evidenceSummary"))
+    }
+
+    @Test
+    fun `speakingSessions payload normalizes confidenceLevel for firestore rules compatibility`() {
+        val session = sampleSpeakingSession().copy(confidenceLevel = "Low (Partial)")
+        val payload = SpeakCraftRepository.buildSpeakingSessionPayload(
+            uid = "uid-123",
+            feedbackId = "fb-456",
+            session = session,
+            timestamp = "SERVER_TS"
+        )
+        assertEquals("Low", payload["confidenceLevel"])
     }
 
     @Test

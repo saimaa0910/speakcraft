@@ -143,5 +143,13 @@ class CiWorkflowPolicyTest {
             Regex("""(?m)^google-services\.json$""").containsMatchIn(gitignore)
         )
     }
+
+    @Test
+    fun `ci workflow enforces single logging entry point and zero raw log calls (TC-SEC-041)`() {
+        val ciContent = File(repoRoot(), ".github/workflows/ci.yml").readText()
+        assertTrue("ci.yml must include Check 8 for AppLogger and zero raw logs", ciContent.contains("AppLogger.kt"))
+        assertTrue("ci.yml must check for raw android.util.Log", ciContent.contains("""android\.util\.Log"""))
+        assertTrue("ci.yml must check for raw println", ciContent.contains("""println\("""))
+    }
 }
 

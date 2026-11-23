@@ -1,7 +1,7 @@
 package com.example.data.ai.local
 
 import android.content.Context
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.example.data.ai.VocabEvaluationResult
 import com.example.data.ai.local.audio.AcousticFeatures
 import com.example.data.ai.local.audio.AudioFeatureExtractionEngine
@@ -116,7 +116,7 @@ class LocalIntelligenceOrchestrator(
                         null
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Audio decoding failed: ${e.message}")
+                    AppLogger.w(TAG, "Audio decoding failed: ${e.message}")
                     audioAnalysisFailed = true
                     null
                 }
@@ -161,7 +161,7 @@ class LocalIntelligenceOrchestrator(
                         videoAnalysisCompleted = true
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Video analysis failed: ${e.message}")
+                    AppLogger.w(TAG, "Video analysis failed: ${e.message}")
                     videoAnalysisFailed = true
                 }
             }
@@ -246,7 +246,7 @@ class LocalIntelligenceOrchestrator(
                         transcriptConfidence = if (effectiveConfidence > 0f) effectiveConfidence else 0.85f
                     )
                 } catch (e: Exception) {
-                    Log.w(TAG, "Language analysis failed: ${e.message}")
+                    AppLogger.w(TAG, "Language analysis failed: ${e.message}")
                     languageInferenceFailed = true
                     null
                 }

@@ -1,7 +1,7 @@
 package com.example.data.notifications
 
 import android.content.Context
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.example.data.learning.AdminAnnouncement
 import com.example.data.learning.NotificationCategory
 import com.example.data.learning.UserNotification
@@ -147,7 +147,7 @@ class NotificationManagerRepository(
         if (cleanTitle.isBlank() || cleanMessage.isBlank()) return false
 
         if (UpdateSystemIsolationGuard.isUpdateSystemPayload(cleanTitle, cleanMessage, actionRoute, sourceTag)) {
-            Log.i(TAG, "Blocked update-system payload from entering NotificationManagerRepository: $cleanTitle")
+            AppLogger.i(TAG, "Blocked update-system payload from entering NotificationManagerRepository: $cleanTitle")
             return false
         }
 
@@ -447,7 +447,7 @@ class NotificationManagerRepository(
         return try {
             json.decodeFromString<NotificationStoreState>(file.readText())
         } catch (err: Throwable) {
-            Log.w(TAG, "Failed reading persisted alerts, starting fresh: ${err.message}")
+            AppLogger.w(TAG, "Failed reading persisted alerts, starting fresh: ${err.message}")
             null
         }
     }
@@ -463,7 +463,7 @@ class NotificationManagerRepository(
                 temp.delete()
             }
         } catch (err: Throwable) {
-            Log.w(TAG, "Failed writing persisted alerts: ${err.message}")
+            AppLogger.w(TAG, "Failed writing persisted alerts: ${err.message}")
         }
     }
 

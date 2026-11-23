@@ -159,4 +159,14 @@ jobs:
             exit 1
           fi
 
+          # 8. ADR-007 / SEC-REQ-34 (T-04.2.3): All logging must route through AppLogger with PII redaction; no raw android.util.Log or println in app/src/main
+          if grep -rnE 'android\.util\.Log' --exclude="AppLogger.kt" app/src/main/java; then
+            echo "::error::Direct android.util.Log reference detected outside AppLogger.kt. All logging must route through AppLogger."
+            exit 1
+          fi
+          if grep -rnE 'println\(' --exclude="AppLogger.kt" app/src/main/java; then
+            echo "::error::println calls detected in app/src/main/java. Use AppLogger instead."
+            exit 1
+          fi
+
           echo "All static security and workflow hygiene checks passed."

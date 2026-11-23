@@ -3,7 +3,7 @@ package com.example.data.media
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
-import android.util.Log
+import com.example.core.logging.AppLogger
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -112,7 +112,7 @@ fun InAppCameraVideoDialog(
                 cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, capture)
                 videoCapture = capture
             } catch (e: Exception) {
-                Log.e(TAG, "CameraX bind error", e)
+                AppLogger.e(TAG, "CameraX bind error", e)
                 onError("Unable to start camera preview: ${e.message}")
             }
         }, mainExecutor)

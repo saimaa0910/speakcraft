@@ -7,7 +7,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
-import android.util.Log
+import com.example.core.logging.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -225,7 +225,7 @@ class TtsAndSpeechHelper(private val context: Context) {
             speechRecognizer = recognizer
             recognizer.startListening(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "SpeechRecognizer error", e)
+            AppLogger.e(TAG, "SpeechRecognizer error", e)
             _isListening.value = false
             val msg = e.localizedMessage ?: "Speech recognition error"
             _lastError.value = msg

@@ -1,13 +1,12 @@
 package com.example.data.activity
 
-import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val TAG = "UniversalEvalEngine"
+
 
 interface ActivityEvaluatorStrategy {
     val strategyType: EvaluationStrategyType

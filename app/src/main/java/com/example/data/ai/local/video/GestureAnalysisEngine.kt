@@ -1,7 +1,7 @@
 package com.example.data.ai.local.video
 
 import android.content.Context
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -52,7 +52,7 @@ class GestureAnalysisEngine(private val context: Context) {
                     baseOptionsBuilder.setModelAssetPath(downloadedFile.absolutePath)
                 }
                 else -> {
-                    Log.w(TAG, "HandLandmarker model file not found in assets or storage")
+                    AppLogger.w(TAG, "HandLandmarker model file not found in assets or storage")
                     return false
                 }
             }
@@ -64,10 +64,10 @@ class GestureAnalysisEngine(private val context: Context) {
                 .build()
 
             handLandmarker = HandLandmarker.createFromOptions(context, options)
-            Log.i(TAG, "HandLandmarker initialized successfully")
+            AppLogger.i(TAG, "HandLandmarker initialized successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "HandLandmarker initialization failed", e)
+            AppLogger.e(TAG, "HandLandmarker initialization failed", e)
             false
         }
     }
@@ -93,14 +93,14 @@ class GestureAnalysisEngine(private val context: Context) {
             val mpImage = try {
                 BitmapImageBuilder(frame.bitmap).build()
             } catch (e: Exception) {
-                Log.w(TAG, "Could not build MPImage for frame @${frame.timestampMs}ms", e)
+                AppLogger.w(TAG, "Could not build MPImage for frame @${frame.timestampMs}ms", e)
                 continue
             }
 
             val result = try {
                 landmarker.detect(mpImage)
             } catch (e: Exception) {
-                Log.w(TAG, "HandLandmarker detection failed for frame @${frame.timestampMs}ms", e)
+                AppLogger.w(TAG, "HandLandmarker detection failed for frame @${frame.timestampMs}ms", e)
                 continue
             }
 
@@ -189,7 +189,7 @@ class GestureAnalysisEngine(private val context: Context) {
         try {
             handLandmarker?.close()
         } catch (e: Exception) {
-            Log.w(TAG, "Error releasing HandLandmarker", e)
+            AppLogger.w(TAG, "Error releasing HandLandmarker", e)
         } finally {
             handLandmarker = null
         }

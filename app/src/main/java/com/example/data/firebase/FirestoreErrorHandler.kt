@@ -1,10 +1,8 @@
 package com.example.data.firebase
 
-import android.util.Log
-import com.google.firebase.auth.FirebaseAuth
+import com.example.core.logging.AppLogger
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
-import org.json.JSONArray
 import org.json.JSONObject
 
 enum class OperationType(val value: String) {
@@ -16,38 +14,34 @@ enum class OperationType(val value: String) {
     WRITE("write"),
 }
 
+/**
+ * Handles and logs Firestore errors safely without logging PII (SEC-01 §10.1, GAP-06).
+ *
+ * Replaces the legacy implementation that leaked userId, email, and providerInfo.
+ * Only operation type, sanitized collection path, and error code/message are logged.
+ */
 fun handleFirestoreError(exception: Throwable, operationType: OperationType, path: String?): String {
     val causes = generateSequence(exception) { it.cause }
-    val rootError = causes.firstOrNull { it is FirebaseFirestoreException }
+    val firestoreError = causes.firstOrNull { it is FirebaseFirestoreException } as? FirebaseFirestoreException
+    val rootError = firestoreError
         ?: causes.firstOrNull { it !is CancellationException }
         ?: exception
 
-    val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
-
-    val providerInfoList = currentUser?.providerData?.map { provider ->
-        JSONObject().apply {
-            put("providerId", provider.providerId)
-            put("email", provider.email)
-        }
-    } ?: emptyList()
-
-    val authInfoJson = JSONObject().apply {
-        put("userId", currentUser?.uid)
-        put("email", currentUser?.email)
-        put("emailVerified", currentUser?.isEmailVerified)
-        put("tenantId", currentUser?.tenantId)
-        put("providerInfo", JSONArray(providerInfoList))
-    }
+    val errorCode = firestoreError?.code?.name ?: rootError.javaClass.simpleName
+    val sanitizedPath = path?.let { AppLogger.redact(it) } ?: "unknown"
+    val safeErrorMessage = AppLogger.redact(rootError.message ?: rootError.toString())
 
     val errorInfoJson = JSONObject().apply {
-        put("error", rootError.message ?: rootError.toString())
         put("operationType", operationType.value)
-        put("path", path)
-        put("authInfo", authInfoJson)
+        put("errorCode", errorCode)
+        put("path", sanitizedPath)
+        put("errorMessage", safeErrorMessage)
     }
 
     val jsonString = errorInfoJson.toString()
-    Log.e("FirestoreError", "Firestore Error: $jsonString")
+    AppLogger.e(
+        "FirestoreError",
+        "Firestore ${operationType.value} failed at $sanitizedPath: $errorCode ($safeErrorMessage)"
+    )
     return jsonString
 }

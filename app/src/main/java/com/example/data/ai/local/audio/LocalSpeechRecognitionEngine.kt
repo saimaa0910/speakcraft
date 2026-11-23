@@ -5,7 +5,7 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.example.data.ai.local.LocalModelId
 import com.example.data.ai.local.OnDeviceModelManager
 import kotlinx.coroutines.Dispatchers
@@ -103,7 +103,7 @@ class LocalSpeechRecognitionEngine(
         }
 
         val mode = if (isRecognitionAvailable) "android-speech-offline-fallback" else "none"
-        Log.i(TAG, "Whisper model not installed. Recognition availability: $isRecognitionAvailable, Intent: ${intent.action}")
+        AppLogger.i(TAG, "Whisper model not installed. Recognition availability: $isRecognitionAvailable, Intent: ${intent.action}")
 
         return SpeechRecognitionResult(
             transcript = "",
@@ -249,7 +249,7 @@ class LocalSpeechRecognitionEngine(
                 limitationNotice = null
             )
         } catch (oom: OutOfMemoryError) {
-            Log.e(TAG, "OutOfMemoryError in Whisper transcription", oom)
+            AppLogger.e(TAG, "OutOfMemoryError in Whisper transcription", oom)
             System.gc()
             return SpeechRecognitionResult(
                 transcript = "",
@@ -260,7 +260,7 @@ class LocalSpeechRecognitionEngine(
                 limitationNotice = "Device ran out of memory during Whisper transcription. Please try recording a shorter clip."
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Whisper transcription failed", e)
+            AppLogger.e(TAG, "Whisper transcription failed", e)
             return SpeechRecognitionResult(
                 transcript = "",
                 confidence = 0f,
@@ -287,7 +287,7 @@ class LocalSpeechRecognitionEngine(
             }
             (player.duration / 1000).coerceAtLeast(0)
         } catch (e: Exception) {
-            Log.w(TAG, "MediaPlayer duration inspection failed: ${e.message}")
+            AppLogger.w(TAG, "MediaPlayer duration inspection failed: ${e.message}")
             0
         } finally {
             runCatching {

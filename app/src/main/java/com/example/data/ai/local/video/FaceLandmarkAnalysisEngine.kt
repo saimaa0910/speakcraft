@@ -2,7 +2,7 @@ package com.example.data.ai.local.video
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -50,7 +50,7 @@ class FaceLandmarkAnalysisEngine(private val context: Context) {
                     baseOptionsBuilder.setModelAssetPath(downloadedFile.absolutePath)
                 }
                 else -> {
-                    Log.w(TAG, "FaceLandmarker model file not found in assets or storage")
+                    AppLogger.w(TAG, "FaceLandmarker model file not found in assets or storage")
                     return false
                 }
             }
@@ -64,10 +64,10 @@ class FaceLandmarkAnalysisEngine(private val context: Context) {
                 .build()
 
             faceLandmarker = FaceLandmarker.createFromOptions(context, options)
-            Log.i(TAG, "FaceLandmarker initialized successfully")
+            AppLogger.i(TAG, "FaceLandmarker initialized successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "FaceLandmarker initialization failed", e)
+            AppLogger.e(TAG, "FaceLandmarker initialization failed", e)
             false
         }
     }
@@ -92,14 +92,14 @@ class FaceLandmarkAnalysisEngine(private val context: Context) {
             val mpImage = try {
                 BitmapImageBuilder(frame.bitmap).build()
             } catch (e: Exception) {
-                Log.w(TAG, "Could not build MPImage for frame @${frame.timestampMs}ms", e)
+                AppLogger.w(TAG, "Could not build MPImage for frame @${frame.timestampMs}ms", e)
                 continue
             }
 
             val result = try {
                 landmarker.detect(mpImage)
             } catch (e: Exception) {
-                Log.w(TAG, "FaceLandmarker detection failed for frame @${frame.timestampMs}ms", e)
+                AppLogger.w(TAG, "FaceLandmarker detection failed for frame @${frame.timestampMs}ms", e)
                 continue
             }
 
@@ -187,7 +187,7 @@ class FaceLandmarkAnalysisEngine(private val context: Context) {
         try {
             faceLandmarker?.close()
         } catch (e: Exception) {
-            Log.w(TAG, "Error releasing FaceLandmarker", e)
+            AppLogger.w(TAG, "Error releasing FaceLandmarker", e)
         } finally {
             faceLandmarker = null
         }

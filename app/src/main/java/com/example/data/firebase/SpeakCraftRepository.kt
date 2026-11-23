@@ -902,13 +902,16 @@ class SpeakCraftRepository(
             "LESSON_PRACTICE"
         )
 
-        private val ALLOWED_CONFIDENCE_LEVELS = setOf("High", "Medium", "Low", "Low (Partial)")
+        private val ALLOWED_CONFIDENCE_LEVELS = setOf("High", "Medium", "Low")
 
         /**
          * Builds the Firestore payload for `speakingSessions`.
          *
          * T-04.2.1 (FND-SEC-05 / SEC-REQ-10): Intentionally omits `transcript` and `localMediaPath`
          * so raw speech transcripts and on-device file paths never leave the device.
+         *
+         * T-04.2.4 (GAP-20 / ISS-01): Strictly conforms to `firestore.rules` hasOnly allowlist and
+         * normalizes `confidenceLevel` to ['High', 'Medium', 'Low'] so speaking-session saves succeed.
          */
         @Suppress("UNCHECKED_CAST")
         internal fun buildSpeakingSessionPayload(
@@ -921,6 +924,11 @@ class SpeakCraftRepository(
                 session.moduleType
             } else {
                 "SPEAKING_LAB"
+            }
+            val safeConfidence = when (session.confidenceLevel) {
+                "High" -> "High"
+                "Low", "Low (Partial)" -> "Low"
+                else -> "Medium"
             }
             return mapOf(
                 "userId" to uid,
@@ -942,7 +950,7 @@ class SpeakCraftRepository(
                 "articulationClarity" to session.articulationClarity.take(800).ifBlank { null },
                 "thoughtOrganization" to session.thoughtOrganization.take(800).ifBlank { null },
                 "nextRecommendedActivity" to session.nextRecommendedActivity.take(400).ifBlank { null },
-                "confidenceLevel" to if (session.confidenceLevel in ALLOWED_CONFIDENCE_LEVELS) session.confidenceLevel else "Medium",
+                "confidenceLevel" to safeConfidence,
                 "audioQualityNote" to session.audioQualityNote.take(500).ifBlank { null },
                 "fluencyScore" to session.fluencyScore.coerceIn(0L, 100L),
                 "pronunciationScore" to session.pronunciationScore.coerceIn(0L, 100L),
@@ -951,11 +959,6 @@ class SpeakCraftRepository(
                 "articulationScore" to session.articulationScore.coerceIn(0L, 100L),
                 "wordsPerMinute" to session.wordsPerMinute.coerceIn(0L, 400L),
                 "sourceVideoUrl" to session.sourceVideoUrl.take(500).ifBlank { null },
-                "evaluationStatus" to session.evaluationStatus,
-                "isPartialEvaluation" to session.isPartialEvaluation,
-                "evaluatedDimensionKeys" to session.evaluatedDimensionKeys,
-                "unavailableDimensionKeys" to session.unavailableDimensionKeys,
-                "evidenceSummary" to session.evidenceSummary.take(400).ifBlank { null },
                 "createdAt" to timestamp,
                 "updatedAt" to timestamp
             ).filterValues { it != null } as Map<String, Any>

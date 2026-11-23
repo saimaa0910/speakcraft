@@ -1,6 +1,6 @@
 package com.example.ui.viewmodel
 
-import android.util.Log
+import com.example.core.logging.AppLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.HybridAiCoachCoordinator
@@ -66,7 +66,7 @@ class MainCoachViewModel(
                     .firstOrNull()
                 if (firestoreError == null && error is CancellationException) throw error
                 val root = firestoreError ?: error
-                Log.w(TAG, "Error observing $label", root)
+                AppLogger.w(TAG, "Error observing $label", root)
                 emit(UiState.Error(root.message ?: "Failed to load $label"))
             }
             .stateIn(

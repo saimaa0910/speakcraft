@@ -1,7 +1,7 @@
 package com.example.data.ai.local.video
 
 import android.content.Context
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -44,7 +44,7 @@ class BodyLanguageAnalysisEngine(private val context: Context) {
                 hasAsset(MODEL_ASSET_PATH) -> baseOptionsBuilder.setModelAssetPath(MODEL_ASSET_PATH)
                 downloadedFile.exists() -> baseOptionsBuilder.setModelAssetPath(downloadedFile.absolutePath)
                 else -> {
-                    Log.w(TAG, "PoseLandmarker model file not found in assets or storage")
+                    AppLogger.w(TAG, "PoseLandmarker model file not found in assets or storage")
                     return false
                 }
             }
@@ -56,7 +56,7 @@ class BodyLanguageAnalysisEngine(private val context: Context) {
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
             true
         } catch (e: Exception) {
-            Log.e(TAG, "PoseLandmarker initialization failed", e)
+            AppLogger.e(TAG, "PoseLandmarker initialization failed", e)
             false
         }
     }
@@ -74,11 +74,11 @@ class BodyLanguageAnalysisEngine(private val context: Context) {
 
         for (frame in frames) {
             val mpImage = try { BitmapImageBuilder(frame.bitmap).build() } catch (e: Exception) {
-                Log.w(TAG, "Could not build MPImage", e)
+                AppLogger.w(TAG, "Could not build MPImage", e)
                 continue
             }
             val result = try { landmarker.detect(mpImage) } catch (e: Exception) {
-                Log.w(TAG, "PoseLandmarker detection failed", e)
+                AppLogger.w(TAG, "PoseLandmarker detection failed", e)
                 continue
             }
             val poseLandmarksList = result.landmarks()

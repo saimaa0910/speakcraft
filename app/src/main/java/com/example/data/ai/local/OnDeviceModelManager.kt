@@ -2,7 +2,7 @@ package com.example.data.ai.local
 
 import android.content.Context
 import android.os.StatFs
-import android.util.Log
+import com.example.core.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -204,7 +204,7 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
             val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
             actualHash.equals(spec.sha256Hash, ignoreCase = true)
         } catch (e: Exception) {
-            Log.w(TAG, "Integrity check failed for ${spec.fileName}: ${e.message}")
+            AppLogger.w(TAG, "Integrity check failed for ${spec.fileName}: ${e.message}")
             false
         }
     }
@@ -215,7 +215,7 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
     suspend fun recoverCorruptModel(id: LocalModelId): Boolean = withContext(Dispatchers.IO) {
         val valid = verifyIntegrity(id)
         if (!valid) {
-            Log.w(TAG, "Corrupt model detected for $id; removing file for recovery")
+            AppLogger.w(TAG, "Corrupt model detected for $id; removing file for recovery")
             deleteModel(id)
         } else {
             true
@@ -239,7 +239,7 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
      * Unload notification hook for active sessions.
      */
     fun unloadModel(id: LocalModelId) {
-        Log.d(TAG, "Model $id unloaded from memory")
+        AppLogger.d(TAG, "Model $id unloaded from memory")
     }
 
     // -----------------------------------------------------------------------

@@ -7,7 +7,7 @@ import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
-import android.util.Log
+import com.example.core.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -106,7 +106,7 @@ class AudioRecorderManager(val context: Context) {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start MediaRecorder", e)
+            AppLogger.e(TAG, "Failed to start MediaRecorder", e)
             releaseRecorder()
             false
         }
@@ -121,7 +121,7 @@ class AudioRecorderManager(val context: Context) {
             _amplitude.value = 0.04f
             true
         } catch (e: Exception) {
-            Log.w(TAG, "Pause recording failed: ${e.message}")
+            AppLogger.w(TAG, "Pause recording failed: ${e.message}")
             false
         }
     }
@@ -134,7 +134,7 @@ class AudioRecorderManager(val context: Context) {
             _isPaused.value = false
             true
         } catch (e: Exception) {
-            Log.w(TAG, "Resume recording failed: ${e.message}")
+            AppLogger.w(TAG, "Resume recording failed: ${e.message}")
             false
         }
     }
@@ -152,7 +152,7 @@ class AudioRecorderManager(val context: Context) {
         try {
             recorder?.stop()
         } catch (e: Exception) {
-            Log.w(TAG, "Stop recorder warning: ${e.message}")
+            AppLogger.w(TAG, "Stop recorder warning: ${e.message}")
         }
         releaseRecorder()
         val file = outputFile
@@ -194,7 +194,7 @@ class AudioRecorderManager(val context: Context) {
             _isPlaying.value = true
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Playback error for $path", e)
+            AppLogger.e(TAG, "Playback error for $path", e)
             stopPlayback()
             false
         }
@@ -245,7 +245,7 @@ class AudioRecorderManager(val context: Context) {
             val ms = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
             (ms / 1000L).toInt().coerceIn(0, 3600)
         } catch (e: Exception) {
-            Log.w(TAG, "Unable to inspect media duration: ${e.message}")
+            AppLogger.w(TAG, "Unable to inspect media duration: ${e.message}")
             0
         } finally {
             runCatching { retriever.release() }

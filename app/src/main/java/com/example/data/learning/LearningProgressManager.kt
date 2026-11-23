@@ -1,7 +1,7 @@
 package com.example.data.learning
 
 import android.content.Context
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabSeed
@@ -898,7 +898,7 @@ class LearningProgressManager(
     return try {
         json.decodeFromString<PersistedLearningSnapshot>(file.readText())
     } catch (err: Throwable) {
-        Log.w(TAG, "Failed reading local snapshot, starting fresh: ${err.message}")
+        AppLogger.w(TAG, "Failed reading local snapshot, starting fresh: ${err.message}")
         null
     }
 }
@@ -914,7 +914,7 @@ class LearningProgressManager(
                 temp.delete()
             }
         }.onFailure { err ->
-            Log.w(TAG, "Failed writing local snapshot: ${err.message}")
+            AppLogger.w(TAG, "Failed writing local snapshot: ${err.message}")
         }
     }
 }

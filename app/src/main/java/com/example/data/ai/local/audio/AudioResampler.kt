@@ -3,7 +3,7 @@ package com.example.data.ai.local.audio
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import android.util.Log
+import com.example.core.logging.AppLogger
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -47,7 +47,7 @@ object AudioResampler {
         maxDurationSeconds: Int = 600
     ): ShortArray? {
         if (!inputFile.exists() || inputFile.length() == 0L) {
-            Log.e(TAG, "Input file not found or empty: ${inputFile.absolutePath}")
+            AppLogger.e(TAG, "Input file not found or empty: ${inputFile.absolutePath}")
             return null
         }
 
@@ -66,14 +66,14 @@ object AudioResampler {
             extractor.setDataSource(inputFile.absolutePath)
             val trackIndex = findAudioTrack(extractor)
             if (trackIndex < 0) {
-                Log.e(TAG, "No audio track found in ${inputFile.name}")
+                AppLogger.e(TAG, "No audio track found in ${inputFile.name}")
                 return null
             }
             extractor.selectTrack(trackIndex)
             val format = extractor.getTrackFormat(trackIndex)
 
             val mime = format.getString(MediaFormat.KEY_MIME) ?: run {
-                Log.e(TAG, "Could not read MIME type")
+                AppLogger.e(TAG, "Could not read MIME type")
                 return null
             }
 
@@ -90,7 +90,7 @@ object AudioResampler {
             val monoRaw = if (decoded.channels > 1) toMono(decoded.samples, decoded.channels) else decoded.samples
             resample(monoRaw, decoded.sampleRate, TARGET_SAMPLE_RATE, maxSamples)
         } catch (e: Exception) {
-            Log.e(TAG, "Resampling failed: ${e.message}", e)
+            AppLogger.e(TAG, "Resampling failed: ${e.message}", e)
             null
         } finally {
             runCatching { extractor.release() }

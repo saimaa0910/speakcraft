@@ -2,7 +2,7 @@ package com.example.data.firebase
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.example.BuildConfig
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -33,15 +33,15 @@ fun configureAppCheck(context: Context, intent: Intent?) {
                 prefs.edit()
                     .putString(DEBUG_SECRET_KEY, debugToken)
                     .commit()
-                Log.d(TAG, "App Check debug secret configured successfully.")
+                AppLogger.d(TAG, "App Check debug secret configured successfully.")
             } else {
-                Log.w(TAG, "No debug token found in Intent extra.")
+                AppLogger.w(TAG, "No debug token found in Intent extra.")
             }
 
             FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
                 DebugAppCheckProviderFactory.getInstance()
             )
-            Log.d(TAG, "DebugAppCheckProviderFactory installed.")
+            AppLogger.d(TAG, "DebugAppCheckProviderFactory installed.")
         } else {
             val resId = context.resources.getIdentifier(RECAPTCHA_SITE_KEY_RES, "string", context.packageName)
             if (resId != 0) {
@@ -50,15 +50,15 @@ fun configureAppCheck(context: Context, intent: Intent?) {
                     FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
                         RecaptchaAppCheckProviderFactory.getInstance(siteKey)
                     )
-                    Log.d(TAG, "RecaptchaAppCheckProviderFactory installed.")
+                    AppLogger.d(TAG, "RecaptchaAppCheckProviderFactory installed.")
                 } else {
-                    Log.e(TAG, "recaptcha_site_key resource string is blank.")
+                    AppLogger.e(TAG, "recaptcha_site_key resource string is blank.")
                 }
             } else {
-                Log.e(TAG, "recaptcha_site_key string resource not found in package.")
+                AppLogger.e(TAG, "recaptcha_site_key string resource not found in package.")
             }
         }
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to initialize Firebase App Check", e)
+        AppLogger.e(TAG, "Failed to initialize Firebase App Check", e)
     }
 }

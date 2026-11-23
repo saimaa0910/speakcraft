@@ -5,7 +5,7 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.util.Log
+import com.example.core.logging.AppLogger
 import com.example.data.ai.local.LocalModelId
 import com.example.data.ai.local.OnDeviceModelManager
 import kotlinx.coroutines.Dispatchers
@@ -106,13 +106,13 @@ class SpeechRecognitionManager(
             if (primaryResult.transcript.isNotBlank()) {
                 return@withContext primaryResult
             }
-            Log.d(TAG, "Primary recognizer returned empty transcript; trying secondary if available")
+            AppLogger.d(TAG, "Primary recognizer returned empty transcript; trying secondary if available")
         }
 
         // 2. Secondary Engine: Android on-device SpeechRecognizer
         if (availability.hasSecondaryOfflineRecognizer && context != null) {
             val duration = inspectAudioDurationSeconds(audioFile)
-            Log.i(TAG, "Secondary on-device recognizer available; duration=$duration s")
+            AppLogger.i(TAG, "Secondary on-device recognizer available; duration=$duration s")
             // Android SpeechRecognizer is predominantly streaming; when audio file is supplied without
             // primary ASR installed, we inform user and allow audio-only metrics to proceed cleanly.
             return@withContext SpeechRecognitionResult(

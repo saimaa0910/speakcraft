@@ -139,6 +139,117 @@ test("User profile, speechFeedback, learningProgress, and cross-user isolation",
   );
 });
 
+test("GAP-20 / ISS-01: speakingSessions creation, schema validation, immutability, and cross-user isolation", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  const past = new Date(Date.now() - 5000);
+  const now = new Date(Date.now() - 1000);
+
+  // 1. Valid speakingSession creation matching SpeakCraftRepository.buildSpeakingSessionPayload
+  const validSession = {
+    userId: ALICE_UID,
+    moduleType: "SPEAKING_LAB",
+    promptTitle: "2-Minute Product Pitch",
+    durationSeconds: 95,
+    mediaType: "audio/mp4",
+    feedbackId: "fb_01",
+    overallAssessment: "Clear structure with steady pacing.",
+    strengths: ["Strong opening hook"],
+    mistakes: ["Rushed conclusion"],
+    pronunciationNotes: ["Clear vowel endings"],
+    betterAlternatives: ["Pause briefly before key metrics"],
+    fillerWordsDetected: ["um (2)"],
+    repeatedExpressions: ["basically (2)"],
+    improvementSuggestions: ["Slow down on final sentence"],
+    recommendedExercises: ["1-minute summary drill"],
+    pronunciationAssessable: true,
+    articulationClarity: "Clear",
+    thoughtOrganization: "Structured",
+    nextRecommendedActivity: "Pause Control Drill",
+    confidenceLevel: "High",
+    audioQualityNote: "Good signal",
+    fluencyScore: 84,
+    pronunciationScore: 80,
+    vocabularyScore: 86,
+    grammarScore: 82,
+    articulationScore: 85,
+    wordsPerMinute: 132,
+    createdAt: past,
+    updatedAt: past,
+  };
+
+  const sessionRef = aliceDb
+    .collection("users")
+    .doc(ALICE_UID)
+    .collection("speakingSessions")
+    .doc("sess_01");
+
+  await assertSucceeds(sessionRef.set(validSession));
+
+  // 2. Reject un-whitelisted fields (such as evaluationStatus, isPartialEvaluation, etc. that broke saves at HEAD)
+  await assertFails(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("speakingSessions")
+      .doc("sess_bad_fields")
+      .set({
+        ...validSession,
+        evaluationStatus: "COMPLETED",
+      })
+  );
+
+  // 3. Reject invalid confidenceLevel (only High, Medium, Low allowed by rules)
+  await assertFails(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("speakingSessions")
+      .doc("sess_bad_conf")
+      .set({
+        ...validSession,
+        confidenceLevel: "Low (Partial)",
+      })
+  );
+
+  // 4. Immutability: speakingSessions cannot be modified
+  await assertFails(
+    sessionRef.update({
+      overallAssessment: "Tampered assessment",
+      updatedAt: now,
+    })
+  );
+
+  // 5. Cross-user isolation: Bob cannot read Alice's speaking sessions
+  await assertFails(
+    bobDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("speakingSessions")
+      .get()
+  );
+
+  // 6. Unauthenticated cannot read or write
+  await assertFails(
+    unauthDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("speakingSessions")
+      .get()
+  );
+
+  // 7. Owner can list and delete
+  await assertSucceeds(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("speakingSessions")
+      .get()
+  );
+  await assertSucceeds(sessionRef.delete());
+});
+
 test("Admin RBAC: ordinary users cannot self-promote, publish releases, or edit global catalog", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   const adminDb = testEnv.authenticatedContext(ADMIN_UID).firestore();

@@ -3,7 +3,7 @@ package com.example.data.firebase
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.util.Log
+import com.example.core.logging.AppLogger
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -115,12 +115,12 @@ fun onGoogleSignInClicked(
                 onAuthError("Unexpected credential type returned.")
             }
         } catch (e: GetCredentialCancellationException) {
-            Log.w(AUTH_TAG, "Google Sign-In flow cancelled or dismissed: ${e.message}", e)
+            AppLogger.w(AUTH_TAG, "Google Sign-In flow cancelled or dismissed: ${e.message}", e)
             onAuthCancelled()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(AUTH_TAG, "Google Sign-In failed", e)
+            AppLogger.e(AUTH_TAG, "Google Sign-In failed", e)
             onAuthError(e.localizedMessage ?: "Sign in failed")
         }
     }
@@ -136,7 +136,7 @@ fun signOut(
             try {
                 credentialManager.clearCredentialState(ClearCredentialStateRequest())
             } catch (e: Exception) {
-                Log.w(AUTH_TAG, "Failed to clear credential state: ${e.message}")
+                AppLogger.w(AUTH_TAG, "Failed to clear credential state: ${e.message}")
             } finally {
                 Firebase.auth.signOut()
                 onSignOutComplete()
