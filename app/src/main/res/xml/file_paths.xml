@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <files-path name="updates" path="updates/" />
-    <files-path name="backups" path="backups/" />
-    <files-path name="recordings" path="recordings/" />
-    <cache-path name="cache_recordings" path="/" />
-</paths>
