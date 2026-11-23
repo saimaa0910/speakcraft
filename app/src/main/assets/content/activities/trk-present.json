@@ -1,0 +1,448 @@
+[
+  {
+    "id": "act-practice-bold-opening",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "A Strong First Fifteen Seconds",
+    "goal": "Open a presentation with a question your audience wants answered, instead of a routine introduction.",
+    "prompt": "Choose a presentation topic you know well and record only its first 15 seconds. Skip the greeting and your name. Open with a bold question your audience will want answered, then add one sentence that tells them the talk will answer it. Stop there.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 20,
+      "max": 45
+    },
+    "maxSeconds": 20,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 2,
+    "tags": [
+      "opening",
+      "hook",
+      "presentation"
+    ],
+    "provenance": {
+      "notes": "From app seed pub_opening (CurriculumCatalog.publicSpeakingModules). Re-expressed in original wording. Marked general because none of the fixed techniques covers presentation openings. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-call-to-action-read",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Read a Call to Action With Contrast",
+    "goal": "Read a short rallying message with changes in speed, volume and pitch, using a full voice supported by your breath.",
+    "prompt": "Stand up if you can and breathe low into your belly before you start. Read this message as if you were speaking to a room of thirty people. Move quickly through the opening lines, slow right down for the sentence about beginning, drop to a softer voice for one line, then build to a strong, full finish.",
+    "referenceText": "Every real change starts with one small, stubborn step. You do not need a perfect plan, and you do not need a perfect day. You only need to begin. So choose one thing this week, do it before Friday, and tell someone that you did it. Start today.",
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "voice",
+      "projection",
+      "contrast"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "5 Vocal Foundations",
+      "notes": "From app seed pub_voice (CurriculumCatalog.publicSpeakingModules). Reference text is newly written. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-calm-close",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Close a Talk With Calm Hands and Silence",
+    "goal": "Deliver a short closing message with steady, visible gestures, one thought per glance and a held silence at the end.",
+    "prompt": "Prop your phone at eye level so it shows you from the waist up. Give a 30-second closing message for a talk on any topic: sum up the one thing you want people to remember. Keep your hands visible between chest and waist and move them only to show size, steps or contrast. Look into the lens for each complete thought, and after your final sentence stay still and silent for two seconds before you stop.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 45,
+      "max": 90
+    },
+    "maxSeconds": 40,
+    "techniqueIds": [
+      "purposeful-gestures",
+      "warm-and-assured"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "gestures",
+      "camera",
+      "closing"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "REBAND",
+        "band": {
+          "min": 0,
+          "max": 5
+        }
+      }
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "Power Zone",
+      "notes": "From app seed pub_body (CurriculumCatalog.publicSpeakingModules). Re-expressed in original wording; camera-friendly prompt. Long-pause band widened because the task asks for a pause between thoughts and a held silence, which inflates the per-minute rate in a 30-second clip. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-recommend-three-points",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-STRUCT",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Recommend Something in Three Points",
+    "goal": "Recommend a book or tool with a clear point, three quick reasons, one example and a closing restatement.",
+    "prompt": "Recommend a favourite book, app or tool to a friend in about 90 seconds. Start with your recommendation in one sentence. Give your reasons as three short, numbered points, because listeners remember ideas in threes. Share one moment when it really helped you, then close by repeating your recommendation and what you want the listener to do next.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 135,
+      "max": 250
+    },
+    "framework": "PREP",
+    "expectedElements": [
+      "Point",
+      "Reason",
+      "Example",
+      "Point_Restate"
+    ],
+    "prepSeconds": 30,
+    "maxSeconds": 105,
+    "techniqueIds": [
+      "prep-answer"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "structure",
+      "recommendation",
+      "threes"
+    ],
+    "provenance": {
+      "notes": "From app seed pub_structure (CurriculumCatalog.publicSpeakingModules). Re-expressed in original wording; the three-part idea is folded into the PREP reason step. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-setback-reflection",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Three Minutes on a Setback That Shaped You",
+    "goal": "Tell a personal turning point with wide pitch movement, deliberate pauses and firm, falling endings on each lesson.",
+    "prompt": "Talk for three minutes about a setback or failure that changed you in a way you did not expect. Describe what happened, how it felt at the time, and what you understand differently now. Stretch your vocal range more than usual: let your pitch rise and fall, take a full breath of silence before each lesson you share, and let your voice drop at the end of those lesson sentences so they sound settled.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 270,
+      "max": 500
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 195,
+    "techniqueIds": [
+      "vocal-variety",
+      "warm-and-assured"
+    ],
+    "estMinutes": 5,
+    "tags": [
+      "reflection",
+      "melody",
+      "pauses"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "REBAND",
+        "band": {
+          "min": 0,
+          "max": 5
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed chal_3min_random (CurriculumCatalog.speakingChallenges). Re-expressed in original wording. Long-pause band widened because the task asks for exaggerated pauses before each lesson. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-shadow-story-voice",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-REPEAT",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Repeat a Story Moment With a Quoted Line",
+    "goal": "Copy a short story extract, changing your voice for the line someone speaks so it stands out.",
+    "prompt": "Listen to the model, then repeat the passage. Tell the scene-setting part in your normal voice, soften and slow down for the words the sister says, and return to your own voice for the ending so the spoken line stands out from the rest.",
+    "referenceText": "Five minutes before my first big interview, my sister squeezed my arm and said quietly: just talk to them the way you talk to me. I laughed, took a slow breath, and walked through the door.",
+    "techniqueIds": [
+      "relive-the-story"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "shadowing",
+      "story",
+      "dialogue"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "Relive vs Report",
+      "notes": "From app seed shad_relive_story (CurriculumCatalog.shadowingSegments), focus vocal character and contrast at about 120 wpm. Reference text is newly written; the seed script was not reused. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-story-spoken-line",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "One-Minute Story With a Spoken Line",
+    "goal": "Tell a true story as if it is happening now, with one sensory detail and at least one line of real dialogue.",
+    "prompt": "Tell a one-minute true story from any part of your life as if it were happening again right now. Start inside the moment with where and when it took place, describe one thing you could see, hear or smell, and include at least one line exactly as someone said it, in their voice, instead of summarising what they said.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "relive-the-story"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "story",
+      "dialogue",
+      "detail"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "Relive vs Report",
+      "notes": "From app seed pub_story (CurriculumCatalog.publicSpeakingModules). Re-expressed in original wording. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-talk-outline",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Outline a Talk From Three Key Points",
+    "goal": "Speak from three main points instead of a script, shaped around what your audience already knows.",
+    "prompt": "Think of a talk you would love to give one day. Do not write a script. Decide who the audience is and pick three main points. Then spend one minute talking through your outline: say who the talk is for, what they probably know already, and what each of your three points will give them.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 45,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "planning",
+      "audience",
+      "outline"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "CLEAR & 3Vs",
+      "notes": "From app seed pub_prep (CurriculumCatalog.publicSpeakingModules). Re-expressed in original wording. Linked to explain-complex-ideas for audience calibration. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-share-highs-and-lows-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "A trip with ups and downs",
+    "goal": "Tell a longer story where the peak, the low point and an unexpected turn are vivid and clearly contrasted.",
+    "prompt": "Describe a trip, event or day out that had both great and difficult moments. Choose the peak, the low point and the unexpected turn, and decide on the order that will keep your listener curious. Give each one a sensory detail, such as a sound, a view or a taste, and let your listener feel the change from high to low. Finish with what you remember most now.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 120,
+      "max": 220
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 100,
+    "techniqueIds": [
+      "share-highs-and-lows"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "story",
+      "contrast",
+      "travel"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique share-highs-and-lows (editorial seed mapped to share-highs-and-lows). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-three-channels-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Same Script, Better Delivery",
+    "goal": "Read a short welcome aloud so that posture, eye contact and voice, not just the words, carry the message.",
+    "prompt": "Read the welcome below as if you were opening a small event. The words are fixed, so all of your attention can go to delivery: stand or sit tall, look up from the screen at the end of each sentence, and give the last line a little more energy than the rest.",
+    "referenceText": "Good morning, everyone, and thank you for making the time to be here. In the next few minutes I want to share one small idea that changed how our team works. It is simple, it costs nothing, and you can try it this afternoon. Let me show you how it works.",
+    "maxSeconds": 45,
+    "techniqueIds": [
+      "three-channels"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "read aloud",
+      "welcome",
+      "delivery"
+    ],
+    "provenance": {
+      "notes": "Original activity and reference text for the CurriculumCatalog seed mapped to three-channels; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-vocal-variety-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Brisk Setup, Slow Landing",
+    "goal": "Read a three-sentence pitch with a quick, light setup and a slow, falling final line followed by a clear silence.",
+    "prompt": "Read the three sentences below. Say the first two at a brisk, natural speed, as if sharing a quick fact. Then slow right down for the final sentence, let your pitch drop on the last word, and stay silent for a full second before you stop. A slow, weighty last line is the point of this drill, not a mistake.",
+    "referenceText": "Most of us pick up our phones far more often than we realise. Each glance feels harmless, but together they break our attention into tiny pieces. Protect one quiet hour every morning, and notice how much more you finish.",
+    "maxSeconds": 40,
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "read aloud",
+      "pace contrast",
+      "pause"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "action": "REBAND",
+        "band": {
+          "min": 80,
+          "max": 140
+        }
+      },
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "SUPPRESS"
+      }
+    ],
+    "provenance": {
+      "notes": "Original activity and reference text for app seed tech_5_vocal (fast setup, slower key line, one-second pause); deliberate slowing and silence justify the overrides; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-vocal-variety-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Let the Feeling Change Your Voice",
+    "goal": "Read a short moment aloud so your tone, loudness and speed follow the feeling as it shifts from nervous to delighted.",
+    "prompt": "Read this short moment as if it really happened to you. Start slowly and a little tense, let your voice lift and speed up as the good news sinks in, and finish with warm, relaxed pride. Try it once or twice to find the feeling, then record your best version.",
+    "referenceText": "I held the envelope for a long time before I opened it. Inside was one short line: we would love you to join the team. I read it twice, just to be sure. Then I laughed out loud, alone in the kitchen, and called my sister straight away.",
+    "maxSeconds": 40,
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "read aloud",
+      "emotion",
+      "tone"
+    ],
+    "provenance": {
+      "notes": "Original activity and reference text for app seed tech_5_vocal (emotional tone and volume levers); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]

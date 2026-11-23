@@ -1,0 +1,438 @@
+[
+  {
+    "id": "act-articulation-warmup-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Slow, overdone tongue twister",
+    "goal": "Read consonant-heavy lines at half speed with big, exaggerated mouth movements.",
+    "prompt": "Read the lines at about half your normal speed. Overdo every sound: press your lips together firmly for p and b, tap your tongue clearly for t and d, and finish each final consonant before you start the next word. It should feel too slow and too big. That is the point of this drill.",
+    "referenceText": "Kate kept the cracked cups on the top deck. Ted tied tight knots and tested each strap twice. Bright lights left on late at night help the street feel safe.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "articulation",
+      "consonants",
+      "warm-up"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "action": "REBAND",
+        "band": {
+          "min": 70,
+          "max": 160
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed tech_articulation; tongue-twister lines written from scratch; half-speed drill, so slow-pace floor lowered to 70 wpm; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-articulation-warmup-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-REPEAT",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Tricky sounds: listen and repeat",
+    "goal": "Copy each line clearly, keeping th, s, v, w, r and l sounds distinct from one another.",
+    "prompt": "Listen to each line, then repeat it at a natural pace. For th, let your tongue peek out between your teeth. For v, rest your top teeth on your lower lip and let it buzz; w uses rounded lips only. For l, touch your tongue tip to the bump just behind your upper teeth; for r, pull the tongue back so it floats without touching.",
+    "referenceText": "Three thick ropes held the old boat. Seven wet vans waited by the west wall. Larry rarely rolls the rough rug, but Lily loves it.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "pronunciation",
+      "sounds",
+      "repeat"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_articulation and the app's sound-contrast drill ideas; lines and mouth-position guidance written from scratch; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-calm-clear-speaking-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Warm up, breathe, then read",
+    "goal": "Use a short body routine before reading aloud, then read with a slow start and clear word endings.",
+    "prompt": "Before you press record, loosen your jaw and lips for about a minute and take three slow breaths into your belly. Then read the announcement aloud. Say the first sentence slowly, open your mouth a little wider than usual, and finish the last sound of every word.",
+    "referenceText": "Good morning, everyone, and thank you for coming. I have three quick updates today. First, the new timetable starts next Tuesday. Second, the kitchen on the third floor is open again. Third, we need four volunteers to help plan the spring fair. If you would like to help, please find me after this meeting.",
+    "techniqueIds": [
+      "calm-clear-speaking"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "warm-up",
+      "breathing",
+      "clarity"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique calm-clear-speaking (editorial seed mapped to calm-clear-speaking). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-calm-clear-speaking-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Introduce yourself with a calm start",
+    "goal": "Give a short self-introduction after a breathing routine, starting slowly and keeping your voice strong to the end.",
+    "prompt": "Think of a moment that makes you a little nervous, such as introducing yourself at a meeting or in a class. Take three slow, low breaths, then introduce yourself as you would there: who you are, what you do, and one thing you are looking forward to. Say your first sentence slowly and keep your voice strong through to the last word of each sentence.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 70,
+      "max": 140
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "calm-clear-speaking"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "nerves",
+      "introduction",
+      "clarity"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique calm-clear-speaking (editorial seed mapped to calm-clear-speaking). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-pause-not-filler-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Read with a beat at every full stop",
+    "goal": "Rehearse the silent-beat habit on a short passage before using it in free speech.",
+    "prompt": "Read the passage aloud at a calm pace. At every full stop, shut your lips and let one silent beat pass before you continue. Notice how the pauses make the passage sound more confident, not less.",
+    "referenceText": "Every strong speaker has quiet moments. A pause gives your listener time to catch up, and it gives you time to find your next words. So when your mind goes blank, do not reach for a sound. Close your lips. Take a slow breath. Then say the next idea clearly, as if you had planned the silence all along.",
+    "techniqueIds": [
+      "pause-not-filler"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pauses",
+      "reading",
+      "warm-up"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "action": "REBAND",
+        "band": {
+          "min": 80,
+          "max": 160
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed tech_pauses; reference text written from scratch; a beat at every full stop lowers words per minute, so slow-pace floor lowered to 80 wpm; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-contrast-stress",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Stress the Word That Changes the Meaning",
+    "goal": "Use pitch and a tiny pause to highlight the one word that corrects or contrasts.",
+    "prompt": "Read the passage and let the contrast words carry the meaning. Lift your pitch and add a little weight to moved and kitchen, then leave a tiny gap just after each one. Keep the other words lighter so the important ones stand out.",
+    "referenceText": "I never said Maria lost the keys. I said she moved them. And she moved them to the kitchen, not the garage, so please look there first.",
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "emphasis",
+      "meaning"
+    ],
+    "provenance": {
+      "notes": "From app seed pron_sentence_stress (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-linking",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Link Words Into Smooth Phrases",
+    "goal": "Carry a final consonant onto the next vowel so phrases flow instead of sounding choppy.",
+    "prompt": "Read these instructions smoothly. When a word ends in a consonant and the next word starts with a vowel sound, carry the consonant across to it, so pick it up sounds like one flowing phrase rather than three separate words. Practise the links quietly first, then record one smooth reading at a natural speed.",
+    "referenceText": "Pick it up and put it on the shelf. Then turn off all of the lights, and lock up as soon as everyone is out.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "linking",
+      "flow"
+    ],
+    "provenance": {
+      "notes": "From app seed pron_connected (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-r-and-l",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Clear r and l Sounds",
+    "goal": "Make r and l distinct by changing whether your tongue tip touches the roof of your mouth.",
+    "prompt": "Read at a pace that lets you place each sound. For l, press the tip of your tongue firmly on the ridge just behind your top teeth. For r, curl the tongue tip back a little so it touches nothing, and round your lips slightly.",
+    "referenceText": "Laura really likes long rides along the river. Every Thursday she rolls her red bike down to the lake, rests on the warm rocks, and reads a library novel until the light fades.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "consonants"
+    ],
+    "provenance": {
+      "notes": "From app seed pron_diff_r_l (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-shifting-stress",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Stress That Changes the Word",
+    "goal": "Move the stress in words like permit and object to show whether you mean the noun or the verb.",
+    "prompt": "Some English words move their stress when they change role. The noun usually stresses the first part, as in a PERmit, and the verb the second, as in to perMIT. Read the text and make each stressed syllable longer, slightly louder and a little higher in pitch. Take your time and do not rush these words.",
+    "referenceText": "Our farm will produce more fresh produce this year. Sales should increase, and the increase must be steady. I object to one small object in the plan: the permit does not permit night work.",
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "stress"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "action": "REBAND",
+        "band": {
+          "min": 80,
+          "max": 160
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed pron_word_stress (CurriculumCatalog.pronunciationDrills). Reference text is newly written with different noun-verb stress pairs. Slow-pace band lowered because the drill asks for lengthened stressed syllables. Linked to vocal-variety because stress uses length, volume and pitch. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-short-long-vowels",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Short and Long Vowel Sounds",
+    "goal": "Show the difference between the short vowel in big and the long vowel in green.",
+    "prompt": "Read the text slowly. Keep the short vowel relaxed and quick in words like big, bin, fill and live. For the long vowel in words like green, week, keep and beach, spread your lips slightly as if starting a smile and hold the sound a little longer.",
+    "referenceText": "Jill will leave the big bin by the green gate. Each week, Tim fills it and Pete feels it is neat. Is it cheap to keep? It is, if you live near the beach.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "vowels",
+      "minimal-pairs"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "action": "REBAND",
+        "band": {
+          "min": 80,
+          "max": 160
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed pron_pair_ship_sheep (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Slow-pace band lowered because the drill asks for a slow read with lengthened vowels. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-th-and-s",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "The th Sound Versus s",
+    "goal": "Tell th and s apart clearly by changing where your tongue sits.",
+    "prompt": "Read the passage at a steady pace. For every th, let the tip of your tongue rest lightly between your teeth and blow air gently over it. For every s, pull your tongue back behind your teeth and make a clean hiss. Practise any tricky word on its own before you record.",
+    "referenceText": "Seth thought the path to the south was safe, but both of us saw something thick in the sand. I think it was a thistle, so we sat on a thin seat and said thanks for the shade.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "consonants",
+      "minimal-pairs"
+    ],
+    "provenance": {
+      "notes": "From app seed pron_pair_think_sink (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-v-and-w",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "The v Sound Versus w",
+    "goal": "Separate v and w by switching between a teeth-on-lip buzz and rounded lips.",
+    "prompt": "Read aloud and feel the difference in your mouth. For v, rest your top teeth gently on your lower lip and let the sound buzz. For w, round your lips into a small circle without your teeth touching them, then open into the vowel.",
+    "referenceText": "We visited a village with wide valleys and very windy weather. William wore a woolly vest, and Vera waved from the van while we waited by the well.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "pronunciation",
+      "consonants",
+      "minimal-pairs"
+    ],
+    "provenance": {
+      "notes": "From app seed pron_pair_vest_west (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-shadow-silence",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Read With Pauses That Carry Weight",
+    "goal": "Read a short passage with deliberate one-second silences and a melody that lifts, then settles.",
+    "prompt": "Read this short passage aloud at a relaxed, unhurried pace. Lift your pitch slightly on the words that matter most, take a full one-second silence after the first and second sentences, and let your voice settle downward on the very last word.",
+    "referenceText": "A quiet moment can say more than a crowded sentence. When you stop for a beat after an important idea, your listener has time to catch it. Then your next words arrive with more weight.",
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "shadowing",
+      "pauses",
+      "melody"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "SUPPRESS"
+      }
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "5 Vocal Foundations",
+      "notes": "From app seed shad_vocal_instrument (CurriculumCatalog.shadowingSegments), focus pause and melody at about 125 wpm. Reference text is newly written; the seed script was not reused. Long pauses suppressed because the read asks for one-second silences. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]

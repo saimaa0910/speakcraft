@@ -1,2 +1,4 @@
 # MediaPipe model bundles are zip archives: never apply line-ending conversion.
 *.task binary
+# Content-pack JSON is checksummed in manifest.json: keep LF on every checkout.
+app/src/main/assets/content/** text eol=lf

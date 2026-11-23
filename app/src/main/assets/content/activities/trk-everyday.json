@@ -1,0 +1,864 @@
+[
+  {
+    "id": "act-active-listening-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Reflect a friend's dilemma",
+    "goal": "Sum up a friend's point and feeling in one sentence, check it, then respond with care.",
+    "prompt": "A friend tells you: 'I've been offered a job in another city. The pay is better, but I'd be leaving everyone I know, and I keep changing my mind.' Reply in about 45 seconds. First, sum up their situation and how they seem to feel in one sentence. Then check you have understood, and finish with one helpful question or thought.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 55,
+      "max": 110
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "active-listening"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "listening",
+      "empathy",
+      "everyday"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_listening; original scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-conversation-threads-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Open a chat at an event",
+    "goal": "Start a conversation with a light observation, a line about yourself and two open questions.",
+    "prompt": "Imagine you are standing beside someone you have not met at a friend's party or a work event. Speak as if they are in front of you: make one friendly observation about the event, add a sentence about yourself, then ask two open questions that start with how or what. Avoid questions that could be answered with a simple yes or no.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 50,
+      "max": 110
+    },
+    "prepSeconds": 15,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "conversation-threads"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "conversation",
+      "networking",
+      "questions"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique conversation-threads (editorial seed mapped to conversation-threads). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-conversation-threads-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Open up closed questions",
+    "goal": "Turn yes-or-no questions into open ones that invite a story, each paired with a short line of your own.",
+    "prompt": "Here are three closed questions: Did you have a good weekend? Do you like your job? Was the trip fun? Say each one again as an open question that invites a story, starting with how, what or tell me about. Before each question, add one short line about yourself, for example something you did at the weekend.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 50,
+      "max": 110
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "conversation-threads"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "conversation",
+      "questions",
+      "practice"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique conversation-threads (editorial seed mapped to conversation-threads). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-explain-complex-ideas-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Everyday Technology, Simply Explained",
+    "goal": "Explain how a familiar piece of technology works to someone who rarely uses it, using a comparison from daily life.",
+    "prompt": "Choose one: how a map app knows there is traffic ahead, how a contactless card pays at a till, or how a streaming service suggests what to watch next. Explain it to a relative who rarely uses technology. Begin with something they already do, compare the idea to something from daily life, skip the technical terms, and end with a one-sentence summary. Aim for about a minute.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "technology",
+      "comparison",
+      "everyday"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_clear with new example topics; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-pause-not-filler-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Silent beats on a familiar topic",
+    "goal": "Talk for a minute about something you know well, using a quiet pause wherever a filler would normally appear.",
+    "prompt": "Describe how you like to spend a free weekend morning, for about 60 seconds. Speak a little slower than usual. Each time you feel an um or uh about to come out, close your lips, take one quiet breath and start again only when you know how the next sentence begins. Silence is welcome here; filler sounds are what you are trying to drop.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 70,
+      "max": 150
+    },
+    "prepSeconds": 15,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "pause-not-filler"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "fillers",
+      "pauses",
+      "fluency"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "action": "REBAND",
+        "band": {
+          "min": 80,
+          "max": 160
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed tech_pauses (instructions and practical exercise); original prompt; deliberately slower delivery, so slow-pace floor lowered to 80 wpm; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-describe-unnamed",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Describe It Without Saying Its Name",
+    "goal": "Help a listener picture an object using its size, feel, use and comparisons instead of its name.",
+    "prompt": "Choose an everyday object near you, such as a kettle, a backpack or a pair of headphones. Describe it for one minute without ever saying its name. Cover its shape and size, what it is made of, how it feels or sounds, what people use it for, and what it reminds you of. Imagine a listener who has to guess the object from your words alone.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "description",
+      "clarity",
+      "vocabulary"
+    ],
+    "provenance": {
+      "notes": "From app seed chal_taboo (CurriculumCatalog.speakingChallenges). Re-expressed in original wording with new example objects. Linked to explain-complex-ideas for its use of familiar comparisons. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-five-word-story",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "One Story, Five New Words",
+    "goal": "Fit five target words naturally into a single short, true story.",
+    "prompt": "Tell a short true story from work, study or daily life in about 90 seconds, and use these five words along the way: articulate, cadence, rapport, poise and concise. Let the story lead, and place each word where it genuinely belongs rather than listing them. If a word feels forced, adjust a detail of the story until it fits.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 135,
+      "max": 250
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 105,
+    "techniqueIds": [
+      "relive-the-story"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "vocabulary",
+      "story"
+    ],
+    "provenance": {
+      "notes": "From app seed chal_5_words (CurriculumCatalog.speakingChallenges). Re-expressed in original wording; the five vocabulary words are kept from the seed. targetWordIds not set because word ids are not known to this draft. Reviewer to verify wording and link word ids if desired."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-articles",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Using a, an and the When You Describe",
+    "goal": "Introduce new things with a or an, then switch to the once your listener knows which one you mean.",
+    "prompt": "Talk for about 45 seconds about something you bought or were given recently. Introduce it, and anything else new, with a or an, as in I got a new lamp and an extra cable. Once your listener knows which one you mean, switch to the, as in The lamp has three brightness settings, and the cable is long enough to reach my desk.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 125
+    },
+    "maxSeconds": 60,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 3,
+    "tags": [
+      "grammar",
+      "articles"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_articles (CurriculumCatalog.grammarLessons). Re-expressed in original wording with new example sentences. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-past-tenses",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L3",
+    "title": "Past Tenses in a Short Story",
+    "goal": "Set the background with the past continuous and move the action forward with the past simple.",
+    "prompt": "Tell a 45-second story about something unexpected that happened on an ordinary day. Use the past continuous to paint the background, as in I was waiting for the bus and it was starting to rain. Use the past simple for the events that move the story on, as in Then a stranger handed me an umbrella and walked away.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 125
+    },
+    "maxSeconds": 60,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 3,
+    "tags": [
+      "grammar",
+      "tenses",
+      "story"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_tenses (CurriculumCatalog.grammarLessons). Re-expressed in original wording with new example sentences. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-time-place",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "At, On and In for Making Plans",
+    "goal": "Arrange a meeting aloud, using at, on and in correctly for days, times and places.",
+    "prompt": "Imagine you are setting up a meeting with a friend or colleague. Leave them a 30 to 45 second spoken message with the day, the time, the place and one backup option. Use on for days and dates (on Tuesday), at for clock times and exact spots (at half past ten, at the front entrance), and in for months, parts of the day and inside spaces (in the afternoon, in the library).",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 45,
+      "max": 110
+    },
+    "maxSeconds": 50,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 2,
+    "tags": [
+      "grammar",
+      "prepositions",
+      "plans"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_prepositions (CurriculumCatalog.grammarLessons). Re-expressed in original wording with new example phrases. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-guided-morning",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Talk a Friend Through Your Best Morning",
+    "goal": "Describe a routine step by step while changing your speed and pausing as you move between stages.",
+    "prompt": "Picture your ideal, productive morning and talk a friend through it for two minutes, from the moment you wake up to the moment you start work or study. Move quickly through the ordinary steps and slow down for the one or two habits that matter most to you. Leave a short silence each time you move on to the next part of the morning.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 180,
+      "max": 330
+    },
+    "maxSeconds": 135,
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "pace",
+      "pauses",
+      "routine"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "REBAND",
+        "band": {
+          "min": 0,
+          "max": 4
+        }
+      }
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "5 Vocal Foundations",
+      "notes": "From app seed chal_daily_routine (CurriculumCatalog.speakingChallenges). Re-expressed in original wording. Long-pause band widened because the task asks for a pause at each transition. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-one-minute-flow",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Sixty Seconds Without Stopping",
+    "goal": "Keep talking for a full minute, using a quiet pause instead of a filler sound whenever you need to think.",
+    "prompt": "Talk for one minute about something you learned to do recently, such as cooking a new dish, using an app or playing a sport, and say why it was worth the effort. Keep going until the time is up. If you lose your thread, stay silent for a moment and then continue with the next detail, rather than filling the gap with um or er.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 15,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "pause-not-filler"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "fluency",
+      "fillers",
+      "impromptu"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "REBAND",
+        "band": {
+          "min": 0,
+          "max": 4
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed chal_1min_nonstop (CurriculumCatalog.speakingChallenges). Original wording, new examples. Pause band widened, not suppressed: silent thinking pauses are allowed but the aim is continuous flow, so heavy stalling is still flagged (this narrows the pause-not-filler SUPPRESS here). Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-rehearse-conversation-opener",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Rehearse Starting a Conversation",
+    "goal": "Practise opening a chat with an observation, a small personal detail and two open follow-up questions.",
+    "prompt": "Rehearse how you would start a two-minute chat with a colleague, classmate or neighbour you do not know well. Speak as if they were standing in front of you: open with a friendly observation about where you are, share one small detail about yourself, then ask two open follow-up questions that begin with how or what, so they can say more than yes or no.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 125
+    },
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "conversation-threads"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "conversation",
+      "questions",
+      "rehearsal"
+    ],
+    "provenance": {
+      "notes": "From app seed realWorldTaskSeeds[0] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal of the real-world task. Re-expressed in original wording. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-three-channels-summary",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Explain the Three Channels in Your Own Words",
+    "goal": "Recall an idea without notes and say clearly which part of your delivery you will improve first.",
+    "prompt": "Without looking at notes, spend about 90 seconds explaining the idea that listeners take in three things at once: what they see, such as posture, face and hands; what they hear in your voice, such as pace, pitch and volume; and the words you choose. Give a quick example of each from a speaker you have watched, then say which of the three you most want to improve and why.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 135,
+      "max": 250
+    },
+    "maxSeconds": 105,
+    "techniqueIds": [
+      "three-channels"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "summary",
+      "self-awareness"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "3Vs of Communication",
+      "notes": "From app seed chal_video_summary (CurriculumCatalog.speakingChallenges). Re-expressed in original wording; the coined framework name is replaced by a plain description. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-zero-filler-intro",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Introduce Yourself With No Fillers",
+    "goal": "Replace every um, uh or like with a calm one-second silence while you introduce yourself.",
+    "prompt": "Introduce yourself for one minute: who you are, what you are working on or studying at the moment, and what you enjoy about it. There is one rule: no filler sounds. The moment you feel um, uh, like or you know coming, close your lips, stay silent for about one second, and then carry on with your next phrase.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "pause-not-filler"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "fillers",
+      "silence",
+      "introduction"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "SUPPRESS"
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed chal_zero_fillers (CurriculumCatalog.speakingChallenges). Re-expressed in original wording. Long pauses suppressed because the task asks for a deliberate one-second silence in place of every filler. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-prep-answer-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-STRUCT",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Quick Opinion in Four Steps",
+    "goal": "Give a clear opinion in about a minute: point first, one reason, one real example, then the point again.",
+    "prompt": "Answer this question in about a minute: Should everyone learn to cook a few simple meals before they leave home? Give your view in your first sentence. Then add one reason, one real example from your own life or from someone you know, and finish by restating your view in new words.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "framework": "PREP",
+    "expectedElements": [
+      "Point",
+      "Reason",
+      "Example",
+      "Point_Restate"
+    ],
+    "prepSeconds": 15,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "prep-answer"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "opinion",
+      "impromptu",
+      "structure"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_prep, shaped after the app's daily opinion sprint challenge (chal_prep_opinion) with a new question; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-purposeful-gestures-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Count your reasons on your fingers",
+    "goal": "Mark each item in a short list with a clear finger count while keeping your hands in view of the camera.",
+    "prompt": "Turn on the camera and frame yourself from your head down to about your belt. Answer this question: What three things make a weekend feel well spent to you? Hold up one finger as you name each thing, keep it raised while you explain it, then let your hands rest before you move on to the next one.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 60,
+      "max": 120
+    },
+    "prepSeconds": 15,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "purposeful-gestures"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "gestures",
+      "camera",
+      "lists"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique purposeful-gestures (seed tech_body_power). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-record-and-review-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Two-Minute Story for Review",
+    "goal": "Tell a two-minute story about a small challenge, then review it layer by layer and note one habit to fix.",
+    "prompt": "Tell the story of a small challenge you handled recently, such as a missed train, a tricky conversation or a recipe that went wrong. Say where you were, what happened and how it turned out. Keep going for about two minutes. Afterwards, review it in three separate passes and write down one voice habit and one wording habit you noticed.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 180,
+      "max": 320
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 150,
+    "techniqueIds": [
+      "record-and-review"
+    ],
+    "estMinutes": 9,
+    "tags": [
+      "story",
+      "self-review",
+      "longer talk"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_3stage_audit (longer recording for a full review); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-relive-the-story-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "A small moment that surprised you",
+    "goal": "Tell a one-minute true story that starts inside the scene and includes real quoted lines.",
+    "prompt": "Tell a true story of about 60 seconds about a small moment that surprised you, such as a stranger's kindness or a plan that went sideways. Drop us into the moment itself by saying when and where it happened. Quote at least two things that were actually said, add one detail you could see or hear, and end with what you took away from it.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "relive-the-story"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "story",
+      "dialogue",
+      "everyday"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_storytelling; original prompt; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-relive-the-story-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "From flat summary to living scene",
+    "goal": "Rebuild a one-line summary as a short scene with a setting, spoken lines and detail.",
+    "prompt": "Here is a flat summary: 'My train was late and I nearly missed an important meeting.' Turn it into a 30 to 45 second scene, real or imagined. Say where you were standing, what the announcement said, what you said to yourself or the person next to you, and how it ended.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 60,
+      "max": 120
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "relive-the-story"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "story",
+      "detail",
+      "practice"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_storytelling; original summary-to-scene exercise; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-share-highs-and-lows-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "Your week in three moments",
+    "goal": "Tell a one-minute story about your week built around a high, a low and a surprise, with clear contrast between them.",
+    "prompt": "Tell a friend about your past week through three moments: the best part, the hardest part, and something that caught you off guard. Start with whichever moment is most interesting, give each one a concrete detail, and connect them with words like but or then. End with one sentence about how the week left you feeling.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "share-highs-and-lows"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "story",
+      "reflection",
+      "everyday"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique share-highs-and-lows (editorial seed mapped to share-highs-and-lows). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-three-channels-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L3",
+    "title": "One-Minute Introduction, Reviewed Three Ways",
+    "goal": "Introduce yourself for a minute, then review your body, voice and words separately to find the weakest channel.",
+    "prompt": "Imagine it is the first minute of a workshop and you are introducing yourself to the group. Say who you are, what you do, and one thing you hope to get out of the day. Talk for about a minute without restarting. Afterwards, replay the recording three times: once with the sound off to watch your body, once without looking to hear your voice, and once thinking only about your words.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 15,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "three-channels"
+    ],
+    "estMinutes": 5,
+    "tags": [
+      "introduction",
+      "self-review",
+      "delivery"
+    ],
+    "provenance": {
+      "notes": "Original activity for the CurriculumCatalog seed mapped to three-channels (practical exercise re-expressed); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-vocal-variety-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Explain a Habit With Contrast",
+    "goal": "Explain a habit you value in about 45 seconds, moving quickly through the background and slowing for the line that matters.",
+    "prompt": "Talk about a habit that makes your life better, such as an evening walk, planning your week on Sunday, or reading before bed. Move through the background quickly and lightly. When you reach the single sentence that explains why it matters most to you, slow down, soften your voice a little and pause after it. Then finish with one short, confident closing line.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 70,
+      "max": 130
+    },
+    "prepSeconds": 15,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "vocal-variety"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "contrast",
+      "habit",
+      "impromptu"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "REBAND",
+        "band": {
+          "min": 0,
+          "max": 4
+        }
+      }
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_5_vocal (practical exercise re-expressed); pause band widened modestly for the requested deliberate silence; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]

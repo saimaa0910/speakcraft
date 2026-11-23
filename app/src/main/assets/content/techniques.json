@@ -1,0 +1,1024 @@
+[
+  {
+    "id": "active-listening",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Listen fully, then reflect back",
+    "summary": "Give someone your full attention, catch their main point and feeling, and play it back in one sentence before you share your own view.",
+    "whyItWorks": "Most of us listen while preparing our reply, so we miss what the other person actually meant. Watching their face, hearing their tone and then summing up their point in your own words shows that you understood, and people usually relax when they feel understood. It also catches misunderstandings early, and your own view gets a fairer hearing once theirs has been acknowledged.",
+    "steps": [
+      "While they talk, park your own reply and focus only on understanding.",
+      "Watch their face and posture, and notice any change in their tone of voice.",
+      "When they finish, let a calm breath pass before you answer.",
+      "Sum up their main point and the feeling behind it in a single sentence, in your own words.",
+      "Check you have it right, then share your own view or question."
+    ],
+    "tipIds": [
+      "tip-active-listening-1",
+      "tip-active-listening-2",
+      "tip-active-listening-3",
+      "tip-active-listening-4",
+      "tip-active-listening-5",
+      "tip-active-listening-6"
+    ],
+    "relatedActivityIds": [
+      "act-active-listening-1",
+      "act-active-listening-2",
+      "act-active-listening-3",
+      "act-practice-rehearse-open-questions"
+    ],
+    "targetMetrics": [],
+    "selfCheckItems": [
+      {
+        "id": "sc-active-listening-1",
+        "text": "In a real conversation today, did you let the other person finish without cutting in?"
+      },
+      {
+        "id": "sc-active-listening-2",
+        "text": "While they spoke, did you stop drafting your reply in your head?"
+      },
+      {
+        "id": "sc-active-listening-3",
+        "text": "Did you notice their facial expression and tone, not only their words?"
+      },
+      {
+        "id": "sc-active-listening-4",
+        "text": "Did you keep relaxed, friendly eye contact while they were talking?"
+      },
+      {
+        "id": "sc-active-listening-5",
+        "text": "Did they seem calmer or more open after you summed up their point?"
+      }
+    ],
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-WORK"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "The 4 Ways of Listening (Eyes, Ears, Brain, Heart)",
+      "notes": "From app seed tech_listening; four-channel framing not reproduced, ideas re-expressed as plain steps; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "adapt-to-listener-style",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Adapt your message to your listener",
+    "summary": "Spot what your listener values most, such as results, ideas, people or proof, and shape your opening around it.",
+    "whyItWorks": "People take in information differently. Some want the bottom line, some want an exciting picture, some want to know who is affected and some want evidence. If you always speak in the style you prefer, part of your audience switches off before your main point arrives. Opening with what this listener cares about lowers resistance and makes agreement easier, and your message itself stays the same.",
+    "steps": [
+      "Before you speak, notice how the listener talks: quick or measured, big picture or fine detail, focused on tasks or on people.",
+      "Choose their likely priority: results, ideas and energy, people and harmony, or facts and proof.",
+      "Make your first one or two sentences about that priority.",
+      "Keep your core message the same; change the order, the examples and the amount of detail.",
+      "Move slightly toward their pace and energy while still sounding like yourself."
+    ],
+    "tipIds": [
+      "tip-adapt-to-listener-style-1",
+      "tip-adapt-to-listener-style-2",
+      "tip-adapt-to-listener-style-3",
+      "tip-adapt-to-listener-style-4",
+      "tip-adapt-to-listener-style-5"
+    ],
+    "relatedActivityIds": [
+      "act-adapt-to-listener-style-1",
+      "act-adapt-to-listener-style-2",
+      "act-adapt-to-listener-style-3"
+    ],
+    "targetMetrics": [],
+    "selfCheckItems": [
+      {
+        "id": "sc-adapt-to-listener-style-1",
+        "text": "Before speaking, did you decide what this listener cares about most?"
+      },
+      {
+        "id": "sc-adapt-to-listener-style-2",
+        "text": "Did your opening sentence speak to their priority rather than your own favourite angle?"
+      },
+      {
+        "id": "sc-adapt-to-listener-style-3",
+        "text": "Did your facial expression and energy suit this listener?"
+      },
+      {
+        "id": "sc-adapt-to-listener-style-4",
+        "text": "In a live conversation, did you watch for signs that they wanted more or less detail?"
+      }
+    ],
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "The 4-Color Communicator Adaptation",
+      "notes": "From app seed tech_4colors; listener styles re-expressed as plain priorities (results, ideas, people, proof) with no colour labels; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "articulation-warmup",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Articulation warm-up for crisp words",
+    "summary": "Loosen your lips, tongue and jaw with a short, overdone drill so everyday words, and their endings, come out sharper.",
+    "whyItWorks": "Clear speech is partly physical. Your lips, tongue and jaw shape every sound, and they get lazy when you are tired or in a hurry, which is exactly when word endings disappear. Running them through slow, deliberately exaggerated lines makes the movements easier, so final sounds such as t, d, k, p and s survive at normal speed. Listeners then catch each word the first time.",
+    "steps": [
+      "Loosen your face: open and close your jaw gently, then switch between a wide smile and a tight pucker five times.",
+      "Say a tongue twister at about half speed, overdoing every sound so you can feel each one land.",
+      "Finish every word completely, paying special attention to final t, d, k, p and s sounds.",
+      "Say the same line at everyday speed and volume, keeping the endings you just practised.",
+      "Use this two-minute routine before calls, interviews or talks."
+    ],
+    "tipIds": [
+      "tip-articulation-warmup-1",
+      "tip-articulation-warmup-2",
+      "tip-articulation-warmup-3",
+      "tip-articulation-warmup-4",
+      "tip-articulation-warmup-5",
+      "tip-articulation-warmup-6"
+    ],
+    "relatedActivityIds": [
+      "act-articulation-warmup-1",
+      "act-articulation-warmup-2",
+      "act-articulation-warmup-3",
+      "act-practice-pron-short-long-vowels",
+      "act-practice-pron-th-and-s",
+      "act-practice-pron-v-and-w",
+      "act-practice-pron-r-and-l",
+      "act-practice-pron-linking"
+    ],
+    "targetMetrics": [
+      "M-MATCH"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-articulation-warmup-1",
+        "text": "Did your lips close fully on p, b and m sounds?"
+      },
+      {
+        "id": "sc-articulation-warmup-2",
+        "text": "Did your jaw move freely, rather than staying stiff and nearly shut?"
+      },
+      {
+        "id": "sc-articulation-warmup-3",
+        "text": "Could you feel your tongue tap clearly behind your top teeth on t and d?"
+      },
+      {
+        "id": "sc-articulation-warmup-4",
+        "text": "Did your face, neck and shoulders stay relaxed while you exaggerated the sounds?"
+      }
+    ],
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-PRESENT"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "Daily Articulation & Enunciation Muscle Warm-Up",
+      "notes": "From app seed tech_articulation; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "calm-clear-speaking",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Calm, clear speaking habits",
+    "summary": "Settle nerves and sharpen your words with a short routine: loosen your jaw, breathe low, then start your first sentence slowly.",
+    "whyItWorks": "Nerves quicken your breathing and tighten your jaw and throat, which leads to rushing, mumbling and a thin voice. A short routine before you speak works on the body first: slow, low breaths calm the stress response, and loosening the jaw and lips gives words room to form. Starting slower than feels natural sets a steady rhythm, and finishing word endings keeps you easy to understand.",
+    "steps": [
+      "Spend about ninety seconds loosening your jaw, lips and tongue with gentle chewing, wide yawns and lip trills.",
+      "Stand or sit tall with both feet on the floor and your shoulders relaxed down.",
+      "Take three slow breaths into your lower belly, making each breath out longer than the breath in.",
+      "Say your first sentence noticeably slower than feels natural, then settle into an easy pace.",
+      "Open your mouth a little wider than usual and finish the last sound of every word.",
+      "Keep your voice strong to the end of each sentence instead of letting it fade.",
+      "If nerves spike while you speak, pause, take one low breath and carry on."
+    ],
+    "tipIds": [
+      "tip-calm-clear-speaking-1",
+      "tip-calm-clear-speaking-2",
+      "tip-calm-clear-speaking-3",
+      "tip-calm-clear-speaking-4",
+      "tip-calm-clear-speaking-5",
+      "tip-calm-clear-speaking-6"
+    ],
+    "relatedActivityIds": [
+      "act-calm-clear-speaking-1",
+      "act-calm-clear-speaking-2",
+      "act-calm-clear-speaking-3"
+    ],
+    "targetMetrics": [
+      "M-WPM",
+      "M-LEVEL",
+      "M-MATCH"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-calm-clear-speaking-1",
+        "text": "I loosened my jaw and lips before recording."
+      },
+      {
+        "id": "sc-calm-clear-speaking-2",
+        "text": "I took three slow, low breaths before my first word."
+      },
+      {
+        "id": "sc-calm-clear-speaking-3",
+        "text": "My shoulders stayed relaxed and my posture upright."
+      },
+      {
+        "id": "sc-calm-clear-speaking-4",
+        "text": "My first sentence was slower than the rest."
+      },
+      {
+        "id": "sc-calm-clear-speaking-5",
+        "text": "I felt calmer at the end than at the start."
+      }
+    ],
+    "trackIds": [
+      "TRK-CLEAR",
+      "TRK-PRESENT",
+      "TRK-INTERVIEW",
+      "TRK-WORK"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "Nine Habits for Clearer Speaking and Nervousness Tools",
+      "notes": "From app editorial draft seed (tech_pending entry mapped to calm-clear-speaking; PENDING_TRANSCRIPT, not creator-derived; seed listed no habits). Written as a full technique from the seed idea in original wording; it does not claim to reproduce a nine-item list. Reviewer to confirm source (then ORIGINAL_REEXPRESSION with sourceVideoId/sourceUrl/timestamps) or ship as ORIGINAL."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "conversation-threads",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Follow the conversation thread",
+    "summary": "Open with a light observation, share a little about yourself, and ask open questions that build on what the other person says.",
+    "whyItWorks": "Closed questions invite one-word answers and leave you hunting for a new topic. An open question gives the other person room to talk, and almost every answer holds a thread you can pick up: a place, a plan, a feeling. Offering a small piece of your own experience between questions keeps the exchange two-way rather than an interview, so the talk goes deeper with less effort on both sides.",
+    "steps": [
+      "Open with a light observation about something you share, such as the venue, the event or the day.",
+      "Add one short line about yourself so the other person has something to respond to.",
+      "Ask an open question that starts with 'how', 'what' or 'tell me about'.",
+      "Listen to the whole answer for a thread: a name, a place, a feeling or a plan.",
+      "Follow that thread with another open question instead of jumping to a new topic.",
+      "Share a related thought of your own before your next question to keep the balance."
+    ],
+    "tipIds": [
+      "tip-conversation-threads-1",
+      "tip-conversation-threads-2",
+      "tip-conversation-threads-3",
+      "tip-conversation-threads-4",
+      "tip-conversation-threads-5",
+      "tip-conversation-threads-6"
+    ],
+    "relatedActivityIds": [
+      "act-conversation-threads-1",
+      "act-conversation-threads-2",
+      "act-conversation-threads-3",
+      "act-practice-rehearse-conversation-opener"
+    ],
+    "targetMetrics": [],
+    "selfCheckItems": [
+      {
+        "id": "sc-conversation-threads-1",
+        "text": "I opened with an observation rather than a yes-or-no question."
+      },
+      {
+        "id": "sc-conversation-threads-2",
+        "text": "Most of my questions began with how, what or tell me about."
+      },
+      {
+        "id": "sc-conversation-threads-3",
+        "text": "I followed up on something the other person said instead of changing topic."
+      },
+      {
+        "id": "sc-conversation-threads-4",
+        "text": "I shared a little about myself between questions."
+      },
+      {
+        "id": "sc-conversation-threads-5",
+        "text": "I listened to the full answer before planning my next question."
+      }
+    ],
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-WORK"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "provenance": {
+      "techniqueNameAsTaught": "3-2-1 Conversation Framework",
+      "notes": "Editorial draft seed (tech_pending entry mapped here; PENDING_TRANSCRIPT, not creator-derived, no steps). Written from the seed idea in original wording; its numbered structure was not copied as it is unverified. targetMetrics empty: question type and listening are not measured. Reviewer to confirm source (then ORIGINAL_REEXPRESSION with sourceVideoId/sourceUrl/timestamps) or ship as ORIGINAL."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "explain-complex-ideas",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Explain Complex Ideas in Plain Words",
+    "summary": "Start from what your listener already knows, link the idea to something familiar, drop the jargon and repeat the main takeaway.",
+    "whyItWorks": "Specialists often treat technical vocabulary as a sign of expertise, but every unexplained term makes the listener stop and guess, and after a few guesses they stop listening. Starting from what they already understand, comparing the idea to something familiar and saying what it means for them keeps them with you. Repeating the takeaway at the end gives them one clear sentence to carry away.",
+    "steps": [
+      "Check your listener's starting point: what do they already know, and what do they care about?",
+      "Link the new idea to something familiar from daily life, such as a kitchen, a road or a library.",
+      "Say what the idea means for them: what it saves, fixes or makes possible.",
+      "Swap jargon and acronyms for plain words, or explain each one in a short phrase the first time you use it.",
+      "End by repeating the main takeaway in one simple sentence."
+    ],
+    "tipIds": [
+      "tip-explain-complex-ideas-1",
+      "tip-explain-complex-ideas-2",
+      "tip-explain-complex-ideas-3",
+      "tip-explain-complex-ideas-4",
+      "tip-explain-complex-ideas-5",
+      "tip-explain-complex-ideas-6"
+    ],
+    "relatedActivityIds": [
+      "act-explain-complex-ideas-1",
+      "act-explain-complex-ideas-2",
+      "act-explain-complex-ideas-3",
+      "act-practice-describe-unnamed",
+      "act-practice-explain-tech-simply",
+      "act-practice-talk-outline",
+      "act-practice-rehearse-explain-your-work",
+      "act-practice-rehearse-problem-solved"
+    ],
+    "targetMetrics": [],
+    "selfCheckItems": [
+      {
+        "id": "sc-explain-complex-ideas-1",
+        "text": "I explained or replaced every acronym and technical term I used."
+      },
+      {
+        "id": "sc-explain-complex-ideas-2",
+        "text": "I compared the idea to something from everyday life."
+      },
+      {
+        "id": "sc-explain-complex-ideas-3",
+        "text": "I said what the idea means for this particular listener."
+      },
+      {
+        "id": "sc-explain-complex-ideas-4",
+        "text": "My last sentence summed up the main point in plain words."
+      },
+      {
+        "id": "sc-explain-complex-ideas-5",
+        "text": "Someone outside my field could repeat my main point back to me."
+      }
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY",
+        "action": "REBAND",
+        "band": {
+          "min": 0.45,
+          "max": 1
+        }
+      }
+    ],
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT",
+      "TRK-INTERVIEW"
+    ],
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "The CLEAR Framework for Complex Ideas",
+      "notes": "From app seed tech_clear; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording. LOW_VARIETY reband reflects the deliberate repetition of one key term and takeaway in plain-language explanations"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "pause-not-filler",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Pause instead of filler words",
+    "summary": "Replace every um, uh and you know with a short, silent beat, so you sound composed while your next thought takes shape.",
+    "whyItWorks": "Fillers tend to slip out when you are still searching for the next idea but feel you must keep making sound. A brief silence buys you the same thinking time, yet listeners read it as calm and self-control rather than uncertainty. Short gaps also give people a moment to absorb what you just said, so your points land more clearly.",
+    "steps": [
+      "Choose a topic you know well and speak at an easy, unhurried pace.",
+      "Notice the moment a filler is about to slip out; it often happens as you move to a new idea.",
+      "Close your lips and let one silent beat pass, breathing in quietly through your nose if you need air.",
+      "Carry on once you know how your next sentence begins.",
+      "Check your filler count afterwards and aim to bring it down a little on each try."
+    ],
+    "tipIds": [
+      "tip-pause-not-filler-1",
+      "tip-pause-not-filler-2",
+      "tip-pause-not-filler-3",
+      "tip-pause-not-filler-4",
+      "tip-pause-not-filler-5",
+      "tip-pause-not-filler-6"
+    ],
+    "relatedActivityIds": [
+      "act-pause-not-filler-1",
+      "act-pause-not-filler-2",
+      "act-pause-not-filler-3",
+      "act-practice-one-minute-flow",
+      "act-practice-zero-filler-intro",
+      "act-practice-rehearse-filler-free-summary"
+    ],
+    "targetMetrics": [
+      "M-FILL"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-pause-not-filler-1",
+        "text": "When you felt a filler coming, did you close your lips and wait instead of making a sound?"
+      },
+      {
+        "id": "sc-pause-not-filler-2",
+        "text": "During silences, did your face stay relaxed and your gaze steady rather than drifting away?"
+      },
+      {
+        "id": "sc-pause-not-filler-3",
+        "text": "Did your pauses feel chosen and calm to you, rather than like losing your place?"
+      },
+      {
+        "id": "sc-pause-not-filler-4",
+        "text": "Did you keep your hands and body still during silences instead of fidgeting?"
+      }
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "SUPPRESS"
+      }
+    ],
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-WORK",
+      "TRK-INTERVIEW",
+      "TRK-PRESENT"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "Eliminate Filler Words With Intentional Silence",
+      "notes": "From app seed tech_pauses; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "prep-answer",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Answer With PREP: Point, Reason, Example, Point",
+    "summary": "Lead with your answer, support it with one reason and one concrete example, then close by restating your point.",
+    "whyItWorks": "When a question catches you off guard, the reflex is to think aloud through background first, and listeners lose the thread before they hear your view. Putting the point first gives them a headline to hang everything else on. One reason and one example are enough to make it believable, and returning to the point at the end makes the answer feel finished instead of fading out.",
+    "steps": [
+      "Point: give your answer or opinion in your first sentence, ideally within five seconds.",
+      "Reason: explain the main reason behind it, using a link such as because or the main reason is.",
+      "Example: back it up with one specific case, with a time, place, person or number in it.",
+      "Point again: close by restating your answer in fresh words, starting with a link such as so or that is why.",
+      "Keep the whole answer to about a minute; one strong reason beats three rushed ones."
+    ],
+    "tipIds": [
+      "tip-prep-answer-1",
+      "tip-prep-answer-2",
+      "tip-prep-answer-3",
+      "tip-prep-answer-4",
+      "tip-prep-answer-5",
+      "tip-prep-answer-6"
+    ],
+    "relatedActivityIds": [
+      "act-prep-answer-1",
+      "act-prep-answer-2",
+      "act-prep-answer-3",
+      "act-practice-prep-opinion",
+      "act-practice-shadow-point-first",
+      "act-practice-recommend-three-points",
+      "act-practice-rehearse-prep-update"
+    ],
+    "targetMetrics": [
+      "M-STRUCT",
+      "M-HEDGE"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-prep-answer-1",
+        "text": "I knew my point before I started speaking."
+      },
+      {
+        "id": "sc-prep-answer-2",
+        "text": "My example was a real, specific case rather than a general claim."
+      },
+      {
+        "id": "sc-prep-answer-3",
+        "text": "I looked at the camera or listener as I stated my point."
+      },
+      {
+        "id": "sc-prep-answer-4",
+        "text": "My closing line restated the point in fresh words instead of copying the opening."
+      }
+    ],
+    "trackIds": [
+      "TRK-INTERVIEW",
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "The PREP Impromptu Framework",
+      "notes": "From app seed tech_prep; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "purposeful-gestures",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Purposeful hand gestures",
+    "summary": "Keep your hands in view and relaxed, move them only to show a number, a size or a contrast, then let them settle again.",
+    "whyItWorks": "Gestures that match your words give listeners a second way to follow you: a raised finger marks where you are in a list, and a wide or narrow shape shows scale faster than words can. Still hands between points look calm and make each gesture stand out. Moving with intent also tends to lift the energy in your voice, while hidden, clenched or fidgeting hands pull attention away from the message.",
+    "steps": [
+      "Prop the camera so the shot takes in your head, shoulders and hands, roughly down to your belt.",
+      "Choose a relaxed resting place for your hands in front of your middle, loosely touching or lightly held.",
+      "Before you start, pick two or three moments to gesture: a count, a size or a this-versus-that contrast.",
+      "Count list items on your fingers, one finger per point, held up where the camera can see it.",
+      "Keep movements in the space in front of your body, between belt and collarbone, with palms mostly open.",
+      "Time each movement to land on the key word, then let your hands settle back to rest before the next idea."
+    ],
+    "tipIds": [
+      "tip-purposeful-gestures-1",
+      "tip-purposeful-gestures-2",
+      "tip-purposeful-gestures-3",
+      "tip-purposeful-gestures-4",
+      "tip-purposeful-gestures-5",
+      "tip-purposeful-gestures-6"
+    ],
+    "relatedActivityIds": [
+      "act-purposeful-gestures-1",
+      "act-purposeful-gestures-2",
+      "act-purposeful-gestures-3",
+      "act-practice-calm-close"
+    ],
+    "targetMetrics": [],
+    "selfCheckItems": [
+      {
+        "id": "sc-purposeful-gestures-1",
+        "text": "My hands stayed visible in the frame for most of the answer."
+      },
+      {
+        "id": "sc-purposeful-gestures-2",
+        "text": "I used at least one gesture to show a number, a size or a contrast."
+      },
+      {
+        "id": "sc-purposeful-gestures-3",
+        "text": "Each gesture landed on the word it was meant to support."
+      },
+      {
+        "id": "sc-purposeful-gestures-4",
+        "text": "My hands returned to a calm resting place between points."
+      },
+      {
+        "id": "sc-purposeful-gestures-5",
+        "text": "I avoided fidgeting, gripping my hands together or touching my face."
+      },
+      {
+        "id": "sc-purposeful-gestures-6",
+        "text": "My arms stayed uncrossed and my palms were mostly open."
+      }
+    ],
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "provenance": {
+      "techniqueNameAsTaught": "Purposeful Hand Gestures in the Power Zone",
+      "notes": "From app seed tech_body_power; re-expressed in original wording with new examples. targetMetrics left empty on purpose: gestures are not measured from audio; camera issue tips and self-check items cover them. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "record-and-review",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Record Yourself and Review in Passes",
+    "summary": "Record a short talk, take a break, then review it one layer at a time: body language, then voice, then words.",
+    "whyItWorks": "Watching yourself straight after recording invites harsh, emotional judgement, and trying to notice everything at once means you notice very little. A short break lets that reaction settle, and reviewing one layer per pass makes specific habits easy to spot. Leaving with one clear fix for your voice and one for your wording builds progress faster than a vague feeling that it went badly.",
+    "steps": [
+      "Record yourself speaking for one to two minutes on a familiar topic, and keep going even if you stumble.",
+      "Step away for a few minutes before reviewing so the first wave of self-criticism can settle.",
+      "First pass: watch with the sound off and notice only posture, gestures and facial expression.",
+      "Second pass: close your eyes and listen only for pace, pauses, filler sounds and energy.",
+      "Third pass: read the transcript or recall your words, and check how clearly your ideas were organised.",
+      "Write down one voice habit and one wording habit to work on next time, and nothing more."
+    ],
+    "tipIds": [
+      "tip-record-and-review-1",
+      "tip-record-and-review-2",
+      "tip-record-and-review-3",
+      "tip-record-and-review-4",
+      "tip-record-and-review-5",
+      "tip-record-and-review-6"
+    ],
+    "relatedActivityIds": [
+      "act-record-and-review-1",
+      "act-record-and-review-2",
+      "act-record-and-review-3",
+      "act-practice-record-review-intro"
+    ],
+    "targetMetrics": [
+      "M-FILL",
+      "M-PAUSE"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-record-and-review-1",
+        "text": "I waited a few minutes before reviewing instead of judging straight away."
+      },
+      {
+        "id": "sc-record-and-review-2",
+        "text": "I watched and listened to the whole recording without stopping early."
+      },
+      {
+        "id": "sc-record-and-review-3",
+        "text": "On the silent pass, my posture and gestures looked calm and purposeful."
+      },
+      {
+        "id": "sc-record-and-review-4",
+        "text": "My facial expression matched what I was saying."
+      },
+      {
+        "id": "sc-record-and-review-5",
+        "text": "I wrote down one voice habit and one wording habit to change next time."
+      }
+    ],
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-INTERVIEW",
+      "TRK-PRESENT"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "Record and Review: 3-Stage Self-Awareness Audit",
+      "notes": "From app seed tech_3stage_audit; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "relive-the-story",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Tell the story from inside the scene",
+    "summary": "Put your listener straight into the moment with a time, a place and the actual words people said, instead of a flat summary.",
+    "whyItWorks": "A summary keeps listeners at a distance; a scene lets them stand next to you. When you quote what people actually said, your voice shifts on its own for each speaker, so the story comes alive without you having to perform. Concrete details such as a sound, an object or an exact phrase also make the story easier to picture and to remember later.",
+    "steps": [
+      "Pick a short, real moment you remember clearly, ideally one where something changed.",
+      "Skip the run-up and open inside the scene with when and where, for example: 'Monday, 8 a.m., a packed train.'",
+      "Quote at least two things people actually said, in their own words.",
+      "Add one or two sensory details, such as a sound, a smell or something you noticed.",
+      "Finish with what changed for you, in a single sentence."
+    ],
+    "tipIds": [
+      "tip-relive-the-story-1",
+      "tip-relive-the-story-2",
+      "tip-relive-the-story-3",
+      "tip-relive-the-story-4",
+      "tip-relive-the-story-5",
+      "tip-relive-the-story-6"
+    ],
+    "relatedActivityIds": [
+      "act-relive-the-story-1",
+      "act-relive-the-story-2",
+      "act-relive-the-story-3",
+      "act-practice-five-word-story",
+      "act-practice-shadow-story-voice",
+      "act-practice-story-spoken-line"
+    ],
+    "targetMetrics": [
+      "M-LEX"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-relive-the-story-1",
+        "text": "Did your facial expression change with the mood of each part of the story?"
+      },
+      {
+        "id": "sc-relive-the-story-2",
+        "text": "Did you give each person you quoted a slightly different voice or attitude?"
+      },
+      {
+        "id": "sc-relive-the-story-3",
+        "text": "Could a listener picture where you were within your first two sentences?"
+      },
+      {
+        "id": "sc-relive-the-story-4",
+        "text": "At the turning point, were you looking at your listener or the camera rather than away?"
+      }
+    ],
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-EVERYDAY",
+      "TRK-INTERVIEW"
+    ],
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "Relive the Story Instead of Reporting It",
+      "notes": "From app seed tech_storytelling; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "share-highs-and-lows",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Share your highs, lows and surprises",
+    "summary": "Turn a plain recap of your day or week into a short story by picking a high, a low and a surprise, and contrasting them.",
+    "whyItWorks": "A list of events in the order they happened is easy to forget. Choosing a best moment, a hardest moment and an unexpected one gives the story a shape and an emotional range, and the contrast between them is what makes listeners lean in. Practised in small talk, team check-ins or over dinner, it builds the habit of picking out what matters instead of reciting everything.",
+    "steps": [
+      "Look back over the day or week and pick three moments: a high, a low and something you did not expect.",
+      "Open with the moment most likely to catch interest, not with whatever happened first.",
+      "Give each moment one concrete detail, such as a place, something someone said, or how it felt.",
+      "Link the moments with contrast words like 'but', 'then' or 'the odd thing was'.",
+      "Let your voice and face shift to match each moment, brighter for the high and quieter for the low.",
+      "Finish with one sentence on what the mix taught you or how you feel now."
+    ],
+    "tipIds": [
+      "tip-share-highs-and-lows-1",
+      "tip-share-highs-and-lows-2",
+      "tip-share-highs-and-lows-3",
+      "tip-share-highs-and-lows-4",
+      "tip-share-highs-and-lows-5",
+      "tip-share-highs-and-lows-6"
+    ],
+    "relatedActivityIds": [
+      "act-share-highs-and-lows-1",
+      "act-share-highs-and-lows-2",
+      "act-share-highs-and-lows-3"
+    ],
+    "targetMetrics": [
+      "M-LEN",
+      "M-LEX"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-share-highs-and-lows-1",
+        "text": "I named a clear high, a clear low and a surprise."
+      },
+      {
+        "id": "sc-share-highs-and-lows-2",
+        "text": "I chose my order for interest instead of listing events as they happened."
+      },
+      {
+        "id": "sc-share-highs-and-lows-3",
+        "text": "Each moment had at least one concrete detail."
+      },
+      {
+        "id": "sc-share-highs-and-lows-4",
+        "text": "My face and voice changed between the high and the low."
+      },
+      {
+        "id": "sc-share-highs-and-lows-5",
+        "text": "I ended with what the mix of moments meant to me."
+      }
+    ],
+    "trackIds": [
+      "TRK-EVERYDAY",
+      "TRK-PRESENT",
+      "TRK-WORK"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "provenance": {
+      "techniqueNameAsTaught": "High Low Buffalo",
+      "notes": "From app editorial draft seed (tech_pending entry mapped to share-highs-and-lows; PENDING_TRANSCRIPT, not creator-derived; seed had no steps). Written as a full technique from the seed idea in original wording. Reviewer to confirm whether it maps to a specific source video (then ORIGINAL_REEXPRESSION with sourceVideoId/sourceUrl/timestamps) or ships as ORIGINAL."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "three-channels",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Balance Body, Voice and Words",
+    "summary": "Every message reaches people through what they see, how your voice sounds and the words you pick, so practise all three.",
+    "whyItWorks": "Listeners judge your posture, your tone of voice and your wording at the same moment. When good words arrive in a flat voice or from a stiff, closed body, the delivery undercuts the message and the idea loses its force. Reviewing each channel on its own shows you which one is letting your ideas down, so your practice time goes where it will make the biggest difference.",
+    "steps": [
+      "Pick a topic you know well, such as introducing yourself, and record yourself speaking about it for about a minute.",
+      "Watch it with the sound off and notice only your posture, hands, face and where your eyes go.",
+      "Listen again without watching and notice only your voice: speed, pauses, loudness and how much your pitch moves.",
+      "Check your words last: was your main point clear, and could someone repeat it back?",
+      "Spend your next practice round on whichever channel was weakest, rather than polishing your script again."
+    ],
+    "tipIds": [
+      "tip-three-channels-1",
+      "tip-three-channels-2",
+      "tip-three-channels-3",
+      "tip-three-channels-4",
+      "tip-three-channels-5",
+      "tip-three-channels-6"
+    ],
+    "relatedActivityIds": [
+      "act-three-channels-1",
+      "act-three-channels-2",
+      "act-three-channels-3",
+      "act-practice-three-channels-summary"
+    ],
+    "targetMetrics": [
+      "M-WPM"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-three-channels-1",
+        "text": "With the sound off, my posture looked upright and relaxed."
+      },
+      {
+        "id": "sc-three-channels-2",
+        "text": "My hands stayed visible and moved with my ideas instead of fidgeting."
+      },
+      {
+        "id": "sc-three-channels-3",
+        "text": "My facial expression fitted what I was saying."
+      },
+      {
+        "id": "sc-three-channels-4",
+        "text": "I looked at the camera or my listener for most of each sentence."
+      },
+      {
+        "id": "sc-three-channels-5",
+        "text": "On the listen-only replay, my voice sounded interested rather than flat."
+      }
+    ],
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-WORK",
+      "TRK-EVERYDAY"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "provenance": {
+      "techniqueNameAsTaught": "The 3Vs of Communication (Visual, Vocal, Verbal)",
+      "notes": "From the CurriculumCatalog seed mapped to three-channels; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "vocal-variety",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Vary Your Voice to Hold Attention",
+    "summary": "Change your speed, silences, pitch, loudness and emotional tone so your key ideas stand out instead of blending in.",
+    "whyItWorks": "A voice that stays at one speed and one pitch gives listeners no clue about what matters, so their attention drifts even when the content is strong. Contrast does the signposting for you: slowing down, dropping into a short silence or shifting your tone tells people that this part is important. You do not need to change everything at once; altering two of these between sentences is usually enough.",
+    "steps": [
+      "Think of your voice as having five controls: speed, silence, pitch, loudness and emotional tone.",
+      "Deliver background and setup at a brisk, natural pace.",
+      "When you reach your key idea, slow down clearly and let your pitch fall at the end of the sentence.",
+      "Leave about one second of silence straight after your most important sentence.",
+      "Change at least two controls between neighbouring sentences, for example softer and slower, or louder and brighter.",
+      "Record yourself and check that a stranger could tell which sentence mattered most."
+    ],
+    "tipIds": [
+      "tip-vocal-variety-1",
+      "tip-vocal-variety-2",
+      "tip-vocal-variety-3",
+      "tip-vocal-variety-4",
+      "tip-vocal-variety-5",
+      "tip-vocal-variety-6"
+    ],
+    "relatedActivityIds": [
+      "act-vocal-variety-1",
+      "act-vocal-variety-2",
+      "act-vocal-variety-3",
+      "act-practice-guided-morning",
+      "act-practice-setback-reflection",
+      "act-practice-shadow-silence",
+      "act-practice-call-to-action-read",
+      "act-practice-pron-shifting-stress",
+      "act-practice-pron-contrast-stress"
+    ],
+    "targetMetrics": [
+      "M-WPM"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-vocal-variety-1",
+        "text": "My key sentence sounded clearly different from the sentences around it."
+      },
+      {
+        "id": "sc-vocal-variety-2",
+        "text": "My pitch fell at the end of statements instead of rising like a question."
+      },
+      {
+        "id": "sc-vocal-variety-3",
+        "text": "My facial expression and tone matched the feeling of each part."
+      },
+      {
+        "id": "sc-vocal-variety-4",
+        "text": "I changed at least two of speed, silence, pitch, loudness or tone between sentences."
+      }
+    ],
+    "trackIds": [
+      "TRK-PRESENT",
+      "TRK-CLEAR",
+      "TRK-WORK"
+    ],
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "provenance": {
+      "techniqueNameAsTaught": "The 5 Vocal Foundations (Rate, Pause, Melody, Volume, Character)",
+      "notes": "From app seed tech_5_vocal; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "warm-and-assured",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "name": "Warm and assured voice",
+    "summary": "Sound friendly and certain at the same time: keep your tone lively mid-sentence and let each statement finish on a falling note.",
+    "whyItWorks": "People hear warmth in the movement of your voice and the smile behind it, and they hear certainty in how your sentences end. A rise on the last word of a statement sounds like asking for approval, so even a strong idea sounds tentative. Keeping the melody lively in the middle and dropping the pitch at the end lets you sound kind without sounding unsure, and an unhurried pace adds calm control.",
+    "steps": [
+      "Relax your face before you speak and let a slight smile sit behind your words.",
+      "Let your pitch move freely through the middle of each sentence, as you would when chatting with a friend.",
+      "On the last word of a statement, let your pitch step down while your volume stays steady.",
+      "Use a rising ending only when you really are asking a question.",
+      "Replace softeners such as 'I just sort of think' with a plain claim such as 'I recommend'.",
+      "Keep an unhurried pace and allow about a second of quiet after your closing sentence."
+    ],
+    "tipIds": [
+      "tip-warm-and-assured-1",
+      "tip-warm-and-assured-2",
+      "tip-warm-and-assured-3",
+      "tip-warm-and-assured-4",
+      "tip-warm-and-assured-5"
+    ],
+    "relatedActivityIds": [
+      "act-warm-and-assured-1",
+      "act-warm-and-assured-2",
+      "act-warm-and-assured-3",
+      "act-practice-setback-reflection",
+      "act-practice-team-proposal",
+      "act-practice-shadow-point-first",
+      "act-practice-calm-close",
+      "act-practice-pron-falling-rising"
+    ],
+    "targetMetrics": [
+      "M-WPM",
+      "M-HEDGE"
+    ],
+    "selfCheckItems": [
+      {
+        "id": "sc-warm-and-assured-1",
+        "text": "My statements ended on a falling note rather than a rise."
+      },
+      {
+        "id": "sc-warm-and-assured-2",
+        "text": "I used a rising ending only for real questions."
+      },
+      {
+        "id": "sc-warm-and-assured-3",
+        "text": "My face looked relaxed and friendly while I spoke."
+      },
+      {
+        "id": "sc-warm-and-assured-4",
+        "text": "My voice moved and sounded warm mid-sentence, not flat."
+      },
+      {
+        "id": "sc-warm-and-assured-5",
+        "text": "I allowed a short, calm silence after my last sentence."
+      }
+    ],
+    "trackIds": [
+      "TRK-INTERVIEW",
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "provenance": {
+      "techniqueNameAsTaught": "Friendly Authority (Sound Friendly Without Losing Authority)",
+      "notes": "From app seed tech_friendly_auth; re-expressed in original wording with new examples. The app does not measure pitch, so falling endings and warmth are self-check items; M-WPM and M-HEDGE cover the unhurried pace and plain claims. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]

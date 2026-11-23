@@ -1,0 +1,1075 @@
+[
+  {
+    "id": "act-active-listening-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Acknowledge before you disagree",
+    "goal": "Restate a colleague's concern fairly before explaining a different view.",
+    "prompt": "A colleague says: 'I don't think we should launch next month. Testing has been rushed, and the last time we hurried, the support team was flooded with complaints.' You would prefer to launch on time. In about 60 seconds, first restate their concern and the worry behind it, then give your view and suggest one way to reduce the risk they raised.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "active-listening"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "listening",
+      "disagreement",
+      "work"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_listening (disagreement practice with a summary before replying); original scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-active-listening-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Calm an unhappy customer",
+    "goal": "Show a frustrated customer you understood what happened and how they feel before offering a fix.",
+    "prompt": "A customer says: 'This is the second time my order has arrived damaged, and nobody has called me back.' Reply in about 45 seconds. Start by reflecting what happened and how they feel, without excuses. Then say sorry for the right thing and explain exactly what you will do next and by when.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 55,
+      "max": 110
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "active-listening"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "listening",
+      "customer",
+      "work"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_listening; original scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-adapt-to-listener-style-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Bottom line first for a busy manager",
+    "goal": "Give a 30-second update that opens with the outcome and the decision you need.",
+    "prompt": "Your project will finish two weeks late, but it will now cost less than planned. Give a 30-second update to a senior manager who has little time and cares about results. Open with the outcome and the decision you need from them, add one supporting fact, and stop.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 45,
+      "max": 90
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 45,
+    "techniqueIds": [
+      "adapt-to-listener-style"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "work",
+      "update",
+      "listener"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_4colors (tailored update exercise); original scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-adapt-to-listener-style-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Evidence first for a detail-minded colleague",
+    "goal": "Explain project news to someone who wants facts, numbers and how you know them.",
+    "prompt": "Your project will finish two weeks late but under budget. Explain this in about 45 seconds to an analyst who likes facts and proof. Lead with the key numbers and where they come from, then explain the cause, and close with the next step and how you will track it.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 130
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "adapt-to-listener-style"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "work",
+      "evidence",
+      "listener"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_4colors (tailored update exercise); original scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-adapt-to-listener-style-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "People first for a team-minded listener",
+    "goal": "Pitch a change by opening with how it affects people and inviting their view.",
+    "prompt": "You want to move your team's weekly meeting from Friday afternoon to Tuesday morning. Pitch the idea in about 45 seconds to a teammate who cares most about how changes affect people. Start with how it helps the team, acknowledge who might find it harder, and finish by asking for their view.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 130
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "adapt-to-listener-style"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "work",
+      "pitch",
+      "listener"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_4colors; original scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-articulation-warmup-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Crisp endings in a team update",
+    "goal": "Read a short work update at normal speed with every word ending clearly finished.",
+    "prompt": "Read this update as if you were opening a team meeting. Use your everyday speaking speed, not the slow drill pace, but keep the endings crisp: listen for the t in last, the d in signed and the k in week.",
+    "referenceText": "Good morning, everyone. The client signed the contract last night, so the project starts next week. Our first task is to fix the date for the kick-off and check the budget. Please send any questions to Mark by Friday at five, and thanks again for all the hard work.",
+    "techniqueIds": [
+      "articulation-warmup"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "articulation",
+      "work",
+      "update"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_articulation (normal-speed transfer step); reference text written from scratch; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-conversation-threads-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Pick up a thread",
+    "goal": "Reply to a new acquaintance by following a detail they mentioned, adding your own context and asking an open follow-up.",
+    "prompt": "A new colleague says to you: I just moved here from the coast, and I am still trying to find somewhere decent for coffee. Reply as you would in person. Pick up one thread from what they said, share a short related thought of your own, and ask an open follow-up question. Then pick up their other thread and do the same again.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 60,
+      "max": 130
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "conversation-threads"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "conversation",
+      "follow-up",
+      "colleagues"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique conversation-threads (editorial seed mapped to conversation-threads). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-explain-complex-ideas-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Explain Your Work to a Newcomer",
+    "goal": "Explain something from your job or studies in about 90 seconds so that someone outside your field could follow it.",
+    "prompt": "Explain one thing from your work or studies to a friend who has never worked in your field. Start with something they already know, use one everyday comparison, and explain or avoid every acronym. Say why it matters, either to them or to the people it helps, and finish with a single sentence that sums it up. Aim for about ninety seconds.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 130,
+      "max": 240
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 120,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 5,
+    "tags": [
+      "work",
+      "plain language",
+      "comparison"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_clear (practical exercise re-expressed); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-explain-complex-ideas-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Technical Proposal for a Busy Manager",
+    "goal": "Pitch a technical change to a non-specialist manager in about a minute, leading with what it means for the team.",
+    "prompt": "You want approval for a technical change, such as automating a report your team builds by hand or moving shared files into one system. Your manager is not a specialist and has one minute. Say what the change is in plain words, compare it to something familiar, explain what the team gains in time, cost or fewer errors, and close with one sentence that sums up your request.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "proposal",
+      "manager",
+      "plain language"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_clear (technical proposals for non-specialist leaders); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-pause-not-filler-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Think in silence under pressure",
+    "goal": "Answer an unexpected question and take your thinking time silently instead of filling it with sounds.",
+    "prompt": "A manager stops you in the corridor and asks: 'If you could change one thing about how our team works, what would it be?' Answer in about 45 to 60 seconds. You have almost no time to prepare, so you will need thinking time as you go. Take it as a silent pause with your lips closed, not as um, uh or you know. A clear pause before your first sentence is fine.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 70,
+      "max": 150
+    },
+    "prepSeconds": 5,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "pause-not-filler"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "fillers",
+      "pauses",
+      "work",
+      "interview"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_pauses; original workplace scenario; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-explain-tech-simply",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Explain Something Technical to a Beginner",
+    "goal": "Make a technical topic easy to follow for someone with no background, using a familiar comparison and no jargon.",
+    "prompt": "Pick something technical you understand well, such as how a phone knows where you are, how contactless payment works, or a detailed hobby of yours. Explain it in about 90 seconds to a relative who has never thought about it. Start from something they already know, compare it to an everyday activity, describe what it does for them, leave out jargon, and finish by repeating the one idea you want them to remember.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 135,
+      "max": 250
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 105,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "explaining",
+      "analogy",
+      "jargon"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "CLEAR Framework",
+      "notes": "From app seed chal_clear_tech (CurriculumCatalog.speakingChallenges). Re-expressed in original wording with new example topics; framework letters deliberately not shown. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-agreement",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Keep Subject and Verb in Agreement",
+    "goal": "Match each verb to its real subject, even when a long phrase sits between them.",
+    "prompt": "Talk for about 45 seconds about your strengths and how other people see you. Include at least three sentences where a longer phrase comes between the subject and the verb, such as The list of tasks on my desk is getting shorter, or Each of my teammates has a different way of working. Make the verb agree with the main subject, not with the noun closest to it.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 125
+    },
+    "maxSeconds": 60,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 3,
+    "tags": [
+      "grammar",
+      "agreement",
+      "strengths"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_sva (CurriculumCatalog.grammarLessons). Re-expressed in original wording with new example sentences. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-linking-sentences",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Link Ideas With Although, Because and As a Result",
+    "goal": "Join cause, contrast and result into smooth, longer sentences instead of short, separate ones.",
+    "prompt": "Describe a challenge you faced and how you dealt with it, in about 30 to 45 seconds. Instead of short, separate sentences, join your ideas: use although to show a contrast, because to give a reason, and as a result to show what changed. For example: Although the order arrived late, we kept the customer because we called them first, and as a result they ordered again.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 45,
+      "max": 110
+    },
+    "maxSeconds": 50,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 2,
+    "tags": [
+      "grammar",
+      "linking",
+      "fluency"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_complex (CurriculumCatalog.grammarLessons). Re-expressed in original wording with a new example sentence. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-second-conditional",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L4",
+    "title": "Propose Ideas With the Second Conditional",
+    "goal": "Suggest a change tactfully with sentences such as If we tried this, we would see that.",
+    "prompt": "Suggest one improvement to the way your team, class or household does something. Speak for about 45 seconds and use at least two sentences built as If we plus a past-tense verb, followed by we would plus a base verb. For example: If we shared the agenda a day early, we would finish our meetings faster.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 65,
+      "max": 125
+    },
+    "maxSeconds": 60,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 3,
+    "tags": [
+      "grammar",
+      "conditionals",
+      "proposals"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_conditionals (CurriculumCatalog.grammarLessons). Re-expressed in original wording with a new example sentence. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-prep-opinion",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-STRUCT",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "One-Minute Opinion With PREP",
+    "goal": "Give a clear opinion in under a minute: point first, then one reason, one example and the point again.",
+    "prompt": "Is working from home better than working in an office for getting focused work done? Give your view in under a minute. Say your answer in the first sentence, give one reason, support it with one specific example from your own experience or from someone you know, and finish by stating your view again in fresh words.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "framework": "PREP",
+    "expectedElements": [
+      "Point",
+      "Reason",
+      "Example",
+      "Point_Restate"
+    ],
+    "prepSeconds": 15,
+    "maxSeconds": 70,
+    "techniqueIds": [
+      "prep-answer"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "opinion",
+      "structure",
+      "impromptu"
+    ],
+    "provenance": {
+      "notes": "From app seed chal_prep_opinion (CurriculumCatalog.speakingChallenges). Re-expressed in original wording with a new opinion question. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-pron-falling-rising",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Falling Statements, Rising Questions",
+    "goal": "End statements with a falling pitch so they sound certain, and lift your pitch on genuine yes-or-no questions.",
+    "prompt": "Read the three statements with your voice stepping down on the final word, so each one sounds finished and sure. Then let your pitch rise gently at the end of the two questions, which invites the listener to answer. Avoid lifting your voice at the end of the statements, as that can make them sound unsure.",
+    "referenceText": "The report is ready. The budget has been approved. We start on Monday. Does anyone have a question about the plan? Is Monday still good for everyone?",
+    "techniqueIds": [
+      "warm-and-assured"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "intonation",
+      "statements",
+      "questions"
+    ],
+    "provenance": {
+      "notes": "From app seed pron_intonation (CurriculumCatalog.pronunciationDrills). Reference text is newly written; the seed sentence was not reused. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-rehearse-explain-your-work",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-CLEAR"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Rehearse Explaining Your Work to a Friend",
+    "goal": "Practise describing your job or studies to someone outside your field so they could explain it back.",
+    "prompt": "Before you next explain your job or studies to a friend outside your field, rehearse it here in about 90 seconds. Begin with something they already know, compare your work to a familiar everyday task, say how it helps real people, leave out specialist terms, and finish with a one-sentence summary simple enough for them to repeat to someone else.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 135,
+      "max": 250
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 105,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "explaining",
+      "work",
+      "rehearsal"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "CLEAR Framework",
+      "notes": "From app seed realWorldTaskSeeds[1] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal. Re-expressed in original wording; framework letters not shown. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-rehearse-filler-free-summary",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Summarise Something You Heard, Filler-Free",
+    "goal": "Retell the key points of a meeting, lesson or podcast in one minute with no filler sounds.",
+    "prompt": "Think of a meeting, lecture or podcast episode from the last few days. Summarise it in one minute for someone who missed it: what it was about, the two or three most useful points, and what you plan to do with them. Aim for zero filler sounds. When you need a moment to think, take a short, silent breath instead.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "pause-not-filler"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "summary",
+      "fillers",
+      "listening"
+    ],
+    "issueOverrides": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "action": "SUPPRESS"
+      }
+    ],
+    "provenance": {
+      "notes": "From app seed realWorldTaskSeeds[4] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal. Re-expressed in original wording. Long pauses suppressed because the task asks for silent breaths in place of fillers (same intent as the pause-not-filler technique). Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-rehearse-open-questions",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Rehearse Listening and Asking Open Questions",
+    "goal": "Show you have understood someone before asking three open questions that help them say more.",
+    "prompt": "Imagine a colleague has just told you that a project is behind schedule and they are worried about it. Rehearse your reply. First, sum up in one sentence what you heard and how they seem to feel. Then ask three open questions, each starting with what, how or which, that help them explain the problem in more depth. Hold back from offering solutions for now.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 50,
+      "max": 120
+    },
+    "maxSeconds": 60,
+    "techniqueIds": [
+      "active-listening"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "listening",
+      "questions",
+      "meetings"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "4 Ways of Listening",
+      "notes": "From app seed realWorldTaskSeeds[2] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal with a paraphrase step. Re-expressed in original wording. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-rehearse-prep-update",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-STRUCT",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Rehearse a 90-Second Update",
+    "goal": "Practise a short spoken update that leads with the headline, backs it up and closes with next steps.",
+    "prompt": "Rehearse the update you will give at your next team meeting, class check-in or family planning chat, in about 90 seconds. Open with the headline: where things stand. Give the main reason, describe one concrete example such as a task finished or a problem solved, and close by repeating the headline together with what happens next.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 135,
+      "max": 250
+    },
+    "framework": "PREP",
+    "expectedElements": [
+      "Point",
+      "Reason",
+      "Example",
+      "Point_Restate"
+    ],
+    "prepSeconds": 30,
+    "maxSeconds": 105,
+    "techniqueIds": [
+      "prep-answer"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "update",
+      "structure",
+      "meetings"
+    ],
+    "provenance": {
+      "notes": "From app seed realWorldTaskSeeds[3] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal. Uses TPL-STRUCT with PREP instead of TPL-ANSWER because the seed names PREP explicitly, so structure can be checked. Re-expressed in original wording. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-rehearse-problem-solved",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Rehearse Explaining a Problem You Solved",
+    "goal": "Describe a recent problem and its fix in plain words that a peer outside your area could follow.",
+    "prompt": "Rehearse telling a classmate or co-worker about a problem you ran into recently and how you fixed it. In about 75 seconds, say what went wrong, why it mattered, what you tried, and what finally worked. Use everyday words, and if a technical term slips out, explain it in plain language straight away.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 110,
+      "max": 210
+    },
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "explain-complex-ideas"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "problem",
+      "solution",
+      "plain"
+    ],
+    "provenance": {
+      "notes": "From app seed realWorldTaskSeeds[5] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal. Re-expressed in original wording. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-shadow-point-first",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-REPEAT",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Repeat a Point-First Opening",
+    "goal": "Copy a model that states its point with a firm, falling voice, pauses, then moves into an example.",
+    "prompt": "Listen to the model once all the way through, then repeat it in one go. Copy the shape of the delivery as well as the words: a firm, falling voice on the main point, a short stop after it, and a lighter, more curious tone as the example begins.",
+    "referenceText": "My main point is simple: short updates build trust. Here is why. When I cut my weekly report down to three sentences, my manager started asking better questions, and our meeting finished ten minutes early.",
+    "techniqueIds": [
+      "prep-answer",
+      "warm-and-assured"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "shadowing",
+      "structure",
+      "intonation"
+    ],
+    "provenance": {
+      "notes": "From app seed shad_prep_opening (CurriculumCatalog.shadowingSegments), focus structure and falling intonation at about 130 wpm. Reference text is newly written; the seed script was not reused. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-team-proposal",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Two-Minute Proposal for a Change",
+    "goal": "Pitch one change with a gripping opening, three clear supporting points and a firm, settled close.",
+    "prompt": "Prepare a two-minute proposal for one habit, tool or change that your team, class or household should adopt. Open with a striking question, a surprising number or a short scene rather than introducing yourself. Give three supporting points and announce each one clearly. End with one sentence that says exactly what you want them to do, let your voice fall on its last word, and hold a moment of silence before you stop.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 180,
+      "max": 330
+    },
+    "prepSeconds": 60,
+    "maxSeconds": 135,
+    "techniqueIds": [
+      "warm-and-assured"
+    ],
+    "estMinutes": 5,
+    "tags": [
+      "presentation",
+      "proposal",
+      "closing"
+    ],
+    "provenance": {
+      "notes": "From app seed chal_2min_pitch (CurriculumCatalog.speakingChallenges). Re-expressed in original wording. TPL-ANSWER rather than TPL-STRUCT because hook plus three points is neither STAR nor PREP. Reviewer to add sourceVideoId/sourceUrl/timestamps if channel-derived and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-prep-answer-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-STRUCT",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Meeting Recommendation in PREP",
+    "goal": "Give a structured recommendation in a meeting in about 90 seconds, with your recommendation stated up front.",
+    "prompt": "In a team meeting, your manager asks: Should we keep our weekly status meeting, or replace it with a short written update? Give your recommendation in the first sentence. Explain your main reason, support it with a concrete example from your own experience of meetings, and finish by restating what you recommend and what the next step would be.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 130,
+      "max": 230
+    },
+    "framework": "PREP",
+    "expectedElements": [
+      "Point",
+      "Reason",
+      "Example",
+      "Point_Restate"
+    ],
+    "prepSeconds": 20,
+    "maxSeconds": 120,
+    "techniqueIds": [
+      "prep-answer"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "meeting",
+      "recommendation",
+      "work"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_prep, informed by the app's 90-second structured update task and public-speaking structure module; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-purposeful-gestures-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Show how something changed",
+    "goal": "Use size and contrast gestures to make a before-and-after comparison easy to see and follow.",
+    "prompt": "With the camera on, describe something in your work or studies that has grown or shrunk over the past year, such as a team, a workload, a budget or one of your skills. Use your hands to show how big it was then and how big it is now. Place the before on one side of your body and the after on the other, and let your hands rest between the two.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "purposeful-gestures"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "gestures",
+      "camera",
+      "contrast"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique purposeful-gestures (seed tech_body_power). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-relive-the-story-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-STORY",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "A turning point at work, told as a scene",
+    "goal": "Turn a real work or study moment into a short scene with dialogue and a clear outcome.",
+    "prompt": "Think of a moment at work or school when things turned around: a tough conversation, a near miss or a small win. Tell it as a scene of about 60 to 90 seconds. Open with the time and place, let us hear what you and the other person said, and finish with the result and what you learned.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 110,
+      "max": 220
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 120,
+    "techniqueIds": [
+      "relive-the-story"
+    ],
+    "estMinutes": 5,
+    "tags": [
+      "story",
+      "work",
+      "interview"
+    ],
+    "provenance": {
+      "notes": "From app seed tech_storytelling (workplace story exercise); original prompt; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-share-highs-and-lows-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Check-in: a win, a setback, a surprise",
+    "goal": "Give a short team check-in that contrasts a win with a setback and adds one unexpected lesson.",
+    "prompt": "It is the Monday team check-in and your lead asks how last week went. Share one win, one setback and one thing you did not see coming. Keep each to two or three sentences with a specific detail, make the contrast between the win and the setback clear, and close with what you will try differently this week.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "share-highs-and-lows"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "work",
+      "check-in",
+      "story"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique share-highs-and-lows (editorial seed mapped to share-highs-and-lows). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-three-channels-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Plain Words, Strong Delivery",
+    "goal": "Give a short work update where simple words are carried by an upright posture, steady eye contact and a lively voice.",
+    "prompt": "You are opening a team meeting with a short update on something you are working on: what it is, where it stands, and what happens next. Keep the words simple. Put your effort into delivery instead: sit or stand tall, look into the camera at the start and end of each sentence, and let your voice slow down on the most important line. Speak for about 45 seconds.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 70,
+      "max": 130
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "three-channels"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "work update",
+      "eye contact",
+      "posture"
+    ],
+    "provenance": {
+      "notes": "Original activity for the CurriculumCatalog seed mapped to three-channels (common mistake and correction turned into a camera-friendly drill); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-warm-and-assured-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-READ",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Land your statements",
+    "goal": "Read a short update aloud with a warm tone mid-sentence and a clear falling note at the end of every statement.",
+    "prompt": "Read the update aloud as if you were speaking to your team. Keep a light smile in your voice through the middle of each sentence and let the final word of every statement step down in pitch. The last line is a real question, so let that one rise. Leave a short pause before the question.",
+    "referenceText": "Thanks for joining me this morning. I have gone through the figures in detail. My recommendation is that we launch in March. That gives us six full weeks for testing. I am confident this is the right decision for the team. What questions do you have for me?",
+    "techniqueIds": [
+      "warm-and-assured"
+    ],
+    "estMinutes": 2,
+    "tags": [
+      "voice",
+      "statements",
+      "tone"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique warm-and-assured (seed tech_friendly_auth). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-warm-and-assured-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Recommend one option kindly",
+    "goal": "Give a clear recommendation between two options while acknowledging the other view warmly and without softeners.",
+    "prompt": "Your manager asks whether the team should push a project deadline back by two weeks or keep the date and reduce the scope. Give your recommendation in your first sentence, explain one reason, and acknowledge one fair point about the other option in a kind tone. Keep your claims plain, without words like maybe or sort of, and end on a falling note.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 70,
+      "max": 140
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "warm-and-assured"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "work",
+      "recommendation",
+      "voice"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique warm-and-assured (seed tech_friendly_auth). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]

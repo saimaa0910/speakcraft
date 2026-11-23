@@ -1,0 +1,54 @@
+{
+    "packId":  "speakcraft-core",
+    "packVersion":  1,
+    "schemaVersion":  1,
+    "minAppVersionCode":  2,
+    "createdAt":  "2026-11-23T15:13:27Z",
+    "counts":  {
+                   "techniques":  {
+                                      "total":  15,
+                                      "ACTIVE":  15,
+                                      "PENDING_REVIEW":  15
+                                  },
+                   "activities":  {
+                                      "total":  86,
+                                      "ACTIVE":  86,
+                                      "PENDING_REVIEW":  86
+                                  },
+                   "tips":  {
+                                "total":  111,
+                                "ACTIVE":  111,
+                                "PENDING_REVIEW":  111
+                            }
+               },
+    "files":  [
+                  {
+                      "path":  "activities/trk-clear.json",
+                      "sha256":  "87497e122694ad47291e03a8b7a62eb46f66c40ac71e956f9249c73e9645677a"
+                  },
+                  {
+                      "path":  "activities/trk-everyday.json",
+                      "sha256":  "f005155f2509daae3029fc50005ce2202e6be061ab6eb5b45ec704f1f17f91dd"
+                  },
+                  {
+                      "path":  "activities/trk-interview.json",
+                      "sha256":  "9517e30304828807a57e15c736a324d0ca563971c5979599e7c94476807f2351"
+                  },
+                  {
+                      "path":  "activities/trk-present.json",
+                      "sha256":  "34d82399252f726c1dc48bffe2fe2ee1e17b89361e6ca8a2fe0bc541d2a27fd9"
+                  },
+                  {
+                      "path":  "activities/trk-work.json",
+                      "sha256":  "6a0646d1df77cefef5d6ee7946a3c5afdc4a347116499f51a43e53923407a907"
+                  },
+                  {
+                      "path":  "techniques.json",
+                      "sha256":  "9f028d2d3da1f2197d3616dcdd9f85a5b2bb895a069216993dd80f56795b6d01"
+                  },
+                  {
+                      "path":  "tips.json",
+                      "sha256":  "4a23c1f080a8bb14e4e586b2a750e570f6ffc39fed74172144661035def3a032"
+                  }
+              ]
+}

@@ -1,0 +1,28 @@
+# Build-support file (ARC-03 §6.2, validation V-14; SRS-BR-028). Not shipped in the app.
+# Names, handles and distinctive creator-coined framework names that must not appear in any displayed
+# content field. They may appear only in provenance.techniqueNameAsTaught, which is never displayed.
+# One entry per line; matching is case-insensitive on word boundaries. Generic names (STAR, PREP) are not listed.
+askvinh
+@askvinh
+Vinh Giang
+Vinh
+3Vs
+3 Vs
+Three Vs
+5 Vocal Foundations
+Five Vocal Foundations
+CLEAR framework
+4-Color Communicator
+Four-Color Communicator
+4 Color Communicator
+Power Zone
+4 Ways of Listening
+Four Ways of Listening
+High Low Buffalo
+3-2-1 Conversation
+Relive vs Report
+Relive versus Report
+Friendly Authority
+3-Stage Audit
+3-Stage Self-Awareness Audit
+Three-Stage Audit

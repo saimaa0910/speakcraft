@@ -1,0 +1,2028 @@
+[
+  {
+    "id": "tip-active-listening-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "active-listening",
+    "text": "Before you give your view, sum up the other person's main point and feeling in one sentence, then ask whether you have understood it correctly.",
+    "triggers": [],
+    "priority": 20,
+    "provenance": {
+      "notes": "General tip; from app seed tech_listening; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-active-listening-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "active-listening",
+    "text": "Your reply was brief. After your one-sentence summary, add a quick check such as 'Have I got that right?', then your own view or a helpful question.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "active-listening"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-active-listening-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "active-listening",
+    "text": "You repeated the same words often. Put their point in your own words rather than echoing them, so they can hear that you understood, not only heard.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY",
+        "techniqueId": "active-listening"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Coaches paraphrasing over parroting; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-active-listening-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "active-listening",
+    "text": "Fillers can make it sound as if you are rushing to talk. Let a breath pass after they finish, decide on your one-sentence summary, then begin.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "active-listening"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Coaches the seed's common mistake (jumping straight in); original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-active-listening-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "active-listening",
+    "text": "You often looked away from the camera. When you sum up someone's point, keep your face toward them, here the lens, so it feels like attention rather than recitation.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOOKING_AWAY",
+        "techniqueId": "active-listening"
+      }
+    ],
+    "priority": 7,
+    "provenance": {
+      "notes": "Optional-camera tip; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-active-listening-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "active-listening",
+    "text": "Your summary was wrapped in softeners like maybe and kind of. Name their point plainly, such as 'You feel the deadline is unfair', then check with a short question.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH",
+        "techniqueId": "active-listening"
+      }
+    ],
+    "priority": 7,
+    "provenance": {
+      "notes": "Original wording and example; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-adapt-to-listener-style-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "adapt-to-listener-style",
+    "text": "Before you start, sum up your listener's top priority in one word, such as results, ideas, people or proof, and make your first sentence about that.",
+    "triggers": [],
+    "priority": 20,
+    "provenance": {
+      "notes": "General tip; from app seed tech_4colors; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-adapt-to-listener-style-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "adapt-to-listener-style",
+    "text": "Softening words blurred your main point. Whoever you are speaking to, state your key line plainly first, and show warmth through your examples rather than through maybes.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH",
+        "techniqueId": "adapt-to-listener-style"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-adapt-to-listener-style-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "adapt-to-listener-style",
+    "text": "You rushed. A busy listener wants fewer words, not faster ones: trim to the outcome, one reason and the next step, then say it at an easy pace.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "adapt-to-listener-style"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-adapt-to-listener-style-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "adapt-to-listener-style",
+    "text": "Your answer was brief. A listener who values detail or people needs a little more: add the one fact or the one human impact they would ask about first.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "adapt-to-listener-style"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-adapt-to-listener-style-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "adapt-to-listener-style",
+    "text": "Your pace was slow. For a listener who likes results or big ideas, lift your energy and tempo a little so they stay with you.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "techniqueId": "adapt-to-listener-style"
+      }
+    ],
+    "priority": 7,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-articulation-warmup-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "articulation-warmup",
+    "text": "Spend one minute on a tongue twister at a crawl, making big mouth movements, then say it once at normal speed. Your words will come out cleaner in the conversation that follows.",
+    "triggers": [],
+    "priority": 20,
+    "provenance": {
+      "notes": "General tip; from app seed tech_articulation; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-articulation-warmup-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "articulation-warmup",
+    "text": "A few words did not come through as written. Say those lines again more slowly and finish the last sound of every word before moving to the next.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_WORD_NOT_RECOGNISED",
+        "techniqueId": "articulation-warmup"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Coaches the seed's common mistake (swallowed word endings); from app seed tech_articulation; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-articulation-warmup-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "articulation-warmup",
+    "text": "You rushed, and speed is where word endings vanish. Slow down just enough to feel your tongue touch for every t and d.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "articulation-warmup"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "From app seed tech_articulation; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-articulation-warmup-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "articulation-warmup",
+    "text": "Your voice was quiet, and quiet speech blurs consonants. Sit up tall, keep the phone close, and push a little more breath behind each sound.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_QUIET",
+        "techniqueId": "articulation-warmup"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-articulation-warmup-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "articulation-warmup",
+    "text": "Your pace was very slow. Keep the crisp endings, but link words into short phrases so the line flows instead of arriving one word at a time.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "techniqueId": "articulation-warmup"
+      }
+    ],
+    "priority": 7,
+    "provenance": {
+      "notes": "Fires only below the slow-pace floor (70 wpm on the slow drill, default elsewhere); original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-articulation-warmup-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "articulation-warmup",
+    "text": "Every word came through. Now try the same lines a little faster while keeping each ending just as clean.",
+    "triggers": [
+      {
+        "metricKey": "M-MATCH",
+        "band": "Pass",
+        "techniqueId": "articulation-warmup"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Progression tip when read accuracy passes; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-calm-clear-speaking-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "calm-clear-speaking",
+    "text": "Before each recording, loosen your jaw, take three slow breaths into your belly, and let your first sentence come out slower than feels natural.",
+    "triggers": [],
+    "priority": 10,
+    "provenance": {
+      "notes": "General tip for calm-clear-speaking (editorial seed mapped to calm-clear-speaking); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-calm-clear-speaking-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "calm-clear-speaking",
+    "text": "Nerves often show up as speed. Take one low breath before you begin and say your first sentence noticeably slower, then let the rest follow that steadier rhythm.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "calm-clear-speaking"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for calm-clear-speaking (editorial seed mapped to calm-clear-speaking); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-calm-clear-speaking-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "calm-clear-speaking",
+    "text": "Some words did not come through clearly. Open your mouth a little wider and finish the last sound of each word, especially endings like t, d and s.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_WORD_NOT_RECOGNISED",
+        "techniqueId": "calm-clear-speaking"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for calm-clear-speaking (editorial seed mapped to calm-clear-speaking); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-calm-clear-speaking-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "calm-clear-speaking",
+    "text": "Your voice faded in places. Breathe low before each sentence and keep the same strength right to its final word, as if talking to someone across a table.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_QUIET",
+        "techniqueId": "calm-clear-speaking"
+      },
+      {
+        "metricKey": "M-LEVEL",
+        "band": "Uneven",
+        "techniqueId": "calm-clear-speaking"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for calm-clear-speaking (editorial seed mapped to calm-clear-speaking); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-calm-clear-speaking-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "calm-clear-speaking",
+    "text": "Treat the urge to say a filler as a cue to breathe: close your lips, take a short low breath, and carry on with the next phrase.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "calm-clear-speaking"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for calm-clear-speaking (editorial seed mapped to calm-clear-speaking); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-calm-clear-speaking-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "calm-clear-speaking",
+    "text": "Long stops can come from losing your place under pressure. Before you start, decide your first and last sentence so you always know where you are heading.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "techniqueId": "calm-clear-speaking"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for calm-clear-speaking (editorial seed mapped to calm-clear-speaking); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-conversation-threads-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "conversation-threads",
+    "text": "Before each question, offer a small piece of your own experience, and start the question with how or what so the other person has room to talk.",
+    "triggers": [],
+    "priority": 10,
+    "provenance": {
+      "notes": "General tip for conversation-threads (editorial seed mapped to conversation-threads); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-conversation-threads-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "conversation-threads",
+    "text": "Your turn was brief. Add a sentence about yourself before your question, so the other person has something to react to as well as something to answer.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "conversation-threads"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for conversation-threads (editorial seed mapped to conversation-threads); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-conversation-threads-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "conversation-threads",
+    "text": "Questions fired off quickly can feel like an interview. Ask one open question at a time, slow down as you say it, and leave a natural beat before you follow up.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "conversation-threads"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for conversation-threads (editorial seed mapped to conversation-threads); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-conversation-threads-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "conversation-threads",
+    "text": "Lots of softeners can make an opener sound unsure. Say your observation plainly, such as 'This place is busy tonight', then follow it with your open question.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH",
+        "techniqueId": "conversation-threads"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for conversation-threads (editorial seed mapped to conversation-threads); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-conversation-threads-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "conversation-threads",
+    "text": "Fillers often appear while you search for a new topic. Instead, reuse a detail from the last answer, such as a place or a plan, and build your next question around it.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "conversation-threads"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for conversation-threads (editorial seed mapped to conversation-threads); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-conversation-threads-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "conversation-threads",
+    "text": "You leaned on the same question opener. Rotate between 'how did', 'what made you' and 'tell me about' so each question feels fresh and invites a different answer.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY",
+        "techniqueId": "conversation-threads"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for conversation-threads (editorial seed mapped to conversation-threads); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-explain-complex-ideas-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "explain-complex-ideas",
+    "text": "Before you explain, picture one real person who will hear it. Start from what they already know, compare the idea to something familiar, and end with one plain sentence they could repeat.",
+    "triggers": [],
+    "priority": 49,
+    "provenance": {
+      "notes": "General tip for app seed tech_clear; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-explain-complex-ideas-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "explain-complex-ideas",
+    "text": "You moved quickly, and new ideas need time to land. Slow down whenever you introduce a new term or comparison, and pause briefly before moving on.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "explain-complex-ideas"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_clear (rushing new ideas); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-explain-complex-ideas-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "explain-complex-ideas",
+    "text": "The explanation was shorter than the target. Add the step beginners most often need: an everyday comparison, or a sentence on what this means for them.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "explain-complex-ideas"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_clear (skipping the familiar link or benefit); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-explain-complex-ideas-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "explain-complex-ideas",
+    "text": "Some words came up again and again. Repeating your key term is fine here; vary the words around it instead, and check the repeats are not empty words such as basically or thing.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY",
+        "techniqueId": "explain-complex-ideas"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_clear (keeps deliberate key-term repetition while catching empty filler words); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-explain-complex-ideas-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "explain-complex-ideas",
+    "text": "Lots of softening words made the explanation sound unsure. You know this topic, so state each step plainly; if something really is uncertain, say so once, clearly.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH",
+        "techniqueId": "explain-complex-ideas"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_clear (hedged explanations); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-explain-complex-ideas-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "explain-complex-ideas",
+    "text": "Your vocabulary measured as varied. In an explanation that can mean specialist terms slipped in, so listen back and check each technical word was swapped for a plain one or explained.",
+    "triggers": [
+      {
+        "metricKey": "M-LEX",
+        "band": "Varied",
+        "techniqueId": "explain-complex-ideas"
+      }
+    ],
+    "priority": 20,
+    "provenance": {
+      "notes": "Metric-band tip for app seed tech_clear (jargon check; equating jargon with expertise is the seed's common mistake); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-face-out-of-frame",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "The camera lost sight of your face for part of the recording. Rest the phone at eye level, about an arm's length away, and check that the preview shows your head and shoulders before you start.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FACE_OUT_OF_FRAME"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global camera tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-fillers-high",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Filler sounds came up quite often. When you feel one coming, close your lips and let a short, quiet pause do the job; listeners hear it as thinking time, not hesitation.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-general-first-breath",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Before you press record, take one slow breath and decide on your first sentence. A calm, clear opening makes everything that follows easier to say.",
+    "triggers": [],
+    "priority": 90,
+    "provenance": {
+      "notes": "Global general tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-general-planned-ending",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Plan your last sentence before you begin, so you can end on a clear, settled note and simply stop, rather than drifting while you search for a way out.",
+    "triggers": [],
+    "priority": 91,
+    "provenance": {
+      "notes": "Global general tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-grammar-possible",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Our checker spotted a possible grammar slip, though it may be a false alarm. If the suggestion looks right to you, say the corrected sentence aloud twice, then use it in your next attempt.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_GRAMMAR_POSSIBLE"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; deliberately says possible because grammar checks are estimated. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-hedging-high",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Softening phrases such as I think maybe or sort of came up often, which can blur your message. Keep one where you are truly unsure, and say the rest directly, for example My view is or I recommend.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-looking-away",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Your eyes moved away from the camera quite often. Imagine a friendly listener just behind the lens, and bring your gaze back to them at the start and end of each main point.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOOKING_AWAY"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global camera tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-low-variety",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "A few words were repeated many times. Pick the one you used most, think of two more precise alternatives before your next attempt, and swap them in where they fit.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-pace-fast",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "You spoke faster than the comfortable range. Breathe at every full stop and give your key words a little extra length, so your listener has time to take each idea in.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-pace-slow",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Your pace was slower than the comfortable range. Group your words into short phrases of three to five and say each phrase on one smooth breath, rather than word by word.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-pauses-long",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "There were several long stops in the middle of your speech. Decide your next two points before you begin, so you always know where you are heading, and keep any thinking pause brief and calm.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-posture-tilted",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Your head or shoulders seemed tilted for much of the recording. Spread your weight evenly on both sides and let your shoulders drop and level out; it looks calmer and helps your voice carry.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_POSTURE_TILTED"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global camera tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-struct-element-missing",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "One part of the structure seemed to be missing. Before you speak, count the parts on your fingers, and open each one with a short signpost such as The reason is, For example, or As a result.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_STRUCT_ELEMENT_MISSING"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; worded as an estimate because structure detection is estimated. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-target-word-missing",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "The target word did not come through. Plan your sentence around it before you start, ideally as its subject or main verb, so the word has a natural place to land.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TARGET_WORD_MISSING"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-template-answer",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Open with a one-sentence answer to the question, then back it up with a reason or a short example, so your listener knows where you stand from the very start.",
+    "triggers": [
+      {
+        "templateId": "TPL-ANSWER"
+      }
+    ],
+    "priority": 70,
+    "provenance": {
+      "notes": "Global general tip for the answer-a-question template, in original wording. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-template-read",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Let your eyes run a few words ahead of your voice, and use commas and full stops as natural places to breathe, so the text sounds spoken rather than recited.",
+    "triggers": [
+      {
+        "templateId": "TPL-READ"
+      }
+    ],
+    "priority": 70,
+    "provenance": {
+      "notes": "Global general tip for the read-aloud template, in original wording. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-template-repeat",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Listen to the whole model before you speak and notice where the voice rises, falls and stops. Then copy that shape as well as the words.",
+    "triggers": [
+      {
+        "templateId": "TPL-REPEAT"
+      }
+    ],
+    "priority": 70,
+    "provenance": {
+      "notes": "Global general tip for the listen-and-repeat template, in original wording. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-template-story",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Begin inside the moment with a time and a place, skip the long introduction, and give your listener one small, specific detail they can picture.",
+    "triggers": [
+      {
+        "templateId": "TPL-STORY"
+      }
+    ],
+    "priority": 70,
+    "provenance": {
+      "notes": "Global general tip for the story template, in original wording. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-template-struct",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Mark each part of your structure with a short spoken signpost, such as The situation was, What I did was, or The reason is, so your listener can follow along easily.",
+    "triggers": [
+      {
+        "templateId": "TPL-STRUCT"
+      }
+    ],
+    "priority": 70,
+    "provenance": {
+      "notes": "Global general tip for the STAR/PREP template, worded to suit both frameworks, in original wording. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-too-quiet",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "This recording was quite quiet, so some results may be less reliable. Next time, hold the phone about 20 cm from your mouth, point the microphone towards you, and pick a calmer spot if you can.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_QUIET"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global recording-quality tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-too-short",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Your answer was shorter than the target. After your main idea, add one concrete example that starts with For example, and say what happened or what changed as a result.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-word-not-recognised",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "Some words were hard to pick up. Practise those words slowly on their own, finish every ending clearly, especially t, d, k and s, and then read the full text again at an easy pace.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_WORD_NOT_RECOGNISED"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-global-wrong-form",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": null,
+    "text": "The word came out in a different form from the one asked for. Check whether the task wants a past, plural or -ing form, say that exact form once to yourself, then try again.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_WRONG_FORM"
+      }
+    ],
+    "priority": 60,
+    "provenance": {
+      "notes": "Global coaching tip in original wording; not derived from a specific channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-pause-not-filler-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "pause-not-filler",
+    "text": "When you feel a filler coming, press your lips together and let one quiet beat pass. Start the next sentence only when you know its first few words.",
+    "triggers": [],
+    "priority": 20,
+    "provenance": {
+      "notes": "General tip; from app seed tech_pauses; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-pause-not-filler-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "pause-not-filler",
+    "text": "Fillers slipped in this time. On your next try, treat each urge to say um as a signal: shut your lips, breathe in through your nose, and stay silent until you know what comes next.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "pause-not-filler"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific filler coaching; from app seed tech_pauses; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-pause-not-filler-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "pause-not-filler",
+    "text": "Most fillers show up as you move to a new point. Make that moment a silent breath, then begin the next idea with a clear, deliberate first word.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "pause-not-filler"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Second filler tip so the technique coaches fillers from two angles; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-pause-not-filler-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "pause-not-filler",
+    "text": "You sped up, and rushing tends to invite fillers. Let your voice come down at the end of each sentence and take a quiet breath before the next one.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "pause-not-filler"
+      }
+    ],
+    "priority": 7,
+    "provenance": {
+      "notes": "Coaches the seed's common mistake (speeding up to hide hesitation); from app seed tech_pauses; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-pause-not-filler-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "pause-not-filler",
+    "text": "You used plenty of silence, which is what this technique asks for. Now refine it: place each pause at the end of a thought, not in the middle of a phrase, and keep it to about one beat.",
+    "triggers": [
+      {
+        "metricKey": "M-PAUSE",
+        "band": "High pauses",
+        "techniqueId": "pause-not-filler"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "ISSUE_PAUSES_LONG is suppressed for this technique; this metric-band tip refines pause placement instead of calling pauses a mistake; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-pause-not-filler-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "pause-not-filler",
+    "text": "Fillers stayed low. Next step: add one planned pause just before the point you most want remembered, so it stands out.",
+    "triggers": [
+      {
+        "metricKey": "M-FILL",
+        "band": "Low",
+        "techniqueId": "pause-not-filler"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Progression tip when fillers are already low; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-prep-answer-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "prep-answer",
+    "text": "Put your answer in the first sentence, then earn it: one reason, one real example, and a closing line that brings the listener back to your point.",
+    "triggers": [],
+    "priority": 49,
+    "provenance": {
+      "notes": "General tip for app seed tech_prep; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-prep-answer-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "prep-answer",
+    "text": "One of the four PREP parts was not detected. Before you speak, count them on four fingers: point, reason, example, point again, and give each one its own clear sentence.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_STRUCT_ELEMENT_MISSING",
+        "techniqueId": "prep-answer"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_prep (missing element); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-prep-answer-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "prep-answer",
+    "text": "Softening words crept into your answer. Open with a plain statement such as 'My view is' or 'I would choose', and save any caveat for after your example.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH",
+        "techniqueId": "prep-answer"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_prep (circling before giving an opinion); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-prep-answer-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "prep-answer",
+    "text": "Your answer was shorter than the target. Grow the example: say when it happened, who was involved and what changed, then restate your point.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "prep-answer"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_prep (thin example); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-prep-answer-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "prep-answer",
+    "text": "Fillers tend to appear at the joins between parts. Bridge them with short signposts such as because, for example and so, and take a silent breath before each one.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "prep-answer"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_prep (hesitation between parts); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-prep-answer-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "prep-answer",
+    "text": "All four parts came through. Next, sharpen the opening so your point arrives in the very first sentence, with no warm-up phrase in front of it.",
+    "triggers": [
+      {
+        "metricKey": "M-STRUCT",
+        "band": "Complete",
+        "techniqueId": "prep-answer"
+      }
+    ],
+    "priority": 20,
+    "provenance": {
+      "notes": "Metric-band tip for app seed tech_prep (next step once the structure is complete); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-purposeful-gestures-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "purposeful-gestures",
+    "text": "Plan two or three gesture moments before you start, such as a count or a contrast, and let your hands rest quietly in view the rest of the time.",
+    "triggers": [],
+    "priority": 10,
+    "provenance": {
+      "notes": "General tip for purposeful-gestures (seed tech_body_power); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-purposeful-gestures-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "purposeful-gestures",
+    "text": "Move the phone back or lower it until the shot shows your face and hands together. A gesture only helps when the camera can see it alongside your expression.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FACE_OUT_OF_FRAME",
+        "techniqueId": "purposeful-gestures"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for purposeful-gestures (seed tech_body_power); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-purposeful-gestures-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "purposeful-gestures",
+    "text": "Keep your eyes on the lens while your hands move. If you glance down at your fingers to count, bring your gaze back up before you say the point.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOOKING_AWAY",
+        "techniqueId": "purposeful-gestures"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for purposeful-gestures (seed tech_body_power); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-purposeful-gestures-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "purposeful-gestures",
+    "text": "Sit or stand evenly and gesture close to the middle of your body with both hands, rather than leaning to one side to reach.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_POSTURE_TILTED",
+        "techniqueId": "purposeful-gestures"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for purposeful-gestures (seed tech_body_power); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-purposeful-gestures-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "purposeful-gestures",
+    "text": "When a filler is about to slip out, let your hands settle and pause instead. The still moment looks calm, and your next gesture can open the next point.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "purposeful-gestures"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for purposeful-gestures (seed tech_body_power); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-purposeful-gestures-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "purposeful-gestures",
+    "text": "Let each gesture finish before you move on. Hold the counted finger up for a beat after each point, and your words will slow down to match your hands.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "purposeful-gestures"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for purposeful-gestures (seed tech_body_power); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-record-and-review-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "record-and-review",
+    "text": "After recording, take a short break, then review one layer at a time: body, voice, then words. Finish by writing down one voice habit and one wording habit to fix next time.",
+    "triggers": [],
+    "priority": 49,
+    "provenance": {
+      "notes": "General tip for app seed tech_3stage_audit; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-record-and-review-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "record-and-review",
+    "text": "Fillers came up often. On your eyes-closed pass, notice where they cluster, often at the start of a new idea, and plan a silent breath for those exact moments next time.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "record-and-review"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_3stage_audit (fillers found on the audio pass); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-record-and-review-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "record-and-review",
+    "text": "Your pace was fast. On the listening pass, mark the stretches where you rushed, then re-record just one of them with a breath at every full stop.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "record-and-review"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_3stage_audit (pace found on the audio pass); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-record-and-review-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "record-and-review",
+    "text": "The recording ended early, which leaves little to review. Aim for the full time; if ideas run out, add an example or say what you would do next.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "record-and-review"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_3stage_audit (stopping early); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-record-and-review-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "record-and-review",
+    "text": "The camera often lost your face. Fix the set-up before recording, with the phone at eye level and your head and shoulders in frame, so the silent pass shows what listeners see.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOOKING_AWAY",
+        "techniqueId": "record-and-review"
+      },
+      {
+        "issueCode": "ISSUE_FACE_OUT_OF_FRAME",
+        "techniqueId": "record-and-review"
+      }
+    ],
+    "priority": 15,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_3stage_audit (camera set-up for the silent pass); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-record-and-review-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "record-and-review",
+    "text": "Fillers were low this time, nice work. Use your next listening pass to study a different habit, such as whether your sentences end firmly or trail away.",
+    "triggers": [
+      {
+        "metricKey": "M-FILL",
+        "band": "Low",
+        "techniqueId": "record-and-review"
+      }
+    ],
+    "priority": 20,
+    "provenance": {
+      "notes": "Metric-band tip for app seed tech_3stage_audit (rotate the habit being reviewed); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-relive-the-story-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "relive-the-story",
+    "text": "Open with a time and a place, then let the people in your story speak in their own words. Two quoted lines bring a story to life faster than any summary.",
+    "triggers": [],
+    "priority": 20,
+    "provenance": {
+      "notes": "General tip; from app seed tech_storytelling; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-relive-the-story-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "relive-the-story",
+    "text": "Some words came up again and again. Swap one general phrase for a concrete detail: what could you hear, or exactly what did someone say?",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY",
+        "techniqueId": "relive-the-story"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Coaches the seed's common mistake (stacked abstract summaries); original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-relive-the-story-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "relive-the-story",
+    "text": "Your story ended quickly. Stay in the key moment a little longer: add the line someone said and how you reacted to it.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "relive-the-story"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-relive-the-story-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "relive-the-story",
+    "text": "Fillers often hide in the set-up. Drop the run-up, such as 'so, anyway, the thing is', and open directly with the time and place.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "relive-the-story"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Coaches cutting the preamble; original wording and example; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-relive-the-story-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "relive-the-story",
+    "text": "You raced through the story. Slow down at the turning point and give each quoted line its own moment, with a small pause before it.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "relive-the-story"
+      }
+    ],
+    "priority": 6,
+    "provenance": {
+      "notes": "Original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-relive-the-story-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "relive-the-story",
+    "text": "You used a good range of words. Next time, give each person you quote a slightly different voice, so listeners can tell who is speaking.",
+    "triggers": [
+      {
+        "metricKey": "M-LEX",
+        "band": "Varied",
+        "techniqueId": "relive-the-story"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Progression tip when vocabulary is already varied; original wording; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-share-highs-and-lows-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "share-highs-and-lows",
+    "text": "Pick your three moments before you speak, then open with the most surprising one instead of whatever happened first.",
+    "triggers": [],
+    "priority": 10,
+    "provenance": {
+      "notes": "General tip for share-highs-and-lows (editorial seed mapped to share-highs-and-lows); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-share-highs-and-lows-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "share-highs-and-lows",
+    "text": "Your story wrapped up quickly. Add one concrete detail to each moment, such as where you were or what someone said, so the high and the low both feel real.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_SHORT",
+        "techniqueId": "share-highs-and-lows"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for share-highs-and-lows (editorial seed mapped to share-highs-and-lows); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-share-highs-and-lows-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "share-highs-and-lows",
+    "text": "Some words came up again and again. Describe the high and the low with different, specific feelings, for example 'thrilled' and 'drained' rather than 'good' and 'bad'.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOW_VARIETY",
+        "techniqueId": "share-highs-and-lows"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for share-highs-and-lows (editorial seed mapped to share-highs-and-lows); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-share-highs-and-lows-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "share-highs-and-lows",
+    "text": "Fillers crept in between moments. Bridge from one moment to the next with a contrast word such as 'but' or 'then', or simply pause before you begin the next one.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "share-highs-and-lows"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for share-highs-and-lows (editorial seed mapped to share-highs-and-lows); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-share-highs-and-lows-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "share-highs-and-lows",
+    "text": "Long gaps suggest you were still choosing moments mid-story. Settle on your high, low and surprise while you prepare, so you can move from one to the next without stopping.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "techniqueId": "share-highs-and-lows"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for share-highs-and-lows (editorial seed mapped to share-highs-and-lows); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-share-highs-and-lows-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "share-highs-and-lows",
+    "text": "You raced through the story. Slow down at the low point; a quieter, slower moment makes the contrast with the high much stronger.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "share-highs-and-lows"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for share-highs-and-lows (editorial seed mapped to share-highs-and-lows); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-three-channels-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "three-channels",
+    "text": "Before you start, set one aim for each channel: how you will sit or stand, how your voice will move, and the single sentence you most want heard. Check all three when you replay.",
+    "triggers": [],
+    "priority": 49,
+    "provenance": {
+      "notes": "General tip for the CurriculumCatalog seed mapped to three-channels; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-three-channels-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "three-channels",
+    "text": "Your pace ran fast, which flattens how your voice comes across. Breathe at each full stop and say your most important sentence noticeably slower than the rest.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "three-channels"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for the CurriculumCatalog seed mapped to three-channels (flat vocal delivery); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-three-channels-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "three-channels",
+    "text": "You often looked away from the camera. Treat the lens as your listener's eyes: begin and end each sentence looking into it, even if you glance down in between.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_LOOKING_AWAY",
+        "techniqueId": "three-channels"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for the CurriculumCatalog seed mapped to three-channels (visual channel, eye line); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-three-channels-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "three-channels",
+    "text": "The camera often caught you tilted or partly out of frame. Prop the phone at eye level, square your shoulders to it and keep your head and hands in view.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_POSTURE_TILTED",
+        "techniqueId": "three-channels"
+      },
+      {
+        "issueCode": "ISSUE_FACE_OUT_OF_FRAME",
+        "techniqueId": "three-channels"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Mistake tip for the CurriculumCatalog seed mapped to three-channels (visual channel, posture and framing); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-three-channels-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "three-channels",
+    "text": "Your recording was quiet, so your voice lost some of its strength. Check that nothing covers the microphone, then sit tall and speak as if to someone across the room.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_QUIET",
+        "techniqueId": "three-channels"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Mistake tip for the CurriculumCatalog seed mapped to three-channels (vocal channel, volume); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-three-channels-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "three-channels",
+    "text": "Your speech flowed without many long gaps. Now give the visual channel the same care: replay with the sound off and check your posture, hands and expression.",
+    "triggers": [
+      {
+        "metricKey": "M-PAUSE",
+        "band": "Good flow",
+        "techniqueId": "three-channels"
+      }
+    ],
+    "priority": 20,
+    "provenance": {
+      "notes": "Metric-band tip for the CurriculumCatalog seed mapped to three-channels (move attention to the next channel); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-vocal-variety-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "vocal-variety",
+    "text": "Before you start, choose the one sentence you most want remembered. Say it slower than everything around it, let your pitch fall at the end, and leave a beat of silence after it.",
+    "triggers": [],
+    "priority": 49,
+    "provenance": {
+      "notes": "General tip for app seed tech_5_vocal; reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-vocal-variety-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "vocal-variety",
+    "text": "You stayed fast all the way through, so nothing stood out. Keep the setup brisk if you like, but brake hard on your key sentence and leave a clear stop after it.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "vocal-variety"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_5_vocal (uniform speed); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-vocal-variety-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "vocal-variety",
+    "text": "Your pace was slow even for this drill. Save the slow, weighty delivery for your key line and let the setup move at an easy, conversational speed so the contrast is audible.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_SLOW",
+        "techniqueId": "vocal-variety"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_5_vocal (slowing everything instead of the key line); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-vocal-variety-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "vocal-variety",
+    "text": "There were more long silences than this drill needs. Keep your deliberate pause for right after the key sentence, and close other gaps by finishing each thought before you stop.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PAUSES_LONG",
+        "techniqueId": "vocal-variety"
+      }
+    ],
+    "priority": 10,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_5_vocal (pauses in the wrong places); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-vocal-variety-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "vocal-variety",
+    "text": "Your recording was quiet, which hides your vocal range. Breathe low, sit tall and aim your voice at the far wall; softer moments then become a choice rather than your default.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_TOO_QUIET",
+        "techniqueId": "vocal-variety"
+      }
+    ],
+    "priority": 12,
+    "provenance": {
+      "notes": "Mistake tip for app seed tech_5_vocal (volume lever, projection); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-vocal-variety-6",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "vocal-variety",
+    "text": "Your average pace sat in a comfortable range, but an average can hide a flat delivery. Listen back for one clearly slower sentence; if you cannot find it, exaggerate the contrast next time.",
+    "triggers": [
+      {
+        "metricKey": "M-WPM",
+        "band": "Comfortable",
+        "techniqueId": "vocal-variety"
+      }
+    ],
+    "priority": 20,
+    "provenance": {
+      "notes": "Metric-band tip for app seed tech_5_vocal (average pace does not show contrast); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-warm-and-assured-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "warm-and-assured",
+    "text": "Keep a smile in the middle of your sentences and let the last word of each statement step down. Keep the upward lift for when you are truly asking something.",
+    "triggers": [],
+    "priority": 10,
+    "provenance": {
+      "notes": "General tip for warm-and-assured (seed tech_friendly_auth); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-warm-and-assured-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "warm-and-assured",
+    "text": "Several claims came wrapped in softeners. Say your key sentence again as a plain statement, such as 'We should start on Monday', and let it finish on a falling note.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_HEDGING_HIGH",
+        "techniqueId": "warm-and-assured"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for warm-and-assured (seed tech_friendly_auth); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-warm-and-assured-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "warm-and-assured",
+    "text": "Rushing can sound nervous rather than assured. Slow down for your closing sentence, drop the pitch on its last word and give it a second of quiet afterwards.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_PACE_FAST",
+        "techniqueId": "warm-and-assured"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for warm-and-assured (seed tech_friendly_auth); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-warm-and-assured-4",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "warm-and-assured",
+    "text": "Fillers chip away at certainty. When you feel one coming, close your mouth and let a calm silence take its place, then carry on in the same warm tone.",
+    "triggers": [
+      {
+        "issueCode": "ISSUE_FILLERS_HIGH",
+        "techniqueId": "warm-and-assured"
+      }
+    ],
+    "priority": 5,
+    "provenance": {
+      "notes": "Technique-specific tip for warm-and-assured (seed tech_friendly_auth); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "tip-warm-and-assured-5",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "techniqueId": "warm-and-assured",
+    "text": "Your volume rose and fell a lot, which can make endings sound unsure. Keep the same strength right through the final word of each statement as the pitch drops.",
+    "triggers": [
+      {
+        "metricKey": "M-LEVEL",
+        "band": "Uneven",
+        "techniqueId": "warm-and-assured"
+      }
+    ],
+    "priority": 8,
+    "provenance": {
+      "notes": "Technique-specific metric-band tip for warm-and-assured (seed tech_friendly_auth); original wording. Reviewer to verify."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]

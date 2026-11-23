@@ -1,0 +1,291 @@
+[
+  {
+    "id": "act-calm-clear-speaking-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Steady start to an interview",
+    "goal": "Answer a common opening interview question calmly, using a breath instead of a filler whenever you lose your place.",
+    "prompt": "Ground yourself with three slow breaths, shoulders relaxed. Then answer: Tell me a little about yourself. Begin slowly and clearly, and cover your current role or studies, one achievement, and why this kind of role interests you. If you lose your place, stop, take one low breath and continue rather than filling the gap with sounds.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "calm-clear-speaking"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "interview",
+      "nerves",
+      "breathing"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique calm-clear-speaking (editorial seed mapped to calm-clear-speaking). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-grammar-indirect-questions",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Polite Indirect Questions in an Interview",
+    "goal": "Ask polite questions that open with Could you tell me or I was wondering, keeping statement word order after them.",
+    "prompt": "You are at the end of a job interview and the interviewer asks whether you have any questions. Ask three thoughtful questions using polite indirect openings such as Could you tell me, I was wondering, or Do you know. After the opening, keep statement word order: say Could you tell me how the team measures success, not how does the team measure success.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 40,
+      "max": 110
+    },
+    "maxSeconds": 50,
+    "techniqueIds": [],
+    "general": true,
+    "estMinutes": 2,
+    "tags": [
+      "grammar",
+      "questions",
+      "interview"
+    ],
+    "provenance": {
+      "notes": "From app seed gram_questions (CurriculumCatalog.grammarLessons). Re-expressed in original wording with new example questions. General grammar practice, not tied to a channel technique. Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-practice-record-review-intro",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW",
+      "TRK-WORK"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L4",
+    "title": "Record and Review Your Professional Introduction",
+    "goal": "Record a polished one-minute introduction, then review it separately for body, voice and words.",
+    "prompt": "Record a polished one-minute introduction you could use at a networking event or at the start of an interview: your name, what you do, one thing you are proud of, and what you are looking for next. Afterwards, review it in three separate passes: watch with the sound off to check posture and face if you recorded video, listen with your eyes closed to check your voice, then listen once more paying attention only to your words.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "maxSeconds": 75,
+    "techniqueIds": [
+      "record-and-review"
+    ],
+    "estMinutes": 6,
+    "tags": [
+      "introduction",
+      "review",
+      "interview"
+    ],
+    "provenance": {
+      "techniqueNameAsTaught": "3-Stage Self-Awareness Audit",
+      "notes": "From app seed realWorldTaskSeeds[6] (CurriculumCatalog.realWorldTaskSeeds), turned into a spoken rehearsal. Re-expressed in original wording; review passes described in plain words. Reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-prep-answer-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-STRUCT",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Interview Answer, Point First",
+    "goal": "Answer a common interview question with your strength stated first, backed by a reason and a real example.",
+    "prompt": "An interviewer asks: What is one strength you would bring to this team? Name the strength in your first sentence. Explain why it matters in this kind of work, give one specific example of a time you used it, and close by restating the strength and why it suits the role.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "framework": "PREP",
+    "expectedElements": [
+      "Point",
+      "Reason",
+      "Example",
+      "Point_Restate"
+    ],
+    "prepSeconds": 20,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "prep-answer"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "interview",
+      "strength",
+      "structure"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_prep (point-first answering applied to interviews); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-purposeful-gestures-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L2",
+    "levelMax": "L5",
+    "title": "Video interview answer with calm hands",
+    "goal": "Give an interview answer on camera where gestures mark your main points and your hands rest calmly in between.",
+    "prompt": "Imagine you are in a video interview. Answer: What two strengths would you bring to this role? Introduce each strength with one clear gesture, such as one finger and then two. While you give a short example for each, keep your hands relaxed and in view rather than out of shot or clasped tightly. Look into the lens for your final sentence.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "purposeful-gestures"
+    ],
+    "estMinutes": 4,
+    "tags": [
+      "gestures",
+      "camera",
+      "interview"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique purposeful-gestures (seed tech_body_power). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-record-and-review-1",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW",
+      "TRK-EVERYDAY"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L4",
+    "title": "Self-Introduction to Review",
+    "goal": "Record a 90-second self-introduction that you can then review in three passes: body language, voice and wording.",
+    "prompt": "Introduce yourself as you would at the start of a job interview or a networking event: your background, what you do now, and what you would like to do next. Speak for about ninety seconds and do not restart if you stumble. When you finish, take a short break, then review the recording three times: sound off for body language, eyes closed for your voice, and finally your words.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 130,
+      "max": 240
+    },
+    "prepSeconds": 30,
+    "maxSeconds": 120,
+    "techniqueIds": [
+      "record-and-review"
+    ],
+    "estMinutes": 8,
+    "tags": [
+      "introduction",
+      "self-review",
+      "interview"
+    ],
+    "provenance": {
+      "notes": "Original activity for app seed tech_3stage_audit (self-introduction recording plus review passes); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-record-and-review-3",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW",
+      "TRK-EVERYDAY",
+      "TRK-PRESENT"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L1",
+    "levelMax": "L5",
+    "title": "Retake With One Fix",
+    "goal": "Record your introduction again while focusing only on the single habit you chose in your last review.",
+    "prompt": "Look at the one habit you noted after your last review, such as rushing the opening, dropping your eyes or saying um between ideas. Record your self-introduction again for about a minute and focus only on that fix. Then compare the two recordings and check whether the habit showed up less often.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "record-and-review"
+    ],
+    "estMinutes": 5,
+    "tags": [
+      "retake",
+      "one fix",
+      "progress"
+    ],
+    "provenance": {
+      "notes": "Original follow-up activity for app seed tech_3stage_audit (act on the one habit found in review); reviewer to add sourceVideoId/sourceUrl/timestamps and verify wording"
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  },
+  {
+    "id": "act-warm-and-assured-2",
+    "status": "ACTIVE",
+    "introducedIn": 1,
+    "trackIds": [
+      "TRK-INTERVIEW"
+    ],
+    "templateId": "TPL-ANSWER",
+    "levelMin": "L3",
+    "levelMax": "L5",
+    "title": "Say why they should pick you",
+    "goal": "Answer a key interview question with a friendly tone and plain, certain statements that end on a falling note.",
+    "prompt": "An interviewer asks: Why should we choose you for this role? Give two or three plain statements about what you offer, each backed by a quick example. Keep your tone friendly in the middle of sentences and let every statement finish on a downward note. Close with a one-sentence summary and hold a moment of quiet before you stop.",
+    "targetRange": {
+      "unit": "WORDS",
+      "min": 90,
+      "max": 170
+    },
+    "prepSeconds": 20,
+    "maxSeconds": 90,
+    "techniqueIds": [
+      "warm-and-assured"
+    ],
+    "estMinutes": 3,
+    "tags": [
+      "interview",
+      "voice",
+      "confidence"
+    ],
+    "provenance": {
+      "notes": "Original activity for technique warm-and-assured (seed tech_friendly_auth). Reviewer to verify wording."
+    },
+    "licenceStatus": "PENDING_REVIEW",
+    "attributionText": null
+  }
+]
