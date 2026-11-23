@@ -37,21 +37,19 @@ class BackupRulesAndStoragePolicyTest {
         assertTrue("Must declare cloud-backup section", xml.contains("<cloud-backup>"))
         assertTrue("Must declare device-transfer section", xml.contains("<device-transfer>"))
 
-        // Cloud-backup includes and excludes
+        // Cloud-backup includes
         assertTrue("Cloud backup must include learning.db", xml.contains("""<include domain="database" path="learning.db""""))
         assertTrue("Cloud backup must include datastore preferences", xml.contains("""<include domain="file" path="datastore/settings.preferences_pb""""))
         assertTrue("Cloud backup must include speakcraft_prefs", xml.contains("""<include domain="file" path="datastore/speakcraft_prefs.preferences_pb""""))
-        assertTrue("Cloud backup must explicitly exclude sensitive.db", xml.contains("""<exclude domain="database" path="sensitive.db""""))
-        assertTrue("Cloud backup must explicitly exclude recordings", xml.contains("""<exclude domain="file" path="recordings""""))
 
-        // Device-transfer includes and excludes
+        // Device-transfer includes
         assertTrue("Device transfer must include learning.db", xml.contains("""<include domain="database" path="learning.db""""))
-        assertTrue("Device transfer must explicitly exclude sensitive.db", xml.contains("""<exclude domain="database" path="sensitive.db""""))
-        assertTrue("Device transfer must explicitly exclude recordings", xml.contains("""<exclude domain="file" path="recordings""""))
+        assertTrue("Device transfer must include datastore preferences", xml.contains("""<include domain="file" path="datastore/settings.preferences_pb""""))
+        assertTrue("Device transfer must include speakcraft_prefs", xml.contains("""<include domain="file" path="datastore/speakcraft_prefs.preferences_pb""""))
 
-        // Prohibited inclusions
-        assertFalse("Must never include recordings in backup", xml.contains("""<include domain="file" path="recordings""""))
-        assertFalse("Must never include sensitive.db in backup", xml.contains("""<include domain="database" path="sensitive.db""""))
+        // Prohibited inclusions (Include-only guarantees sensitive items are never backed up)
+        assertFalse("Must never include recordings in backup", xml.contains("""path="recordings""""))
+        assertFalse("Must never include sensitive.db in backup", xml.contains("""path="sensitive.db""""))
     }
 
     @Test
@@ -64,11 +62,9 @@ class BackupRulesAndStoragePolicyTest {
         assertTrue("Full backup must include learning.db", xml.contains("""<include domain="database" path="learning.db""""))
         assertTrue("Full backup must include settings preferences", xml.contains("""<include domain="file" path="datastore/settings.preferences_pb""""))
         assertTrue("Full backup must include speakcraft preferences", xml.contains("""<include domain="file" path="datastore/speakcraft_prefs.preferences_pb""""))
-        assertTrue("Full backup must explicitly exclude sensitive.db", xml.contains("""<exclude domain="database" path="sensitive.db""""))
-        assertTrue("Full backup must explicitly exclude recordings", xml.contains("""<exclude domain="file" path="recordings""""))
 
-        assertFalse("Must not include recordings", xml.contains("""<include domain="file" path="recordings""""))
-        assertFalse("Must not include sensitive.db", xml.contains("""<include domain="database" path="sensitive.db""""))
+        assertFalse("Must not include recordings", xml.contains("""path="recordings""""))
+        assertFalse("Must not include sensitive.db", xml.contains("""path="sensitive.db""""))
     }
 
     @Test

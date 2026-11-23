@@ -279,7 +279,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload AAB and verification artefacts (90-day retention)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-artifacts-${{ steps.meta.outputs.version_name }}
           path: |

@@ -41,7 +41,9 @@ class CiWorkflowPolicyTest {
         assertTrue("ci.yml must run lintDebug", content.contains(":app:lintDebug"))
         assertTrue(
             "ci.yml must upload test and lint reports",
-            content.contains("actions/upload-artifact@v5") || content.contains("actions/upload-artifact@v4")
+            content.contains("actions/upload-artifact@v6") ||
+                content.contains("actions/upload-artifact@v5") ||
+                content.contains("actions/upload-artifact@v4")
         )
         assertTrue("ci.yml must include static security checks job", content.contains("security-static:"))
 
