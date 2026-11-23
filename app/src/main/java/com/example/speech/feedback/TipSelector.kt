@@ -209,26 +209,43 @@ object TipSelector {
                 .thenBy { it.stableHash }
         )
 
-        // 2. Select focus tip for the highest priority issue
-        val highestPriorityIssue = issues.firstOrNull()
-        if (highestPriorityIssue != null) {
-            val focusMatch = rankedCandidates.firstOrNull { it.tip.triggerIssueCode == highestPriorityIssue.code }
-                ?: rankedCandidates.firstOrNull()
+        // ARC-05 §8.4 Step 4 & CMP-75: If no issue detected, return exactly one general tip
+        if (issues.isEmpty()) {
+            val generalCandidate = rankedCandidates.firstOrNull { it.tip.techniqueId in techniqueIds }
+                ?: rankedCandidates.firstOrNull { it.specificity >= 0 }
+                ?: CandidateTip(CATALOG.first { it.techniqueId == "TECH-DELIVERY-GENERAL" }, 0, 3, 0)
 
-            if (focusMatch != null) {
-                selectedTips.add(
-                    CoachTip(
-                        tipId = focusMatch.tip.tipId,
-                        techniqueId = focusMatch.tip.techniqueId,
-                        title = focusMatch.tip.title,
-                        text = focusMatch.tip.text,
-                        forIssue = focusMatch.tip.triggerIssueCode,
-                        isFocusTip = true,
-                        sourceVideoUrl = focusMatch.tip.sourceVideoUrl
-                    )
+            return listOf(
+                CoachTip(
+                    tipId = generalCandidate.tip.tipId,
+                    techniqueId = generalCandidate.tip.techniqueId,
+                    title = generalCandidate.tip.title,
+                    text = generalCandidate.tip.text,
+                    forIssue = null,
+                    isFocusTip = true,
+                    sourceVideoUrl = generalCandidate.tip.sourceVideoUrl
                 )
-                chosenTipIds.add(focusMatch.tip.tipId)
-            }
+            )
+        }
+
+        // 2. Select focus tip for the highest priority issue
+        val highestPriorityIssue = issues.first()
+        val focusMatch = rankedCandidates.firstOrNull { it.tip.triggerIssueCode == highestPriorityIssue.code }
+            ?: rankedCandidates.firstOrNull()
+
+        if (focusMatch != null) {
+            selectedTips.add(
+                CoachTip(
+                    tipId = focusMatch.tip.tipId,
+                    techniqueId = focusMatch.tip.techniqueId,
+                    title = focusMatch.tip.title,
+                    text = focusMatch.tip.text,
+                    forIssue = focusMatch.tip.triggerIssueCode,
+                    isFocusTip = true,
+                    sourceVideoUrl = focusMatch.tip.sourceVideoUrl
+                )
+            )
+            chosenTipIds.add(focusMatch.tip.tipId)
         }
 
         // 3. Select up to [maxExtra] additional tips covering other issues or general technique
@@ -248,22 +265,6 @@ object TipSelector {
                 )
             )
             chosenTipIds.add(candidate.tip.tipId)
-        }
-
-        // 4. If no issue detected and no tips selected: provide 1 general technique tip
-        if (selectedTips.isEmpty()) {
-            val generalFallback = CATALOG.firstOrNull { it.techniqueId == "TECH-DELIVERY-GENERAL" } ?: CATALOG.first()
-            selectedTips.add(
-                CoachTip(
-                    tipId = generalFallback.tipId,
-                    techniqueId = generalFallback.techniqueId,
-                    title = generalFallback.title,
-                    text = generalFallback.text,
-                    forIssue = null,
-                    isFocusTip = true,
-                    sourceVideoUrl = generalFallback.sourceVideoUrl
-                )
-            )
         }
 
         return selectedTips
