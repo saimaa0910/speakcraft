@@ -1,11 +1,13 @@
 package com.example
 
+import androidx.activity.ComponentActivity
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.AppContainer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -22,6 +24,12 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36], application = SpeakCraftApplication::class)
 class AppContainerLifecycleTest {
 
+    @Before
+    fun setUp() {
+        val app = ApplicationProvider.getApplicationContext<SpeakCraftApplication>()
+        ensureTestFirebaseApp(app)
+    }
+
     @Test
     fun `application owns initialized process-scoped AppContainer`() {
         val app = ApplicationProvider.getApplicationContext<SpeakCraftApplication>()
@@ -37,8 +45,8 @@ class AppContainerLifecycleTest {
         val app = ApplicationProvider.getApplicationContext<SpeakCraftApplication>()
         val initialContainer = app.container
 
-        // Create and setup activity
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        // Create and setup activity using standard ComponentActivity to verify activity-lifecycle stability
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()
         val activityContainer = activity.appContainer
         assertSame("Activity must use Application-scoped container", initialContainer, activityContainer)
