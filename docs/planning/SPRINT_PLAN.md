@@ -70,12 +70,12 @@ Dependencies: G4; DEP-05. Testing responsibility: every task adds or updates tes
 
 ### Sprint 3 — Architecture shell and speech spike
 
-| Story / task | WBS | Est. | Acceptance criteria |
-|---|---|---|---|
-| Application + process-scoped AppContainer | T-02.1.1 | 2 d | Rotation does not recreate container (test) |
-| Clock/Dispatcher/Logger utilities | T-02.1.2 | 1 d | Unit tests |
-| SPK-01 prototype on devices (part 1) | T-05.1 | 3.5 d | Prototype runs on ≥ 2 devices; interim findings logged |
-| **Planned load** | | **6.5 d** | |
+| Story / task | WBS | Est. | Status | Acceptance criteria |
+|---|---|---|---|---|
+| Application + process-scoped AppContainer | T-02.1.1 | 2 d | Done | `SpeakCraftApplication` owns process-scoped `AppContainer`; `appContainer` context extension; `AndroidManifest.xml` updated; rotation does not recreate container (`AppContainerLifecycleTest`, fixes FND-ARCH-02) |
+| Clock/Dispatcher/Logger utilities | T-02.1.2 | 1 d | Done | `Clock` (SystemClock, TestClock), `DateKeyProvider` (SystemDateKeyProvider), `DispatcherProvider` (StandardDispatcherProvider, TestDispatcherProvider) interfaces & implementations; unit tests pass (`CoreUtilitiesTest`) |
+| SPK-01 prototype on devices (part 1) | T-05.1 | 3.5 d | In progress | Prototype runs on ≥ 2 devices; interim findings logged |
+| **Planned load** | | **6.5 d** | **In progress (2/3)** | |
 
 ### Sprint 4 — Packages, navigation, spike completion
 

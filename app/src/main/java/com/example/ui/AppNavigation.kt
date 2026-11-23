@@ -1,5 +1,7 @@
 package com.example.ui
 
+import com.example.appContainer
+
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
@@ -204,7 +206,7 @@ fun SpeakCraftRoot(
     launchVm: LaunchExperienceViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val container = remember(context.applicationContext) { AppContainer(context.applicationContext) }
+    val container = remember { context.appContainer }
     val prefsSnapshot by remember(container) {
         container.preferencesRepository.preferencesFlow.map { it to true }
     }.collectAsStateWithLifecycle(initialValue = AppPreferences() to false)

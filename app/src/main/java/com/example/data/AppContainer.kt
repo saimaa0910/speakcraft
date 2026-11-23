@@ -12,12 +12,26 @@ import com.example.data.ai.local.audio.LiveTranscriptionManager
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.preferences.AISettingsRepository
+import com.example.core.common.dispatch.DispatcherProvider
+import com.example.core.common.dispatch.StandardDispatcherProvider
+import com.example.core.common.time.Clock
+import com.example.core.common.time.DateKeyProvider
+import com.example.core.common.time.SystemClock
+import com.example.core.common.time.SystemDateKeyProvider
 import com.example.data.preferences.AppPreferencesRepository
 import com.example.data.preferences.TutorialStateManager
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
+
+    // Core utilities (T-02.1.2)
+    val clock: Clock by lazy { SystemClock }
+    val dateKeys: DateKeyProvider by lazy { SystemDateKeyProvider(clock) }
+    val dispatchers: DispatcherProvider by lazy { StandardDispatcherProvider }
+    val appScope: CoroutineScope by lazy { CoroutineScope(SupervisorJob() + dispatchers.default) }
 
     val firestore: FirebaseFirestore by lazy {
         FirebaseFirestore.getInstance(appContext.getString(R.string.firestore_database_id))
