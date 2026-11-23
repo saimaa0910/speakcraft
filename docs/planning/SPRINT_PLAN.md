@@ -63,10 +63,10 @@ Dependencies: G4; DEP-05. Testing responsibility: every task adds or updates tes
 |---|---|---|---|---|
 | Remove YouTube Intelligence (ingestion, seeded per-user copies) & creator branding; keep catalogue content for re-expression (D-08) | T-04.1.1 | 2.5 d | Done | Zero creator branding or YouTube Intelligence symbols in `app/src/main/` (CI `security-static` Check #6 + `YouTubeRemovalAndBrandingPolicyTest`); tab, ingestion, admin sync, API key UI/prefs, and per-user seeding removed; all 15 bundled catalogue items preserved for EP-09 |
 | Remove updater and release collections | T-04.1.3 | 1 d | Done | In-app APK updater (`data/update/*`), `AppUpdateScreen`, `UpdateAvailableDialog`, `UpdateBannerCard`, `GITHUB_RELEASE_REPO`, unused `FileProvider`/`file_paths.xml`, `scripts/publish_firestore_release.mjs`, and `applicationReleases`/`applicationUpdateEvents` models, repo methods & Firestore rules (default-deny) removed; enforced by CI Check #7 & `UpdaterAndReleaseRemovalPolicyTest` (ADR-004 / D-03) |
-| Backup rules; recordings to `noBackupFilesDir` | T-04.2.2 | 1 d | Todo | Backup rules test passes; files located under no-backup dir |
+| Backup rules; recordings to `noBackupFilesDir` | T-04.2.2 | 1 d | Done | Backup rules and data extraction XMLs enforce include-only (`learning.db` & preferences); audio recordings located strictly under `context.noBackupFilesDir`; verified by `BackupRulesAndStoragePolicyTest` (ADR-015 / D-23) |
 | PII redaction (AppLogger) | T-04.2.3 | 1 d | Todo | Log tests show no uid/email |
 | Fix/retire `speakingSessions` write path | T-04.2.4 | 1 d | Todo | Rules emulator test for the save passes |
-| **Planned load** | | **6.5 d** | **In progress (2/5)** | |
+| **Planned load** | | **6.5 d** | **In progress (3/5)** | |
 
 ### Sprint 3 — Architecture shell and speech spike
 

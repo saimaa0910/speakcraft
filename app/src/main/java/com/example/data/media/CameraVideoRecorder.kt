@@ -198,7 +198,7 @@ fun InAppCameraVideoDialog(
                         onClick = {
                             val capture = videoCapture ?: return@Button
                             if (!isRecording) {
-                                val dir = File(context.filesDir, "recordings").apply { mkdirs() }
+                                val dir = File(context.noBackupFilesDir, "recordings").apply { mkdirs() }
                                 val outFile = File(dir, "speakcraft_vid_${System.currentTimeMillis()}.mp4")
                                 currentFile = outFile
                                 val outputOptions = FileOutputOptions.Builder(outFile).build()

@@ -54,7 +54,7 @@ class AudioRecorderManager(val context: Context) {
     private val _recordedFilePath = MutableStateFlow<String?>(null)
     val recordedFilePath: StateFlow<String?> = _recordedFilePath.asStateFlow()
 
-    fun recordingsDir(): File = File(context.filesDir, "recordings").apply { mkdirs() }
+    fun recordingsDir(): File = File(context.noBackupFilesDir, "recordings").apply { mkdirs() }
 
     fun startRecording(scope: CoroutineScope): Boolean {
         stopPlayback()
