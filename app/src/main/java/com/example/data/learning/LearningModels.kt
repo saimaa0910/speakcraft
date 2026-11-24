@@ -21,7 +21,8 @@ enum class LearningLevel(val label: String, val rank: Int) {
                 clean.contains("upper") -> UPPER_INTERMEDIATE
                 clean.contains("advanced") -> ADVANCED
                 clean.contains("intermediate") -> INTERMEDIATE
-                else -> BEGINNER
+                clean.contains("beginner") -> BEGINNER
+                else -> INTERMEDIATE // unknown or blank: L3 Intermediate is the default level (D-17)
             }
         }
     }

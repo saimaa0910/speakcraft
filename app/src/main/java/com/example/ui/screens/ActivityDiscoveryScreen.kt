@@ -646,7 +646,7 @@ fun ComprehensiveLearningPathCard(
     summary: LearningPathProgressSummary,
     onOpenActivity: (String) -> Unit
 ) {
-    val ext = speakCraftColors
+    val ext = MaterialTheme.speakCraftColors
     var isExpanded by remember { mutableStateOf(false) }
     var selectedPillarTab by remember { mutableStateOf(0) } // 0: Activities, 1: Exercises, 2: Techniques, 3: Tasks
 

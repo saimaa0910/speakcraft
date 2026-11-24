@@ -126,7 +126,7 @@ class DailyAdaptiveCurriculumEngineTest {
 
         // Beginner activities should be BEGINNER or INTERMEDIATE difficulty
         begActivities.forEach { item ->
-            assertNotNull(ActivityCatalogue.getActivity(item.activity.activityId))
+            assertNotNull(ActivityCatalogue.getActivityById(item.activity.activityId))
             assertTrue(
                 "Beginner activities should not be ADVANCED difficulty, got ${item.activity.difficulty}",
                 item.activity.difficulty != ActivityDifficulty.ADVANCED
@@ -137,7 +137,7 @@ class DailyAdaptiveCurriculumEngineTest {
 
         // Advanced activities should prioritize INTERMEDIATE or ADVANCED
         advActivities.forEach { item ->
-            assertNotNull(ActivityCatalogue.getActivity(item.activity.activityId))
+            assertNotNull(ActivityCatalogue.getActivityById(item.activity.activityId))
             assertTrue("Duration should be positive", item.durationMinutes > 0)
         }
 

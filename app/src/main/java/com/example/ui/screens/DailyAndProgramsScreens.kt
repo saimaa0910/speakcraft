@@ -68,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
 import com.example.data.model.ProgramEnrollment
-import com.example.data.model.VocabSeed
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.EmeraldSuccess
@@ -101,7 +100,7 @@ fun DailyPracticeScreen(
         DailyAdaptiveCurriculumEngine.generateDailyPackage(
             dateKey = todayDateKey,
             level = userLevel,
-            completedTodayIds = completedIds
+            completedTodayIds = completedIds.toSet()
         )
     }
 
@@ -395,9 +394,9 @@ private fun DailyTargetWordsCard(
                                 }
                             }
                             Text(w.meaning, style = MaterialTheme.typography.bodySmall)
-                            if (w.example.isNotBlank()) {
+                            if (w.exampleSentence.isNotBlank()) {
                                 Text(
-                                    "\"${w.example}\"",
+                                    "\"${w.exampleSentence}\"",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -622,7 +621,7 @@ private fun DailyActivitiesCard(
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         ) {
-                            Text("Start Drill (${act.exerciseTemplate.name.lowercase().replace('_', ' ')})")
+                            Text("Start Drill (${act.exerciseType.name.lowercase().replace('_', ' ')})")
                             Spacer(Modifier.width(6.dp))
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                         }

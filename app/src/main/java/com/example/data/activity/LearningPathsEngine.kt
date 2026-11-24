@@ -683,9 +683,9 @@ object LearningPathsEngine {
         val completedActivities = activityItems.count { it.isCompleted }
         val inProgressActivities = activityItems.count { !it.isCompleted && it.attemptsCount > 0 }
         val activityPercent = ((completedActivities * 100f) / totalActivities).toInt().coerceIn(0, 100)
-        val avgScore = activityItems.filter { it.isCompleted }.map { it.bestScore }
+        val avgScore = activityItems.filter { it.isCompleted }.map { it.bestObjectiveScore }
             .takeIf { it.isNotEmpty() }?.average()?.toInt() ?: 0
-        val bestScore = activityItems.maxOfOrNull { it.bestScore } ?: 0
+        val bestScore = activityItems.maxOfOrNull { it.bestObjectiveScore } ?: 0
         val totalAttempts = activityItems.sumOf { it.attemptsCount }
         val totalPracticeMins = (activityItems.sumOf { it.totalPracticeSeconds } / 60).toInt()
 
@@ -707,7 +707,7 @@ object LearningPathsEngine {
             val typeTotal = items.size
             val typeCompleted = items.count { it.isCompleted }
             val typePercent = if (typeTotal > 0) ((typeCompleted * 100f) / typeTotal).toInt().coerceIn(0, 100) else 0
-            val typeAvgScore = items.filter { it.isCompleted }.map { it.bestScore }
+            val typeAvgScore = items.filter { it.isCompleted }.map { it.bestObjectiveScore }
                 .takeIf { it.isNotEmpty() }?.average()?.toInt() ?: 0
 
             ExerciseTypeProgress(
@@ -757,7 +757,7 @@ object LearningPathsEngine {
                 activityItems.firstOrNull { it.activityId == actId }?.isCompleted == true
             }
             val techAvgScore = associated.mapNotNull { actId ->
-                activityItems.firstOrNull { it.activityId == actId }?.takeIf { it.isCompleted }?.bestScore
+                activityItems.firstOrNull { it.activityId == actId }?.takeIf { it.isCompleted }?.bestObjectiveScore
             }.takeIf { it.isNotEmpty() }?.average()?.toInt() ?: 0
 
             val isPracticed = completedForTech > 0 || associated.any { actId ->
