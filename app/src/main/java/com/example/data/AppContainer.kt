@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.R
 import com.example.data.ai.HybridAiCoachCoordinator
 import com.example.data.ai.IntelligenceCapabilityManager
+import com.example.data.ai.local.DeviceAdaptiveModelInstaller
 import com.example.data.ai.local.DeviceCapabilityManager
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.local.OfflineAIAvailabilityManager
@@ -62,6 +63,16 @@ class AppContainer(context: Context) {
     val deviceCapabilityManager: DeviceCapabilityManager by lazy { DeviceCapabilityManager(appContext) }
     val offlineAIAvailabilityManager: OfflineAIAvailabilityManager by lazy {
         OfflineAIAvailabilityManager(appContext, onDeviceModelManager, deviceCapabilityManager)
+    }
+
+    val deviceAdaptiveModelInstaller: DeviceAdaptiveModelInstaller by lazy {
+        DeviceAdaptiveModelInstaller(
+            context = appContext,
+            modelManager = onDeviceModelManager,
+            capabilityManager = deviceCapabilityManager,
+            preferencesRepository = preferencesRepository,
+            aiSettingsRepository = aiSettingsRepository
+        )
     }
 
     val localIntelligenceOrchestrator: LocalIntelligenceOrchestrator by lazy {

@@ -3,6 +3,7 @@ package com.example
 import android.app.Application
 import android.content.Context
 import com.example.data.AppContainer
+import kotlinx.coroutines.launch
 
 /**
  * Custom Application class establishing the process-scoped dependency graph (T-02.1.1, CMP-01, ADR-001).
@@ -18,6 +19,13 @@ class SpeakCraftApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+
+        // Automatically provision and install device-suitable lightweight AI models on install / startup
+        container.appScope.launch(container.dispatchers.io) {
+            runCatching {
+                container.deviceAdaptiveModelInstaller.autoInstallOnFirstLaunch()
+            }
+        }
     }
 }
 

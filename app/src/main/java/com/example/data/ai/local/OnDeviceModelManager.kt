@@ -170,9 +170,94 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
 
     fun getModelFile(id: LocalModelId): File? {
         val spec = modelCatalogue[id] ?: return null
-        if (spec.bundledInAssets) return null
         val file = File(modelsDir(), spec.fileName)
-        return if (file.exists()) file else null
+        if (file.exists() && file.length() > 0L) return file
+        if (spec.bundledInAssets) return null
+        return null
+    }
+
+    /**
+     * Extracts a model asset bundled inside the APK assets folder into [modelsDir]
+     * so it can be loaded directly from disk by vision or speech runtimes.
+     */
+    fun extractBundledAssetIfPresent(id: LocalModelId): Boolean {
+        val spec = modelCatalogue[id] ?: return false
+        val destFile = File(modelsDir(), spec.fileName)
+        if (destFile.exists() && destFile.length() > 0L) return true
+        val ctx = context ?: return false
+
+        val assetPaths = listOf("models/${spec.fileName}", spec.fileName)
+        for (path in assetPaths) {
+            val success = runCatching {
+                ctx.assets.open(path).use { input ->
+                    val temp = File(modelsDir(), "${spec.fileName}.tmp")
+                    temp.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                    if (temp.length() > 0L) {
+                        if (destFile.exists()) destFile.delete()
+                        temp.renameTo(destFile)
+                    } else {
+                        temp.delete()
+                        false
+                    }
+                }
+            }.getOrDefault(false)
+
+            if (success && destFile.exists() && destFile.length() > 0L) {
+                AppLogger.i(TAG, "Successfully extracted asset $path to ${destFile.absolutePath}")
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * Installs a model from an input stream atomically into [modelsDir].
+     */
+    fun installModelFromStream(id: LocalModelId, stream: java.io.InputStream): Boolean {
+        val spec = modelCatalogue[id] ?: return false
+        val destFile = File(modelsDir(), spec.fileName)
+        val tempFile = File(modelsDir(), "${spec.fileName}.tmp")
+        return try {
+            tempFile.outputStream().use { out ->
+                stream.copyTo(out)
+            }
+            if (tempFile.length() > 0L) {
+                if (destFile.exists()) destFile.delete()
+                val renamed = tempFile.renameTo(destFile)
+                if (renamed) {
+                    AppLogger.i(TAG, "Model $id installed successfully (${destFile.length()} bytes)")
+                    true
+                } else {
+                    tempFile.delete()
+                    false
+                }
+            } else {
+                tempFile.delete()
+                false
+            }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Failed installing model from stream for $id: ${e.message}", e)
+            tempFile.delete()
+            false
+        }
+    }
+
+    /**
+     * Installs a model from a source file by copying it into [modelsDir].
+     */
+    fun installModelFile(id: LocalModelId, sourceFile: File): Boolean {
+        val spec = modelCatalogue[id] ?: return false
+        if (!sourceFile.exists() || sourceFile.length() <= 0L) return false
+        val destFile = File(modelsDir(), spec.fileName)
+        return try {
+            sourceFile.copyTo(destFile, overwrite = true)
+            destFile.exists() && destFile.length() > 0L
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Failed installing model file for $id: ${e.message}", e)
+            false
+        }
     }
 
     fun modelMetadata(id: LocalModelId): LocalModelSpec? = modelCatalogue[id]

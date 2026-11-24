@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
+import com.example.data.ai.local.DeviceCapabilityManager
+import com.example.data.ai.local.DeviceProfile
 import com.example.data.ai.local.LocalModelId
 import com.example.data.ai.local.OfflineAIAvailabilityManager
 import com.example.data.ai.local.OnDeviceModelManager
@@ -46,7 +48,9 @@ data class IntelligenceCapabilityMatrix(
     val activeRecognitionEngineLabel: String,
     val whisperModelStatus: String,
     val mediaPipeStatus: String,
-    val speechRecognizerInitError: String?
+    val speechRecognizerInitError: String?,
+    val deviceProfile: DeviceProfile = DeviceProfile.STANDARD,
+    val deviceModelSummary: String = "Optimized for this device"
 )
 
 /**
@@ -272,6 +276,10 @@ class IntelligenceCapabilityManager(
             "Unavailable on this context"
         }
 
+        val profile = offlineAvailabilityManager?.getStatus()?.activeProfile
+            ?: DeviceCapabilityManager(context).getProfile()
+        val deviceSummary = "Hardware Profile: ${profile.name} • Selected Engine: $engineLabel • Vision: $mediaPipeStatusText"
+
         return IntelligenceCapabilityMatrix(
             localAi = localAiDescriptor,
             liveTranscription = liveTranscriptionDescriptor,
@@ -284,7 +292,9 @@ class IntelligenceCapabilityManager(
             activeRecognitionEngineLabel = engineLabel,
             whisperModelStatus = whisperStatusText,
             mediaPipeStatus = mediaPipeStatusText,
-            speechRecognizerInitError = effectiveErr
+            speechRecognizerInitError = effectiveErr,
+            deviceProfile = profile,
+            deviceModelSummary = deviceSummary
         )
     }
 }
