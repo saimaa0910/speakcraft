@@ -29,8 +29,16 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapHoriz
+import com.example.data.activity.LearningPathProgressSummary
+import com.example.data.activity.LearningPathStatus
+import com.example.data.activity.PathTaskCategory
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -420,59 +428,10 @@ fun ActivityDiscoveryScreen(
                         )
                     }
                     items(pathSummaries, key = { it.path.pathId }) { summary ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = MaterialTheme.shapes.large,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
-                            modifier = Modifier.testTag("learning_path_card_${summary.path.pathId}")
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(summary.path.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                        Text(
-                                            "${summary.path.difficulty.label} • ${summary.completedCount}/${summary.totalCount} completed",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    Text("${summary.percentComplete}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                }
-                                Text(summary.path.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                LinearProgressIndicator(
-                                    progress = { summary.percentComplete / 100f },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                )
-                                if (summary.unlockedMilestones.isNotEmpty()) {
-                                    Text(
-                                        "Unlocked Milestones: ${summary.unlockedMilestones.joinToString(" • ") { it.title }}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = ext.success
-                                    )
-                                }
-                                val nextId = summary.nextRecommendedActivityId ?: summary.path.orderedActivityIds.first()
-                                Button(
-                                    onClick = { onOpenActivity(nextId) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                ) {
-                                    Text(if (summary.completedCount == 0) "Start Path" else "Continue Path")
-                                    Spacer(Modifier.width(6.dp))
-                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                                }
-                            }
-                        }
+                        ComprehensiveLearningPathCard(
+                            summary = summary,
+                            onOpenActivity = onOpenActivity
+                        )
                     }
                 }
 
@@ -676,6 +635,543 @@ private fun ActivityCatalogueRowCard(
                     contentDescription = if (isSaved) "Remove bookmark" else "Save activity",
                     tint = MaterialTheme.colorScheme.primary
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ComprehensiveLearningPathCard(
+    summary: LearningPathProgressSummary,
+    onOpenActivity: (String) -> Unit
+) {
+    val ext = speakCraftColors
+    var isExpanded by remember { mutableStateOf(false) }
+    var selectedPillarTab by remember { mutableStateOf(0) } // 0: Activities, 1: Exercises, 2: Techniques, 3: Tasks
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("learning_path_card_${summary.path.pathId}")
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header: Title, difficulty and status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        summary.path.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                summary.path.difficulty.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Surface(
+                            color = when (summary.status) {
+                                LearningPathStatus.COMPLETED -> ext.success.copy(alpha = 0.15f)
+                                LearningPathStatus.IN_PROGRESS -> MaterialTheme.colorScheme.secondaryContainer
+                                LearningPathStatus.LOCKED -> MaterialTheme.colorScheme.errorContainer
+                                LearningPathStatus.NOT_STARTED -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                summary.status.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (summary.status) {
+                                    LearningPathStatus.COMPLETED -> ext.success
+                                    LearningPathStatus.IN_PROGRESS -> MaterialTheme.colorScheme.onSecondaryContainer
+                                    LearningPathStatus.LOCKED -> MaterialTheme.colorScheme.onErrorContainer
+                                    LearningPathStatus.NOT_STARTED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "${summary.overallWeightedProgressPercent}%",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Overall Progress",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Text(
+                summary.path.subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Progress Bar
+            LinearProgressIndicator(
+                progress = { (summary.overallWeightedProgressPercent / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(7.dp)
+                    .clip(RoundedCornerShape(4.dp))
+            )
+
+            // 4-Pillar Quick Summary Badges
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("🎯 Activities:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${summary.activityProgress.completedActivities}/${summary.activityProgress.totalActivities} (${summary.activityProgress.percentComplete}%)",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        if (summary.activityProgress.averageScore > 0) {
+                            Text("• avg ${summary.activityProgress.averageScore}%", style = MaterialTheme.typography.labelSmall, color = ext.success)
+                        }
+                    }
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("⚡ Exercises:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${summary.exerciseProgress.completedExercises}/${summary.exerciseProgress.totalExercises} (${summary.exerciseProgress.distinctExerciseTypesCount} types)",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("💡 Techniques:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${summary.techniqueProgress.masteredTechniques}/${summary.techniqueProgress.totalTechniques} Mastered",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (summary.techniqueProgress.masteredTechniques > 0) ext.success else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("📋 Tasks:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${summary.taskProgress.completedTasks}/${summary.taskProgress.totalTasks} Done",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+
+            // Next Recommendation Note
+            if (summary.nextActionRecommendation.isNotBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            if (summary.prerequisitesMet) Icons.Default.Star else Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            summary.nextActionRecommendation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            // Unlocked Milestones
+            if (summary.unlockedMilestones.isNotEmpty()) {
+                Text(
+                    "Unlocked Milestones: ${summary.unlockedMilestones.joinToString(" • ") { it.title }}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ext.success
+                )
+            }
+
+            // Main Actions: Launch Button + Details Toggle Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val nextId = summary.nextRecommendedActivityId ?: summary.path.orderedActivityIds.first()
+                Button(
+                    onClick = { onOpenActivity(nextId) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                ) {
+                    Text(
+                        when {
+                            summary.completedCount == 0 -> "Start Path"
+                            summary.percentComplete >= 100 -> "Practice Again"
+                            else -> "Continue Path"
+                        }
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+
+                OutlinedButton(
+                    onClick = { isExpanded = !isExpanded },
+                    modifier = Modifier.defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                ) {
+                    Text(if (isExpanded) "Hide Details" else "4-Pillar Breakdown")
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            // EXPANDED 4-PILLAR BREAKDOWN TABS
+            if (isExpanded) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    shape = MaterialTheme.shapes.medium,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Pillar Selection Chips
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedPillarTab == 0,
+                                onClick = { selectedPillarTab = 0 },
+                                label = { Text("Activities (${summary.activityProgress.completedActivities}/${summary.activityProgress.totalActivities})") }
+                            )
+                            FilterChip(
+                                selected = selectedPillarTab == 1,
+                                onClick = { selectedPillarTab = 1 },
+                                label = { Text("Exercises (${summary.exerciseProgress.exerciseTypeBreakdown.size} types)") }
+                            )
+                            FilterChip(
+                                selected = selectedPillarTab == 2,
+                                onClick = { selectedPillarTab = 2 },
+                                label = { Text("Techniques (${summary.techniqueProgress.masteredTechniques}/${summary.techniqueProgress.totalTechniques})") }
+                            )
+                            FilterChip(
+                                selected = selectedPillarTab == 3,
+                                onClick = { selectedPillarTab = 3 },
+                                label = { Text("Tasks (${summary.taskProgress.completedTasks}/${summary.taskProgress.totalTasks})") }
+                            )
+                        }
+
+                        // Tab 0: ACTIVITIES BREAKDOWN
+                        if (selectedPillarTab == 0) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                summary.activityProgress.activities.forEach { act ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = MaterialTheme.shapes.small,
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    if (act.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                                    contentDescription = null,
+                                                    tint = if (act.isCompleted) ext.success else MaterialTheme.colorScheme.outline,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Column {
+                                                    Text(act.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                                    Text(
+                                                        "${act.difficulty.label} • ${act.durationMinutes}m • ${act.exerciseType.displayName}",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                if (act.isCompleted && act.bestObjectiveScore > 0) {
+                                                    Surface(
+                                                        color = ext.success.copy(alpha = 0.15f),
+                                                        shape = MaterialTheme.shapes.extraSmall
+                                                    ) {
+                                                        Text(
+                                                            "${act.bestObjectiveScore}%",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = ext.success,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                                OutlinedButton(
+                                                    onClick = { onOpenActivity(act.activityId) },
+                                                    modifier = Modifier.defaultMinSize(minHeight = 32.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(if (act.isCompleted) "Replay" else "Practice", style = MaterialTheme.typography.labelSmall)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Tab 1: EXERCISES BREAKDOWN
+                        if (selectedPillarTab == 1) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                summary.exerciseProgress.exerciseTypeBreakdown.forEach { ex ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = MaterialTheme.shapes.small,
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column {
+                                                    Text(ex.typeName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                                    Text(
+                                                        "Family: ${ex.family.name.replace("_", " ")} • ${ex.associatedActivityIds.size} activities",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                Text(
+                                                    "${ex.completedCount}/${ex.totalCount} completed",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (ex.completedCount == ex.totalCount) ext.success else MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                            LinearProgressIndicator(
+                                                progress = { (ex.percentComplete / 100f).coerceIn(0f, 1f) },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(4.dp)
+                                                    .clip(RoundedCornerShape(2.dp))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Tab 2: TECHNIQUES BREAKDOWN
+                        if (selectedPillarTab == 2) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                summary.techniqueProgress.techniques.forEach { tech ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = MaterialTheme.shapes.small,
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    tech.title,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Surface(
+                                                    color = when {
+                                                        tech.isMastered -> ext.success.copy(alpha = 0.15f)
+                                                        tech.isPracticed -> MaterialTheme.colorScheme.secondaryContainer
+                                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                                    },
+                                                    shape = MaterialTheme.shapes.extraSmall
+                                                ) {
+                                                    Text(
+                                                        when {
+                                                            tech.isMastered -> "Mastered"
+                                                            tech.isPracticed -> "Practiced"
+                                                            else -> "Not Started"
+                                                        },
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = when {
+                                                            tech.isMastered -> ext.success
+                                                            tech.isPracticed -> MaterialTheme.colorScheme.onSecondaryContainer
+                                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                        },
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                tech.summary,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Text(
+                                                "Rule: ${tech.coreRule}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Tab 3: TASKS BREAKDOWN
+                        if (selectedPillarTab == 3) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                summary.taskProgress.tasks.forEach { task ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = MaterialTheme.shapes.small,
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                if (task.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                                contentDescription = null,
+                                                tint = if (task.isCompleted) ext.success else MaterialTheme.colorScheme.outline,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Surface(
+                                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                                        shape = MaterialTheme.shapes.extraSmall
+                                                    ) {
+                                                        Text(
+                                                            task.category.label,
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                        )
+                                                    }
+                                                    Text(task.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                                }
+                                                Text(
+                                                    task.description,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

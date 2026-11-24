@@ -9,6 +9,9 @@ import com.example.data.ai.RecommendationEngine
 import com.example.data.ai.RecommendedNextAction
 import com.example.data.ai.VocabEvaluationResult
 import com.example.data.firebase.SpeakCraftRepository
+import com.example.data.learning.DailyAdaptiveCurriculumEngine
+import com.example.data.learning.DailyAdaptiveCurriculumPackage
+import com.example.data.learning.LearningLevel
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
 import com.example.data.model.LearningChallenge
@@ -137,14 +140,36 @@ class MainCoachViewModel(
         RecommendationEngine.recommendNextAction(null, emptyList(), emptyList(), null)
     )
 
-    val dailyVocabularyBatch: List<VocabSeed> by lazy {
-        val bank = CurriculumCatalog.vocabularyBank
-        if (bank.size <= 3) bank
-        else {
-            val offset = ((todayEpochDay % bank.size).toInt()).coerceAtLeast(0)
-            (0 until 3).map { i -> bank[(offset + i) % bank.size] }
+    val currentLearningLevel: StateFlow<LearningLevel> = userProfile.map { uiState ->
+        val profile = (uiState as? UiState.Success)?.data
+        LearningLevel.fromLabel(profile?.communicationLevel)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LearningLevel.INTERMEDIATE)
+
+    val dailyCurriculumPackage: StateFlow<DailyAdaptiveCurriculumPackage> = combine(
+        currentLearningLevel,
+        userProfile,
+        dailyActivities
+    ) { level, pState, dState ->
+        val profile = (pState as? UiState.Success)?.data
+        val dailyList = (dState as? UiState.Success)?.data.orEmpty()
+        val today = dailyList.firstOrNull { it.dateKey == todayDateKey }
+        DailyAdaptiveCurriculumEngine.generateDailyPackage(
+            dateKey = todayDateKey,
+            level = level,
+            profile = profile,
+            completedTodayIds = today?.completedStepIds.orEmpty().toSet()
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+        DailyAdaptiveCurriculumEngine.generateDailyPackage(todayDateKey, LearningLevel.INTERMEDIATE)
+    )
+
+    val dailyVocabularyBatch: List<VocabSeed>
+        get() {
+            val level = currentLearningLevel.value
+            return DailyAdaptiveCurriculumEngine.getDailyWords(todayDateKey, level, count = 3)
         }
-    }
 
     private val _actionMessage = MutableStateFlow<String?>(null)
     val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()

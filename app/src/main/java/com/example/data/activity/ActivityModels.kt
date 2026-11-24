@@ -254,6 +254,114 @@ data class LearningPathDefinition(
     val completionCriteriaSummary: String
 )
 
+// ==================== 4-PILLAR LEARNING PATH PROGRESS MODELS ====================
+
+data class PathActivityItemProgress(
+    val activityId: String,
+    val title: String,
+    val moduleId: String,
+    val skillCategory: ActivitySkillCategory,
+    val exerciseType: ExerciseTemplateType,
+    val difficulty: ActivityDifficulty,
+    val durationMinutes: Int,
+    val isCompleted: Boolean,
+    val attemptsCount: Int,
+    val bestObjectiveScore: Int,
+    val latestObjectiveScore: Int,
+    val latestConfidenceRating: Int,
+    val totalPracticeSeconds: Long,
+    val lastPracticedDateKey: String
+)
+
+data class ActivityPathProgress(
+    val totalActivities: Int,
+    val completedActivities: Int,
+    val inProgressActivities: Int,
+    val percentComplete: Int,
+    val averageScore: Int,
+    val bestScore: Int,
+    val totalAttempts: Int,
+    val totalPracticeMinutes: Int,
+    val activities: List<PathActivityItemProgress>
+)
+
+data class ExerciseTypeProgress(
+    val exerciseType: ExerciseTemplateType,
+    val typeName: String,
+    val family: InteractionFamily,
+    val totalCount: Int,
+    val completedCount: Int,
+    val percentComplete: Int,
+    val averageScore: Int,
+    val associatedActivityIds: List<String>
+)
+
+data class ExercisePathProgress(
+    val totalExercises: Int,
+    val completedExercises: Int,
+    val percentComplete: Int,
+    val distinctExerciseTypesCount: Int,
+    val completedExerciseTypesCount: Int,
+    val exerciseTypeBreakdown: List<ExerciseTypeProgress>
+)
+
+data class PathTechniqueItemProgress(
+    val techniqueId: String,
+    val title: String,
+    val summary: String,
+    val coreRule: String,
+    val category: String,
+    val associatedActivityIds: List<String>,
+    val totalActivitiesCount: Int,
+    val completedActivitiesCount: Int,
+    val percentComplete: Int,
+    val averageScore: Int,
+    val isPracticed: Boolean,
+    val isMastered: Boolean
+)
+
+data class TechniquePathProgress(
+    val totalTechniques: Int,
+    val practicedTechniques: Int,
+    val masteredTechniques: Int,
+    val percentComplete: Int,
+    val techniques: List<PathTechniqueItemProgress>
+)
+
+enum class PathTaskCategory(val label: String) {
+    ACTIVITY_TASK("Activity Drill"),
+    REAL_WORLD_APPLICATION("Real-World Mission"),
+    MILESTONE_CHECKPOINT("Milestone Checkpoint"),
+    PRACTICE_DRILL("Practice Task")
+}
+
+data class PathTaskItemProgress(
+    val taskId: String,
+    val title: String,
+    val description: String,
+    val category: PathTaskCategory,
+    val isCompleted: Boolean,
+    val completedAtMs: Long = 0L,
+    val sourceActivityId: String? = null,
+    val requiredThreshold: Int = 1,
+    val currentProgress: Int = 0
+)
+
+data class TaskPathProgress(
+    val totalTasks: Int,
+    val completedTasks: Int,
+    val percentComplete: Int,
+    val tasksByCategory: Map<PathTaskCategory, Int>,
+    val tasks: List<PathTaskItemProgress>
+)
+
+enum class LearningPathStatus(val label: String) {
+    NOT_STARTED("Not Started"),
+    IN_PROGRESS("In Progress"),
+    COMPLETED("Completed"),
+    LOCKED("Prerequisites Needed")
+}
+
 data class LearningPathProgressSummary(
     val path: LearningPathDefinition,
     val completedCount: Int,
@@ -261,7 +369,43 @@ data class LearningPathProgressSummary(
     val percentComplete: Int,
     val prerequisitesMet: Boolean,
     val nextRecommendedActivityId: String?,
-    val unlockedMilestones: List<LearningPathMilestone>
+    val unlockedMilestones: List<LearningPathMilestone>,
+    val activityProgress: ActivityPathProgress = ActivityPathProgress(
+        totalActivities = totalCount,
+        completedActivities = completedCount,
+        inProgressActivities = 0,
+        percentComplete = percentComplete,
+        averageScore = 0,
+        bestScore = 0,
+        totalAttempts = 0,
+        totalPracticeMinutes = 0,
+        activities = emptyList()
+    ),
+    val exerciseProgress: ExercisePathProgress = ExercisePathProgress(
+        totalExercises = totalCount,
+        completedExercises = completedCount,
+        percentComplete = percentComplete,
+        distinctExerciseTypesCount = 0,
+        completedExerciseTypesCount = 0,
+        exerciseTypeBreakdown = emptyList()
+    ),
+    val techniqueProgress: TechniquePathProgress = TechniquePathProgress(
+        totalTechniques = 0,
+        practicedTechniques = 0,
+        masteredTechniques = 0,
+        percentComplete = 0,
+        techniques = emptyList()
+    ),
+    val taskProgress: TaskPathProgress = TaskPathProgress(
+        totalTasks = 0,
+        completedTasks = 0,
+        percentComplete = 0,
+        tasksByCategory = emptyMap(),
+        tasks = emptyList()
+    ),
+    val overallWeightedProgressPercent: Int = percentComplete,
+    val status: LearningPathStatus = if (percentComplete >= 100) LearningPathStatus.COMPLETED else if (completedCount > 0) LearningPathStatus.IN_PROGRESS else if (!prerequisitesMet) LearningPathStatus.LOCKED else LearningPathStatus.NOT_STARTED,
+    val nextActionRecommendation: String = ""
 )
 
 data class DailyPracticeBlock(

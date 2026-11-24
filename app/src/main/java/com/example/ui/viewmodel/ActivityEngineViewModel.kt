@@ -175,13 +175,19 @@ class ActivityEngineViewModel(
         ActivityProgressAnalyticsEngine.computeSnapshot(emptyList(), emptyList(), todayDateKey)
     )
 
-    val learningPathSummaries: StateFlow<List<LearningPathProgressSummary>> = progressList
-        .combine(_localProgress) { p, _ -> LearningPathsEngine.evaluateAllPaths(p) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            LearningPathsEngine.evaluateAllPaths(emptyList())
-        )
+    val learningPathSummaries: StateFlow<List<LearningPathProgressSummary>> = combine(
+        progressList,
+        attemptHistory
+    ) { progress, attempts ->
+        LearningPathsEngine.evaluateAllPaths(progress, attempts)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        LearningPathsEngine.evaluateAllPaths(emptyList())
+    )
+
+    fun getLearningPathSummary(pathId: String): LearningPathProgressSummary? =
+        learningPathSummaries.value.firstOrNull { it.path.pathId == pathId }
 
     fun clearStatusBanner() {
         _statusBanner.value = null

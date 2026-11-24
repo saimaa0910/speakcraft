@@ -109,6 +109,7 @@ import com.example.data.AppContainer
 import com.example.data.activity.ActivityCatalogue
 import com.example.data.firebase.authStateFlow
 import com.example.data.firebase.signOut
+import com.example.data.learning.LearningLevel
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.FeatureTutorialRegistry
@@ -872,20 +873,31 @@ private fun AuthenticatedAppShell(
                                 }
                                 composable("daily_practice") {
                                     val todayActivity = dailyList.firstOrNull { it.dateKey == mainVm.todayDateKey }
+                                    val dailyPackage by mainVm.dailyCurriculumPackage.collectAsStateWithLifecycle()
+                                    val userLevel = remember(profile.communicationLevel) {
+                                        LearningLevel.fromLabel(profile.communicationLevel)
+                                    }
                                     DailyPracticeScreen(
                                         todayDateKey = mainVm.todayDateKey,
                                         todayActivity = todayActivity,
-                                        todaysWords = mainVm.dailyVocabularyBatch,
+                                        todaysWords = if (dailyPackage.dailyWords.isNotEmpty()) dailyPackage.dailyWords else mainVm.dailyVocabularyBatch,
+                                        userLevel = userLevel,
+                                        dailyPackage = dailyPackage,
+                                        onStartActivity = { activityId -> navigateTo("universal_activity/$activityId") },
+                                        onSpeakText = { text -> ttsHelper.speak(text, prefs.ttsRate) },
                                         onToggleStep = { id, refl, conf -> mainVm.toggleDailyStep(id, todayActivity, refl, conf) },
                                         onSaveReflection = { refl, conf -> mainVm.saveDailyReflection(todayActivity, refl, conf) },
                                         onNavigate = navigateTo
                                     )
                                 }
                                 composable("learning_paths") {
+                                    val pathSummaries by activityVm.learningPathSummaries.collectAsStateWithLifecycle()
                                     LearningPathsScreen(
                                         enrollments = enrollments,
                                         onEnroll = { id, title -> mainVm.enrollProgram(id, title) },
-                                        onToggleDay = { id, day, total -> mainVm.toggleProgramDay(id, day, total) }
+                                        onToggleDay = { id, day, total -> mainVm.toggleProgramDay(id, day, total) },
+                                        pathSummaries = pathSummaries,
+                                        onOpenActivity = { activityId -> navigateTo("universal_activity/$activityId") }
                                     )
                                 }
                                 composable("vocabulary") {

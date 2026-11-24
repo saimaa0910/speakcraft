@@ -13,8 +13,10 @@ import com.example.data.activity.ActivityValidator
 import com.example.data.activity.DailyPracticeEngine
 import com.example.data.activity.EvaluationStrategyType
 import com.example.data.activity.ExerciseTemplateType
+import com.example.data.activity.LearningPathStatus
 import com.example.data.activity.LearningPathsEngine
 import com.example.data.activity.LoadedActivityResult
+import com.example.data.activity.PathTaskCategory
 import com.example.data.activity.ScoringRubricDimension
 import com.example.data.activity.UniversalEvaluationEngine
 import com.example.data.activity.UserActivityProgress
@@ -273,6 +275,105 @@ class ActivityEngineUnitTest {
         assertEquals(beginnerPath.orderedActivityIds.size, summary.totalCount)
         assertEquals(beginnerPath.orderedActivityIds[4], summary.nextRecommendedActivityId)
         assertTrue(summary.unlockedMilestones.isNotEmpty())
+    }
+
+    @Test
+    fun learning_paths_engine_computes_all_4_pillars_activity_exercise_techniques_tasks() {
+        val beginnerPath = LearningPathsEngine.allPaths.first { it.pathId == "path_01_beginner_english_fluency" }
+        val completedFirst4 = beginnerPath.orderedActivityIds.take(4).map { id ->
+            UserActivityProgress(
+                activityId = id,
+                completed = true,
+                bestObjectiveScore = 85,
+                latestObjectiveScore = 85,
+                attemptsCount = 2,
+                totalPracticeSeconds = 300
+            )
+        }
+
+        val summary = LearningPathsEngine.evaluatePathProgress(beginnerPath, completedFirst4)
+
+        // Pillar 1: Activity Progress
+        assertEquals(4, summary.activityProgress.completedActivities)
+        assertEquals(12, summary.activityProgress.totalActivities)
+        assertEquals(33, summary.activityProgress.percentComplete)
+        assertEquals(85, summary.activityProgress.averageScore)
+        assertEquals(85, summary.activityProgress.bestScore)
+        assertEquals(8, summary.activityProgress.totalAttempts)
+        assertEquals(20, summary.activityProgress.totalPracticeMinutes)
+        assertEquals(12, summary.activityProgress.activities.size)
+        assertTrue(summary.activityProgress.activities[0].isCompleted)
+        assertFalse(summary.activityProgress.activities[4].isCompleted)
+
+        // Pillar 2: Exercise Progress
+        assertEquals(12, summary.exerciseProgress.totalExercises)
+        assertEquals(4, summary.exerciseProgress.completedExercises)
+        assertEquals(33, summary.exerciseProgress.percentComplete)
+        assertTrue(summary.exerciseProgress.distinctExerciseTypesCount > 0)
+        assertTrue(summary.exerciseProgress.exerciseTypeBreakdown.isNotEmpty())
+        summary.exerciseProgress.exerciseTypeBreakdown.forEach { ex ->
+            assertNotNull(ex.typeName)
+            assertNotNull(ex.family)
+            assertTrue(ex.totalCount >= 1)
+        }
+
+        // Pillar 3: Technique Progress
+        assertTrue("Path must track core techniques", summary.techniqueProgress.totalTechniques >= 3)
+        assertTrue("Practiced techniques must be counted", summary.techniqueProgress.practicedTechniques >= 1)
+        assertTrue(summary.techniqueProgress.techniques.isNotEmpty())
+        summary.techniqueProgress.techniques.forEach { tech ->
+            assertTrue(tech.title.isNotBlank())
+            assertTrue(tech.summary.isNotBlank())
+            assertTrue(tech.coreRule.isNotBlank())
+            assertTrue(tech.associatedActivityIds.isNotEmpty())
+        }
+
+        // Pillar 4: Task Progress
+        assertTrue("Path must define comprehensive tasks", summary.taskProgress.totalTasks > 12)
+        assertTrue("Completed tasks must include completed activities", summary.taskProgress.completedTasks >= 4)
+        assertTrue(summary.taskProgress.tasksByCategory.containsKey(PathTaskCategory.ACTIVITY_TASK))
+        assertTrue(summary.taskProgress.tasksByCategory.containsKey(PathTaskCategory.MILESTONE_CHECKPOINT))
+        assertTrue(summary.taskProgress.tasksByCategory.containsKey(PathTaskCategory.REAL_WORLD_APPLICATION))
+
+        // Overall Weighted Metric & Status
+        assertTrue(summary.overallWeightedProgressPercent > 0)
+        assertEquals(LearningPathStatus.IN_PROGRESS, summary.status)
+        assertTrue(summary.nextActionRecommendation.isNotBlank())
+    }
+
+    @Test
+    fun learning_paths_engine_all_10_paths_have_complete_4_pillar_coverage() {
+        val allSummaries = LearningPathsEngine.evaluateAllPaths(emptyList())
+        assertEquals(10, allSummaries.size)
+
+        allSummaries.forEach { summary ->
+            val path = summary.path
+            // Activities
+            assertEquals(path.orderedActivityIds.size, summary.activityProgress.totalActivities)
+            assertEquals(0, summary.activityProgress.completedActivities)
+            assertEquals(0, summary.activityProgress.percentComplete)
+
+            // Exercises
+            assertEquals(path.orderedActivityIds.size, summary.exerciseProgress.totalExercises)
+            assertTrue("Path ${path.pathId} must have exercise breakdown", summary.exerciseProgress.exerciseTypeBreakdown.isNotEmpty())
+
+            // Techniques
+            assertTrue("Path ${path.pathId} must have techniques", summary.techniqueProgress.totalTechniques >= 3)
+            summary.techniqueProgress.techniques.forEach { tech ->
+                assertTrue(tech.title.isNotBlank())
+                assertTrue(tech.coreRule.isNotBlank())
+            }
+
+            // Tasks
+            assertTrue("Path ${path.pathId} must have activity + milestone + mission tasks", summary.taskProgress.totalTasks > path.orderedActivityIds.size)
+            assertTrue(summary.nextActionRecommendation.isNotBlank())
+        }
+
+        // Verify Locked State for path requiring prerequisite
+        val intermediatePath = allSummaries.first { it.path.pathId == "path_02_intermediate_english_fluency" }
+        assertFalse(intermediatePath.prerequisitesMet)
+        assertEquals(LearningPathStatus.LOCKED, intermediatePath.status)
+        assertTrue(intermediatePath.nextActionRecommendation.contains("Complete at least 70% of Beginner English Fluency"))
     }
 
     @Test
