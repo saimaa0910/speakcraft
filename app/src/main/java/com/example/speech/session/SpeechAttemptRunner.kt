@@ -35,8 +35,17 @@ data class AttemptRequest(
 /** Thread-safe collector for camera frame observations (fed by the MediaPipe analyser; ARC-07 §3). */
 class FrameCollector(private val maxFrames: Int = 6_000) {
     private val frames = ArrayList<FrameObservation>()
-    fun add(frame: FrameObservation) = synchronized(frames) { if (frames.size < maxFrames) frames += frame }
+
+    /** False between attempts, so a camera preview can stay bound without collecting frames. */
+    @Volatile var accepting: Boolean = true
+
+    fun add(frame: FrameObservation) = synchronized(frames) {
+        if (accepting && frames.size < maxFrames) frames += frame
+    }
     fun snapshot(): List<FrameObservation> = synchronized(frames) { frames.toList() }
+
+    /** Clears frames from a previous attempt and starts collecting. */
+    fun restart() = synchronized(frames) { frames.clear(); accepting = true }
 }
 
 /** Everything one attempt produced, for persistence and display. */

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | RPT-EP07-01 |
-| Version | 0.4 |
+| Version | 0.5 |
 | Date | 2026-11-23 |
 | Status | Draft — for Product Owner review (epic review G5) |
 | Owner (role) | Android Technical Lead / AI/ML Engineer |
@@ -94,6 +94,23 @@ Product Owner request: "upgrade local intelligence engine". Two Product Owner co
 **New: candidate vocal-delivery metrics (ARC-05 §8).** `PitchTracker` (YIN) and `VocalDeliveryAnalyzer` compute pitch range, volume variation, syllable rate, pace variation and rising sentence endings from PCM, for the vocal techniques of the content pack (vocal variety, warm-and-assured, calm speaking). They are returned as **candidates** with `VocalMetricValidation` status; nothing is shown or used for feedback until SPK-01 validates them with `VocalMetricValidationHarness`.
 
 Tests added: `VocalDeliveryTest` (10), `TranscriptHighlightConsistencyTest` (6), `ModelDownloadIntegrityTest` (3).
+
+### 4.3 Coach Practice on the phone (EP-08 slice, 2026-11-24)
+
+Product Owner request: "upgrade and make it user can use it on phone". Until now no screen used the engine. **Coach Practice** (bottom-bar item "Coach", sidebar and a dashboard tile; route `coach_practice`) is the first end-to-end path:
+
+| Step | What the user does / sees | Built on |
+|---|---|---|
+| Choose | Quick practice (5 activities written from scratch, available in every build) and the 15 techniques of the content pack with their activities; pack items show "Pending review" and appear in debug builds only (V-10) | `PracticeCatalog`, `PracticeCatalogParser`, `AssetPracticeCatalog` |
+| Prepare | Prompt, structure chips (PREP/STAR), target length, reference text (with "Play the model" for listen-and-repeat), optional camera with live preview, online-transcription consent only when the phone has no offline recogniser | `CoachPracticeScreens`, `OnlineTranscriptionConsentStore` |
+| Record | Microphone permission on first use; timer with the activity's limit, a warning 10 s before it, automatic stop; discard option | `CoachPracticeViewModel`, `PhonePracticeEngine` → `SpeechAttemptRunner` (tier T1/T2/T3a/T3b chosen per phone) |
+| Feedback | Strength, focus, mistakes with evidence and Measured/Estimated labels, coach tips (content-pack or built-in; "Watch the original lesson" only when a specific video link exists), transcript with highlights, body-language metrics when the camera was on, self-check items of the technique, replay (audio, or video with sound when both were recorded) | `LocalIntelligencePipeline`, technique `issueOverrides` resolved per activity |
+
+Device builds need the project's Firebase configuration (`google-services.json`, gitignored and supplied locally as before); a build without it stops at launch ("Default FirebaseApp is not initialized").
+
+Device behaviour: when a phone's on-device recogniser does not accept piped audio (T1), the attempt is evaluated honestly, the phone is switched to T2 and the user is asked to record again (RSK-09). Replays stay in app-private storage; only the three most recent attempts are kept. Attempts are not yet saved to history (EP-03).
+
+Tests added: `PracticeCatalogParserTest` (5), `CoachPracticeViewModelTest` (8), `CoachPracticeComposeTest` (2).
 
 ## 5. Verification
 

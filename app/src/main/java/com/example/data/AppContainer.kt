@@ -50,6 +50,14 @@ class AppContainer(context: Context) {
     val languagePackManager: com.example.speech.android.LanguagePackManager by lazy {
         com.example.speech.android.LanguagePackManager(appContext)
     }
+    /** Coach practice on the phone: microphone, recogniser and camera wired to the engine (EP-08). */
+    val phonePracticeEngine: com.example.speech.android.PhonePracticeEngine by lazy {
+        com.example.speech.android.PhonePracticeEngine(appContext, speechAttemptRunner)
+    }
+    /** Practice catalogue (content pack + built-in quick practice); read on first use, off the main thread. */
+    val practiceCatalog: com.example.speech.content.PracticeCatalog by lazy {
+        com.example.speech.android.AssetPracticeCatalog.load(appContext)
+    }
 
     val firestore: FirebaseFirestore by lazy {
         FirebaseFirestore.getInstance(appContext.getString(R.string.firestore_database_id))
