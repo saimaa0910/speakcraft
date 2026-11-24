@@ -1,6 +1,7 @@
 package com.example.speech.feedback
 
 import com.example.speech.metrics.SpeechMetricKey
+import com.example.speech.pipeline.TranscriptInsight
 import com.example.speech.rules.DetectedIssue
 import com.example.speech.rules.IssueCode
 
@@ -83,5 +84,7 @@ data class Feedback(
     val issues: List<DetectedIssue>,
     val tips: List<CoachTip>,
     val selfCheckItems: List<SelfCheckItem> = emptyList(),
-    val explainability: List<MetricExplainability> = emptyList()
+    val explainability: List<MetricExplainability> = emptyList(),
+    val transcriptInsightSummary: String? = null,
+    val transcriptInsights: List<TranscriptInsight> = emptyList()
 )

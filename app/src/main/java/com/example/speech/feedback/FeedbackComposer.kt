@@ -3,6 +3,8 @@ package com.example.speech.feedback
 import com.example.speech.evidence.InconclusiveReason
 import com.example.speech.metrics.SpeechMetricKey
 import com.example.speech.metrics.SpeechMetricValue
+import com.example.speech.pipeline.TranscriptAnalyzer
+import com.example.speech.pipeline.TranscriptInsight
 import com.example.speech.rules.DetectedIssue
 import com.example.speech.rules.IssueCode
 
@@ -122,7 +124,8 @@ object FeedbackComposer {
         issues: List<DetectedIssue>,
         techniqueIds: List<String> = emptyList(),
         previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
-        tipCatalog: List<TipDefinition> = TipSelector.CATALOG
+        tipCatalog: List<TipDefinition> = TipSelector.CATALOG,
+        transcriptInsights: List<TranscriptInsight> = emptyList()
     ): Feedback {
         val strength = selectStrength(templateId, metrics, previousMetrics)
         val focus = selectFocus(issues)
@@ -136,6 +139,11 @@ object FeedbackComposer {
             catalog = tipCatalog
         )
         val explainability = metrics.keys.mapNotNull { EXPLAINABILITY_MAP[it] }
+        val transcriptInsightSummary = if (transcriptInsights.isNotEmpty()) {
+            TranscriptAnalyzer.composeSummary(transcriptInsights)
+        } else {
+            null
+        }
 
         return Feedback(
             strength = strength,
@@ -143,7 +151,9 @@ object FeedbackComposer {
             issues = issues,
             tips = tips,
             selfCheckItems = GENERAL_SELF_CHECKS,
-            explainability = explainability
+            explainability = explainability,
+            transcriptInsightSummary = transcriptInsightSummary,
+            transcriptInsights = transcriptInsights
         )
     }
 

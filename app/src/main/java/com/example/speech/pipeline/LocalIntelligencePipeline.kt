@@ -29,6 +29,9 @@ object LocalIntelligencePipeline {
      * Semantic version of rule set + metric definitions, stored with every attempt (SRS-FR-EVAL-011).
      *
      * Changelog:
+     * - 1.5.0 (2026-11-24): full audio and video transcript presentation with inline mistake
+     *   highlights (grammar errors, filler words, hedging) and actionable coach tips;
+     *   deduplicated character offset spans on AttemptEvaluationResult.Valid and Feedback.
      * - 1.4.0 (2026-11-23): technique/activity `REBAND` overrides move one side of a metric's target band
      *   (ARC-03 §6.8; CL-60) and the applied band is recorded on the metric; pace advice quotes the band applied;
      *   coach tips can come from a validated content-pack `tips.json` (ARC-03 §6.9) instead of the built-in list.
@@ -46,7 +49,7 @@ object LocalIntelligencePipeline {
      *   auxiliary/modal contexts.
      * - 1.0.0: initial pipeline.
      */
-    const val EVALUATION_VERSION = "1.4.0"
+    const val EVALUATION_VERSION = "1.5.0"
 
     /**
      * Executes the complete deterministic local evaluation pipeline.
@@ -170,6 +173,13 @@ object LocalIntelligencePipeline {
             .filterNot { it.code in suppressed } // technique overrides (CL-60)
             .sorted()
 
+        // 5b. Transcript Insights (inline mistake & tip annotations, ARC-05 §8.4, v1.5.0)
+        val transcriptInsights = if (input.hasTranscript) {
+            TranscriptAnalyzer.analyze(input.transcript)
+        } else {
+            emptyList()
+        }
+
         // 6. Feedback & Tip Composition (ARC-05 §8.2, §8.4)
         val composed = FeedbackComposer.compose(
             attemptId = input.attemptId,
@@ -178,7 +188,8 @@ object LocalIntelligencePipeline {
             issues = allIssues,
             techniqueIds = input.techniqueIds,
             previousMetrics = input.previousMetrics,
-            tipCatalog = tipCatalog
+            tipCatalog = tipCatalog,
+            transcriptInsights = transcriptInsights
         )
         // Self-checks cover only what was not measured (ARC-05 §8.4): drop items the video analyser measured.
         val measuredByVideo = selfChecksMeasuredBy(input.video)
@@ -211,7 +222,10 @@ object LocalIntelligencePipeline {
             hasClippingWarning = hasClipping,
             wordStageResult = wordStageResult,
             video = input.video,
-            evaluationLatencyMs = latencyMs
+            evaluationLatencyMs = latencyMs,
+            transcriptText = input.transcript,
+            transcriptInsights = transcriptInsights,
+            videoTranscriptText = if (input.video != null) input.transcript else null
         )
     }
 

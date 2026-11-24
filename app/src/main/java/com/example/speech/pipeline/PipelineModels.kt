@@ -105,7 +105,10 @@ sealed interface AttemptEvaluationResult {
         val hasClippingWarning: Boolean = false,
         val wordStageResult: WordStageResult? = null,
         val video: VideoEvaluation? = null,
-        val evaluationLatencyMs: Long
+        val evaluationLatencyMs: Long,
+        val transcriptText: String = "",
+        val transcriptInsights: List<TranscriptInsight> = emptyList(),
+        val videoTranscriptText: String? = null
     ) : AttemptEvaluationResult
 
     data class Inconclusive(

@@ -494,6 +494,7 @@ fun ScoreTrendSparkline(
 fun VideoReviewPlayerCard(
     videoPath: String,
     auditStage: String,
+    transcript: String = "",
     modifier: Modifier = Modifier
 ) {
     val fileExists = remember(videoPath) { File(videoPath).let { it.exists() && it.length() > 0L } }
@@ -599,6 +600,18 @@ fun VideoReviewPlayerCard(
                                     color = MaterialTheme.speakCraftColors.onHeroTitle
                                 )
                             }
+                        }
+                    } else if (transcript.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize(),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            VideoTranscriptOverlay(
+                                liveTranscript = transcript,
+                                isRecording = false,
+                                visible = true
+                            )
                         }
                     }
                 }
@@ -1724,37 +1737,21 @@ fun FeedbackReportCard(
                 }
 
                 "Transcript" -> {
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = session.transcript,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(14.dp)
-                        )
+                    val insights = remember(session.transcript) {
+                        if (session.transcript.isNotBlank()) {
+                            com.example.speech.pipeline.TranscriptAnalyzer.analyze(session.transcript)
+                        } else emptyList()
                     }
-                    if (session.fillerWordsDetected.isNotEmpty()) {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            session.fillerWordsDetected.take(8).forEach { filler ->
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
-                                ) {
-                                    Text(
-                                        text = filler,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                        }
+                    val summary = remember(insights) {
+                        if (insights.isNotEmpty()) {
+                            com.example.speech.pipeline.TranscriptAnalyzer.composeSummary(insights)
+                        } else null
                     }
+                    TranscriptDisplayCard(
+                        transcript = session.transcript,
+                        insights = insights,
+                        summary = summary
+                    )
                 }
             }
 

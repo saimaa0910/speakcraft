@@ -27,7 +27,7 @@ class LocalIntelligencePipelineTest {
         assertTrue(result is AttemptEvaluationResult.Inconclusive)
         val inc = result as AttemptEvaluationResult.Inconclusive
         assertEquals(InconclusiveReason.TOO_SHORT, inc.reason)
-        assertEquals("1.4.0", inc.evaluationVersion)
+        assertEquals("1.5.0", inc.evaluationVersion)
         assertNotNull(inc.advice)
     }
 
@@ -48,7 +48,7 @@ class LocalIntelligencePipelineTest {
         assertTrue(result is AttemptEvaluationResult.Valid)
         val valid = result as AttemptEvaluationResult.Valid
 
-        assertEquals("1.4.0", valid.evaluationVersion)
+        assertEquals("1.5.0", valid.evaluationVersion)
         assertEquals(true, valid.passed)
         assertEquals(100, valid.score)
 
@@ -183,5 +183,30 @@ class LocalIntelligencePipelineTest {
         assertEquals(100, valid.score)
         assertNotNull(valid.wordStageResult)
         assertEquals(WordStage.MAKE_YOUR_OWN, valid.wordStageResult?.stage)
+    }
+
+    @Test
+    fun tcPipe012_v150_transcriptInsightsAndVideoTranscriptPreserved() {
+        val transcript = "um he don't understand the plan and i think maybe we should pause"
+        val input = AttemptInput(
+            attemptId = "att-012",
+            templateId = "TPL-ANSWER",
+            durationMs = 15000L,
+            voicedDurationMs = 10000L,
+            transcript = transcript,
+            pauseCount = 1
+        )
+
+        val result = LocalIntelligencePipeline.evaluate(input)
+        assertTrue(result is AttemptEvaluationResult.Valid)
+        val valid = result as AttemptEvaluationResult.Valid
+
+        assertEquals("1.5.0", valid.evaluationVersion)
+        assertEquals(transcript, valid.transcriptText)
+        assertTrue(valid.transcriptInsights.isNotEmpty())
+        assertTrue(valid.transcriptInsights.any { it.severity == InsightSeverity.ERROR }) // he don't
+        assertTrue(valid.transcriptInsights.any { it.severity == InsightSeverity.WARNING }) // um, i think maybe
+        assertNotNull(valid.feedback.transcriptInsightSummary)
+        assertTrue(valid.feedback.transcriptInsights.isNotEmpty())
     }
 }
