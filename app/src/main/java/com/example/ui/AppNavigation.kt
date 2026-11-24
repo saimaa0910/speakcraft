@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.ui.draw.clip
@@ -153,7 +154,10 @@ import com.example.ui.screens.VocabularyScreen
 import com.example.ui.screens.VoiceTrainingLabScreen
 import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.theme.speakCraftColors
+import com.example.ui.screens.CoachPracticeRoute
 import com.example.ui.viewmodel.ActivityEngineViewModel
+import com.example.ui.viewmodel.CoachPracticeViewModel
+import com.example.ui.viewmodel.OnlineConsent
 import com.example.ui.viewmodel.InteractiveCoachViewModel
 import com.example.ui.viewmodel.MainCoachViewModel
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
@@ -174,6 +178,7 @@ private data class PrimaryNavItem(
 private val primaryNavItems = listOf(
     PrimaryNavItem("dashboard", "Home", Icons.Filled.Home, Icons.Outlined.Home),
     PrimaryNavItem("daily_practice", "Daily", Icons.Filled.CheckCircle, Icons.Outlined.CheckCircle),
+    PrimaryNavItem("coach_practice", "Coach", Icons.Filled.RecordVoiceOver, Icons.Outlined.RecordVoiceOver),
     PrimaryNavItem("speaking_lab", "Record", Icons.Filled.Mic, Icons.Outlined.Mic),
     PrimaryNavItem("ai_mentor", "Mentor", Icons.Filled.Psychology, Icons.Outlined.Psychology)
 )
@@ -184,6 +189,7 @@ private val routeTitles = mapOf(
     "learning_paths" to "Learning Paths",
     "vocabulary" to "Vocabulary Builder",
     "speaking_lab" to "Record & Review",
+    "coach_practice" to "Coach Practice",
     "challenges" to "Challenges",
     "pronunciation" to "Phonetic & Intonation Lab",
     "articulation_lab" to "Articulation & Enunciation Lab",
@@ -920,6 +926,31 @@ private fun AuthenticatedAppShell(
                                         onOpenAiSettings = { navigateTo("settings") }
                                     )
                                 }
+                                composable("coach_practice") {
+                                    // Practice with on-device feedback from the local intelligence engine (EP-08).
+                                    val coachPracticeVm: CoachPracticeViewModel = viewModel(
+                                        factory = viewModelFactory {
+                                            initializer {
+                                                val consentStore = container.onlineTranscriptionConsent
+                                                CoachPracticeViewModel(
+                                                    loadCatalog = { container.practiceCatalog },
+                                                    engine = container.phonePracticeEngine,
+                                                    consent = object : OnlineConsent {
+                                                        override val granted: Boolean get() = consentStore.hasConsented
+                                                        override fun set(granted: Boolean) {
+                                                            if (granted) consentStore.grant() else consentStore.revoke()
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    )
+                                    CoachPracticeRoute(
+                                        vm = coachPracticeVm,
+                                        cameraHost = container.phonePracticeEngine,
+                                        onSpeak = { txt -> ttsHelper.speak(txt, prefs.ttsRate) }
+                                    )
+                                }
                                 composable("challenges") {
                                     ChallengesScreen(
                                         speakingVm = speakingVm,
@@ -1236,6 +1267,7 @@ private fun SpeakCraftIndigoSidebar(
             SidebarDestination("daily_practice", "Practice", Icons.Default.TrackChanges),
             SidebarDestination("ai_mentor", "AI Mentor", Icons.Default.Psychology),
             SidebarDestination("learning_paths", "Learn", Icons.Default.MenuBook),
+            SidebarDestination("coach_practice", "Coach Practice", Icons.Default.RecordVoiceOver),
             SidebarDestination("speaking_lab", "Record & Review", Icons.Default.Mic),
             SidebarDestination("vocabulary", "Tools", Icons.Default.GridView),
             SidebarDestination("analytics", "Progress", Icons.Default.Analytics),

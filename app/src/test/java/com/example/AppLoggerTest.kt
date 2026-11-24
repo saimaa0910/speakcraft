@@ -39,8 +39,11 @@ class AppLoggerTest {
     @Before
     fun setUp() {
         capturedLogs.clear()
+        // Capture only this test's own log calls: the application started by Robolectric runs background work
+        // (e.g. model provisioning) that may log at the same time and must not be counted here.
+        val testThread = Thread.currentThread()
         AppLogger.printer = { priority, tag, message, throwable ->
-            capturedLogs.add(LogEntry(priority, tag, message, throwable))
+            if (Thread.currentThread() === testThread) capturedLogs.add(LogEntry(priority, tag, message, throwable))
         }
     }
 

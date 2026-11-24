@@ -235,18 +235,22 @@ class SpeechSessionTest {
     @Test
     fun tcSess303_t1_pipesPcmToRecognizer_andRecognises() {
         val clock = FakeClock()
-        var pipedSamples = 0
-        val pipe = object : PcmSink { override fun onPcm(samples: ShortArray, length: Int) { pipedSamples += length } }
+        val pipedSamples = java.util.concurrent.atomic.AtomicInteger()
+        val pipe = object : PcmSink { override fun onPcm(samples: ShortArray, length: Int) { pipedSamples.addAndGet(length) } }
         val engine = ScriptedEngine(clock, listOf(listOf(Final("good morning everyone thank you for joining"))),
             onStop = emptyList())
         val runner = SpeechAttemptRunner(RecordingArbiter(), clock)
         val a = runner.start(AttemptRequest("a-t1", "TPL-READ", 30_000, referenceText = "Good morning everyone, thank you for joining."),
             SpeechTier.T1_FULL_ON_DEVICE,
             SpeechAttemptRunner.AttemptWiring(audioSource = FakeAudioSource(listOf(300 to 0.0, 3000 to 0.3)), recognizer = engine, recognizerPipe = pipe))
-        Thread.sleep(100)
+        // Wait until the whole 3.3 s of synthetic audio has gone through the capture thread (not a fixed sleep:
+        // the thread also tracks pitch per frame and may be slower than real time on a loaded build machine).
+        val totalSamples = 3_300 * 16
+        val deadline = System.currentTimeMillis() + 10_000
+        while (pipedSamples.get() < totalSamples && System.currentTimeMillis() < deadline) Thread.sleep(10)
         val out = a.stop()
         val v = out.evaluation as AttemptEvaluationResult.Valid
-        assertTrue(pipedSamples > 0)
+        assertTrue(pipedSamples.get() > 0)
         assertEquals(true, v.passed)
     }
 
