@@ -241,6 +241,11 @@ Ordering follows the §8.2 priorities. Three issues are shown first and the rest
 |---|---|---|---|
 | Pitch range | Semitone spread (10th–90th percentile) of voiced-frame F0 (autocorrelation/YIN) | Measured | Plain bands "narrow / moderate / wide". Never named "melody", "expressiveness" or "pronunciation". This replaces the removed Hz-spread heuristic only if validation succeeds |
 | Volume variation | dB spread (10th–90th percentile) of active-frame RMS | Measured | Sensitive to microphone distance. Shown with that caveat |
+| Syllable rate (added 2026-11-24) | Intensity peaks on pitched frames separated by a ≥ 2 dB dip, per second of phrase time | Estimated | No word timings are needed; bands "slow / typical / fast" † |
+| Pace variation (added 2026-11-24) | Coefficient of variation of the per-phrase syllable rate (phrases ≥ 1.5 s, needs ≥ 3) | Estimated | Bands "even / varied" † |
+| Rising sentence endings (added 2026-11-24) | Share of phrase endings whose last 300 ms rise > 1.5 semitones against the 600 ms before (needs ≥ 3 endings) | Estimated | Bands "mostly falling or level / mixed / mostly rising" †; never called "upspeak" or a mistake |
+
+**Implementation (evaluationVersion 1.6.0).** `PitchTracker` (YIN, 40 ms windows, 70–400 Hz) runs inside `StreamingFeatureExtractor` on app-owned PCM; `VocalDeliveryAnalyzer` computes the five candidates and returns them in `AttemptEvaluationResult.Valid.vocalDelivery` with their status from `VocalMetricValidation`. All are **CANDIDATE**: nothing is shown and no feedback uses them until SPK-01 records accuracy on the reference devices through `VocalMetricValidationHarness` (≥ 30 recordings against reviewer reference values, ≥ 90 % within tolerance: 1.5 semitones, 3 dB, 0.7 syllables/s, 0.08 CV, 0.20 share). Synthetic-signal tests pin the algorithms (`VocalDeliveryTest`).
 
 ## 9. Word-stage evaluation
 
@@ -264,7 +269,9 @@ Inflection acceptance uses explicit inflection lists in the content pack (not st
 
 ### 10.1 Implementation status (Stage B, as of 2026-11-23)
 
-The engine is implemented in pure Kotlin under `app/src/main/java/com/example/speech/` (packages `analysis`, `evidence`, `metrics`, `rules`, `feedback`, `word`, `pipeline`, `session`, `video`), with Android adapters in `speech/android` and `speech/video/android`, at `evaluationVersion` **1.4.0**. Report: `docs/reports/EP-07_LOCAL_INTELLIGENCE_ENGINE_REPORT.md`.
+The engine is implemented in pure Kotlin under `app/src/main/java/com/example/speech/` (packages `analysis`, `evidence`, `metrics`, `rules`, `feedback`, `word`, `pipeline`, `session`, `video`), with Android adapters in `speech/android` and `speech/video/android`, at `evaluationVersion` **1.6.0**.
+
+Updates in 1.5.0 (2026-11-24, Product Owner commit): inline transcript highlights (`TranscriptAnalyzer`, `TranscriptInsight`) for grammar, fillers and hedging, shown with the audio and video transcript. Updates in 1.6.0: highlights agree with the result (a filler or hedge is a warning only when its issue was raised, otherwise a tip; technique-suppressed codes are not highlighted; grammar only from qualified rules, at most two, the same spans as the issues; offsets from the original text); candidate vocal-delivery metrics (§8). Issues and tips are unchanged since 1.4.0. Report: `docs/reports/EP-07_LOCAL_INTELLIGENCE_ENGINE_REPORT.md`.
 
 Updates in 1.4.0: technique/activity `REBAND` overrides (`IssueOverrides`, `TargetBands`; ARC-03 §6.8 precedence and V-22 validation), with the applied band recorded on each metric (`targetMin`/`targetMax`). A `REBAND` moves only the side of the band that its issue checks (e.g. `ISSUE_PACE_SLOW` the minimum, `ISSUE_PACE_FAST` the maximum); if the two pace re-bands leave no valid pace band, the default pace band is used. Recognition, structure, grammar, level and video issues can be suppressed but not re-banded; coach tips from a validated content-pack `tips.json` (`TipPackLoader`, structured triggers, V-01…V-18 checks, `AssetTipCatalog`), falling back to the built-in tips when the pack is missing or rejected. Content-pack tips tie on trigger level first, then priority: global tips use priorities 50–100 and technique tips 1–49, so a technique's own tip wins over the generic tip for the same issue.
 

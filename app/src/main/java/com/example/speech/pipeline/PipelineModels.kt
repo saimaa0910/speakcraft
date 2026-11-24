@@ -1,6 +1,8 @@
 package com.example.speech.pipeline
 
 import com.example.speech.analysis.AcousticFeatures
+import com.example.speech.analysis.VocalDeliveryReport
+import com.example.speech.analysis.VocalFeatures
 import com.example.speech.evidence.InconclusiveReason
 import com.example.speech.feedback.Feedback
 import com.example.speech.feedback.FocusFeedback
@@ -36,7 +38,9 @@ data class AttemptInput(
     val previousMetrics: Map<SpeechMetricKey, SpeechMetricValue>? = null,
     val issueOverrides: Map<IssueCode, IssueOverride> = emptyMap(),
     /** Result of the on-device video analyser when the camera was on (ARC-07; D-42); null for audio-only attempts. */
-    val video: VideoEvaluation? = null
+    val video: VideoEvaluation? = null,
+    /** Vocal-delivery evidence from app-owned PCM (T1/T3b); null for recogniser-level evidence (T2/T3a). */
+    val vocal: VocalFeatures? = null
 ) {
     companion object {
         /**
@@ -80,7 +84,8 @@ data class AttemptInput(
             techniqueIds = techniqueIds,
             previousMetrics = previousMetrics,
             issueOverrides = issueOverrides,
-            video = video
+            video = video,
+            vocal = features.vocal
         )
     }
 }
@@ -108,7 +113,9 @@ sealed interface AttemptEvaluationResult {
         val evaluationLatencyMs: Long,
         val transcriptText: String = "",
         val transcriptInsights: List<TranscriptInsight> = emptyList(),
-        val videoTranscriptText: String? = null
+        val videoTranscriptText: String? = null,
+        /** Candidate vocal-delivery metrics (ARC-05 §8); only [VocalDeliveryReport.approvedMetrics] may be shown. */
+        val vocalDelivery: VocalDeliveryReport? = null
     ) : AttemptEvaluationResult
 
     data class Inconclusive(

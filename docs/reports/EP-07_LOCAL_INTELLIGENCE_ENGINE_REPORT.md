@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | RPT-EP07-01 |
-| Version | 0.3 |
+| Version | 0.4 |
 | Date | 2026-11-23 |
 | Status | Draft — for Product Owner review (epic review G5) |
 | Owner (role) | Android Technical Lead / AI/ML Engineer |
@@ -73,6 +73,28 @@ The app's earlier hard-coded curriculum (`CurriculumCatalog.kt`: 15 technique se
 
 D-08 safeguards: original wording (agents checked for 5-word runs shared with the seed text), no creator name or handle, creator-coined framework names only in the internal `provenance.techniqueNameAsTaught`, `attributionText = null`, and **no source links**: none was known, and sources are never invented. Every item is therefore `PENDING_REVIEW`. Debug builds use the pack; release builds reject it (V-10) and keep the built-in tips until a reviewer adds each specific source video and signs off (workflow in `content/README.md`). `ContentPackAssetsTest` (7 cases) enforces V-01…V-22 on the shipped files, including checksums in `manifest.json`, and checks end to end that each technique's overrides and tips reach feedback.
 
+### 4.2 Engine upgrade 2026-11-24 (evaluationVersion 1.6.0)
+
+Product Owner request: "upgrade local intelligence engine". Two Product Owner commits had landed on `main` first: `d6c349a` (1.5.0, inline transcript highlights and transcript/video overlay UI) and `3ca904f` (device-adaptive model installer), after which CI on `main` failed.
+
+**Review of the two commits and fixes**
+
+| Finding | Rule | Fix |
+|---|---|---|
+| Transcript highlights fell back to unqualified grammar rules when none was qualified | SRS-FR-EVAL-006 | Qualified rules only |
+| Every grammar match was highlighted, while feedback shows at most two | SRS-FR-EVAL-006 | Capped at two; the same spans as the grammar issues |
+| Every filler and hedge was a warning even when no issue was raised, and highlights ignored technique overrides | ARC-05 §8.4, CL-60 | Warning only when the issue was raised, otherwise a tip; suppressed codes not highlighted |
+| Offsets came from a lowercased copy, which can change the text length (e.g. "İ") | — | Matched on the original text, case-insensitive |
+| Installer downloaded Whisper/Moonshine models whose SHA-256 was blank, and the integrity check passed blank hashes | AI-SEC-19, THR-37, TC-AI-021 | Unpinned models are never downloaded; blank hash fails the check; downloads verified and deleted on mismatch; bundled MediaPipe hashes pinned |
+| Installer downloaded on any network, at first launch | Data cost | Unmetered networks only |
+| Installer switched the recogniser to local Whisper whether or not the model was installed (the local Whisper engine is still the fabricated path of FND-AI-03) | ARC-05 §12, SPK-03 gate | Switched only when the model is installed and verified (none can be yet) |
+| Installer re-applied settings (video/audio analysis on) on later launches, overriding user choices | — | Defaults applied once, on the first provisioning |
+| Installer marked the launch screen's first-launch flag as done in the background, which can skip the first-launch experience on a fresh install | — | Own `model_provisioning_completed` preference |
+
+**New: candidate vocal-delivery metrics (ARC-05 §8).** `PitchTracker` (YIN) and `VocalDeliveryAnalyzer` compute pitch range, volume variation, syllable rate, pace variation and rising sentence endings from PCM, for the vocal techniques of the content pack (vocal variety, warm-and-assured, calm speaking). They are returned as **candidates** with `VocalMetricValidation` status; nothing is shown or used for feedback until SPK-01 validates them with `VocalMetricValidationHarness`.
+
+Tests added: `VocalDeliveryTest` (10), `TranscriptHighlightConsistencyTest` (6), `ModelDownloadIntegrityTest` (3).
+
 ## 5. Verification
 
 | Level | How | Result |
@@ -100,6 +122,8 @@ D-08 safeguards: original wording (agents checked for 5-word runs shared with th
 | Review corpus SPK02-v1 | QA / Product Owner | Before beta |
 | Review content pack v1: add each source video link, verify wording, set `ORIGINAL_REEXPRESSION` (until then release builds use the built-in tips) | Content reviewer / Product Owner | Before release |
 | "Pending review" badge for pack items in debug builds (V-10) | UI | EP-08 |
+| Validate the five vocal-delivery candidates on reference devices (`VocalMetricValidationHarness`) and record results before any is shown | AI/ML Engineer | SPK-01 |
+| Downloadable ASR models: replace the fabricated local Whisper path (FND-AI-03), pass SPK-03, pin each SHA-256, and add user opt-in before download | Android Tech Lead / Product Owner | R2+ (ARC-06) |
 | Session-player UI that drives `SpeechAttemptRunner`, camera preview and replay screen | UI | EP-08 |
 | `ContentRepository` that passes each activity's technique ids and resolved overrides to `AttemptRequest` | Android Tech Lead | EP-09 |
 | Privacy information and data-safety text for local video replay | Product Owner / Security | Before release |

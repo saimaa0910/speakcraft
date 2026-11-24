@@ -50,13 +50,23 @@ sealed interface ModelProvisioningState {
  * - Entry-level (BASIC, <2 GB RAM or low storage): Pure DSP audio + Android verified OS offline ASR + light face vision
  *
  * Strict zero-cloud-AI policy: all models run 100% locally on-device.
+ *
+ * Safety rules (AI-SEC-19, threat THR-37, TC-AI-021; ARC-06):
+ * - a model is downloaded only if its SHA-256 is pinned in the app, and the file is verified after download
+ *   (deleted on mismatch); a model without a pinned hash is never downloaded and the platform recogniser is kept;
+ * - downloads happen only on an unmetered network;
+ * - the recognition engine is switched to a local model only when that model is installed and verified;
+ * - default settings are applied once, on the first provisioning, so later launches never override user choices;
+ * - provisioning has its own completion marker and never touches the first-launch flag used by the launch screen.
  */
 class DeviceAdaptiveModelInstaller(
     private val context: Context? = null,
     private val modelManager: OnDeviceModelManager,
     private val capabilityManager: DeviceCapabilityManager,
     private val preferencesRepository: AppPreferencesRepository? = null,
-    private val aiSettingsRepository: AISettingsRepository? = null
+    private val aiSettingsRepository: AISettingsRepository? = null,
+    private val downloader: ModelDownloader = HttpModelDownloader,
+    private val isUnmeteredNetwork: () -> Boolean = { defaultIsUnmetered(context) }
 ) {
     private val _state = MutableStateFlow<ModelProvisioningState>(ModelProvisioningState.Idle)
     val state: StateFlow<ModelProvisioningState> = _state.asStateFlow()
@@ -144,7 +154,9 @@ class DeviceAdaptiveModelInstaller(
      */
     suspend fun installSuitableModels(
         plan: DeviceModelPlan = determinePlan(),
-        onProgress: ((Int, String) -> Unit)? = null
+        onProgress: ((Int, String) -> Unit)? = null,
+        /** True only on the first provisioning, so later runs never override the user's settings. */
+        applyDefaultSettings: Boolean = true
     ): Result<DeviceModelPlan> = withContext(Dispatchers.IO) {
         _state.value = ModelProvisioningState.Assessing(plan.profile)
         AppLogger.i(TAG, "Starting device-adaptive model installation: ${plan.reason}")
@@ -171,6 +183,7 @@ class DeviceAdaptiveModelInstaller(
 
         // Step 2: Provision speech model (if selected for this device tier)
         val speechModel = plan.selectedSpeechModel
+        var speechReady = false
         if (speechModel != null) {
             val progress = if (totalModels > 0) ((installedCount * 100) / totalModels) else 50
             _state.value = ModelProvisioningState.Installing(speechModel, progress)
@@ -194,13 +207,23 @@ class DeviceAdaptiveModelInstaller(
             }
         }
 
-        // Step 3: Automatically apply optimal settings to AISettings & AppPreferences
-        runCatching {
-            aiSettingsRepository?.setSelectedRecognitionEngine(plan.recommendedEngine)
-            aiSettingsRepository?.setLocalVideoAnalysisEnabled(plan.selectedVideoModels.isNotEmpty())
-            aiSettingsRepository?.setLocalSpeechRecognitionEnabled(true)
-            aiSettingsRepository?.setLocalAudioAnalysisEnabled(true)
-            preferencesRepository?.markInitialLaunchCompleted()
+        // A local speech model counts only when it is installed and passes its pinned-hash check.
+        if (speechModel != null && modelManager.isInstalled(speechModel)) {
+            speechReady = modelManager.verifyIntegrity(speechModel)
+        }
+
+        // Step 3: Apply default settings once (first provisioning only). The recogniser is switched to a local
+        // model only when that model is verified; otherwise the user's choice (default AUTO) is left alone, which
+        // already prefers the platform's offline recogniser when it is available.
+        if (applyDefaultSettings) {
+            runCatching {
+                if (plan.recommendedEngine == RecognitionEnginePreference.LOCAL_WHISPER && speechReady) {
+                    aiSettingsRepository?.setSelectedRecognitionEngine(plan.recommendedEngine)
+                }
+                aiSettingsRepository?.setLocalVideoAnalysisEnabled(plan.selectedVideoModels.isNotEmpty())
+                aiSettingsRepository?.setLocalAudioAnalysisEnabled(true)
+                preferencesRepository?.markModelProvisioningCompleted()
+            }
         }
 
         val summary = "Device optimization complete: ${plan.profile.name} tier active. $installedCount models ready."
@@ -216,7 +239,8 @@ class DeviceAdaptiveModelInstaller(
      */
     suspend fun autoInstallOnFirstLaunch(): Boolean = withContext(Dispatchers.IO) {
         val prefs = runCatching { preferencesRepository?.preferencesFlow?.first() }.getOrNull()
-        val alreadyCompleted = prefs?.hasCompletedInitialLaunch == true
+        // Own marker: the first-launch flag belongs to the launch screen and must not be changed here.
+        val alreadyCompleted = prefs?.modelProvisioningCompleted == true
 
         // If not completed or core models missing, run adaptive provisioning
         val report = capabilityManager.assess()
@@ -225,7 +249,7 @@ class DeviceAdaptiveModelInstaller(
 
         if (needsInstall) {
             AppLogger.i(TAG, "Triggering automatic device-suitable model installation on launch...")
-            val result = installSuitableModels(plan)
+            val result = installSuitableModels(plan, applyDefaultSettings = !alreadyCompleted)
             result.isSuccess
         } else {
             AppLogger.d(TAG, "Device models already up to date for ${plan.profile.name} profile.")
@@ -233,20 +257,31 @@ class DeviceAdaptiveModelInstaller(
         }
     }
 
-    private fun areRequiredModelsInstalled(plan: DeviceModelPlan): Boolean {
-        for (videoModel in plan.selectedVideoModels) {
-            if (!modelManager.isInstalled(videoModel)) return false
-        }
-        val speech = plan.selectedSpeechModel
-        if (speech != null && !modelManager.isInstalled(speech)) {
-            return false
-        }
-        return true
+    /** Only models that can actually be installed count: bundled ones and downloads with a pinned hash. */
+    private fun areRequiredModelsInstalled(plan: DeviceModelPlan): Boolean =
+        (plan.selectedVideoModels + listOfNotNull(plan.selectedSpeechModel))
+            .filter { isInstallable(it) }
+            .all { modelManager.isInstalled(it) }
+
+    private fun isInstallable(id: LocalModelId): Boolean {
+        val spec = modelManager.modelMetadata(id) ?: return false
+        return spec.bundledInAssets || spec.sha256Hash.isNotBlank()
     }
 
-    private fun downloadModelIfAllowed(id: LocalModelId): Boolean {
+    private suspend fun downloadModelIfAllowed(id: LocalModelId): Boolean {
         val spec = modelManager.modelMetadata(id) ?: return false
         if (spec.downloadUrl.isBlank()) return false
+
+        // AI-SEC-19: never download a model whose SHA-256 is not pinned in the app.
+        if (spec.sha256Hash.isBlank()) {
+            AppLogger.i(TAG, "Not downloading $id: no pinned SHA-256; the platform recogniser stays in use")
+            return false
+        }
+        // Large files only on Wi-Fi or another unmetered network.
+        if (!isUnmeteredNetwork()) {
+            AppLogger.i(TAG, "Not downloading $id on a metered or unknown network")
+            return false
+        }
 
         // Check LocalExecutionPolicy compliance
         if (LocalExecutionPolicy.isBlockedAiEndpoint(spec.downloadUrl)) {
@@ -260,26 +295,49 @@ class DeviceAdaptiveModelInstaller(
             return false
         }
 
-        return try {
-            val url = URL(spec.downloadUrl)
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 12_000
-                readTimeout = 25_000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "SpeakCraft-OnDevice-Installer/1.5.0")
-            }
-
-            if (connection.responseCode in 200..299) {
-                connection.inputStream.use { stream ->
-                    modelManager.installModelFromStream(id, stream)
-                }
-            } else {
-                AppLogger.w(TAG, "Model download returned HTTP ${connection.responseCode} for $id")
-                false
-            }
+        val installed = try {
+            val stream = downloader.open(spec.downloadUrl) ?: return false
+            stream.use { modelManager.installModelFromStream(id, it) }
         } catch (e: Exception) {
             AppLogger.w(TAG, "Model download failed for $id: ${e.message}")
             false
         }
+        if (!installed) return false
+
+        // Verify against the pinned hash before anything can load the file; delete it on mismatch.
+        if (!modelManager.verifyIntegrity(id)) {
+            AppLogger.w(TAG, "Downloaded $id failed its SHA-256 check; file removed")
+            modelManager.deleteModel(id)
+            return false
+        }
+        return true
     }
+}
+
+/** Opens a model download; replaceable in tests. Returns `null` for a non-2xx response. */
+fun interface ModelDownloader {
+    fun open(url: String): java.io.InputStream?
+}
+
+/** HTTPS download with timeouts. */
+object HttpModelDownloader : ModelDownloader {
+    override fun open(url: String): java.io.InputStream? {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 12_000
+            readTimeout = 25_000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "SpeakCraft-OnDevice-Installer")
+        }
+        return if (connection.responseCode in 200..299) connection.inputStream else {
+            AppLogger.w(TAG, "Model download returned HTTP ${connection.responseCode}")
+            connection.disconnect()
+            null
+        }
+    }
+}
+
+/** True on Wi-Fi or another unmetered network; false when unknown (no context). */
+private fun defaultIsUnmetered(context: Context?): Boolean {
+    val cm = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return false
+    return runCatching { cm.activeNetwork != null && !cm.isActiveNetworkMetered }.getOrDefault(false)
 }

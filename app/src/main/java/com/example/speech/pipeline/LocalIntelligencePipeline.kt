@@ -1,5 +1,6 @@
 package com.example.speech.pipeline
 
+import com.example.speech.analysis.VocalDeliveryAnalyzer
 import com.example.speech.evidence.EvidenceGate
 import com.example.speech.evidence.EvidenceGateResult
 import com.example.speech.feedback.FeedbackComposer
@@ -29,6 +30,12 @@ object LocalIntelligencePipeline {
      * Semantic version of rule set + metric definitions, stored with every attempt (SRS-FR-EVAL-011).
      *
      * Changelog:
+     * - 1.6.0 (2026-11-24): transcript highlights agree with the result: fillers/hedges are warnings only when
+     *   their issue was raised (otherwise tips), technique-suppressed codes are not highlighted, grammar
+     *   highlights come only from qualified rules and are capped at two (SRS-FR-EVAL-006), offsets are taken
+     *   from the original text; candidate vocal-delivery metrics (pitch range, volume variation, syllable rate,
+     *   pace variation, rising endings; ARC-05 §8) computed from PCM and returned with their validation status —
+     *   none is shown or used for feedback until SPK-01 approves it. Issues and tips are unchanged from 1.5.0.
      * - 1.5.0 (2026-11-24): full audio and video transcript presentation with inline mistake
      *   highlights (grammar errors, filler words, hedging) and actionable coach tips;
      *   deduplicated character offset spans on AttemptEvaluationResult.Valid and Feedback.
@@ -49,7 +56,7 @@ object LocalIntelligencePipeline {
      *   auxiliary/modal contexts.
      * - 1.0.0: initial pipeline.
      */
-    const val EVALUATION_VERSION = "1.5.0"
+    const val EVALUATION_VERSION = "1.6.0"
 
     /**
      * Executes the complete deterministic local evaluation pipeline.
@@ -173,9 +180,14 @@ object LocalIntelligencePipeline {
             .filterNot { it.code in suppressed } // technique overrides (CL-60)
             .sorted()
 
-        // 5b. Transcript Insights (inline mistake & tip annotations, ARC-05 §8.4, v1.5.0)
+        // 5b. Transcript Insights (inline mistake & tip annotations, ARC-05 §8.4): they agree with the raised
+        // issues and respect technique overrides (1.6.0).
         val transcriptInsights = if (input.hasTranscript) {
-            TranscriptAnalyzer.analyze(input.transcript)
+            TranscriptAnalyzer.analyze(
+                transcript = input.transcript,
+                raisedIssues = allIssues.map { it.code }.toSet(),
+                suppressed = suppressed
+            )
         } else {
             emptyList()
         }
@@ -225,7 +237,10 @@ object LocalIntelligencePipeline {
             evaluationLatencyMs = latencyMs,
             transcriptText = input.transcript,
             transcriptInsights = transcriptInsights,
-            videoTranscriptText = if (input.video != null) input.transcript else null
+            videoTranscriptText = if (input.video != null) input.transcript else null,
+            // Candidate vocal-delivery metrics with their validation status (ARC-05 §8); feedback ignores them
+            // until SPK-01 approves a metric.
+            vocalDelivery = VocalDeliveryAnalyzer.report(input.vocal)
         )
     }
 

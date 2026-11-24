@@ -20,6 +20,8 @@ data class AppPreferences(
     val completedTutorialKeys: Set<String> = emptySet(),
     val firstUseTutorialsEnabled: Boolean = true,
     val hasCompletedInitialLaunch: Boolean = false,
+    /** Set once by the model installer after its first provisioning; separate from the launch-screen flag. */
+    val modelProvisioningCompleted: Boolean = false,
     val fontScalePreference: Float = 1.0f,
     val reducedMotion: Boolean = false,
     val voiceAutoSpeakEnabled: Boolean = true,
@@ -38,6 +40,7 @@ class AppPreferencesRepository(private val context: Context) {
     private val completedTutorialsKey = stringSetPreferencesKey("completed_tutorial_keys")
     private val firstUseTutorialsEnabledKey = booleanPreferencesKey("first_use_tutorials_enabled")
     private val initialLaunchCompletedKey = booleanPreferencesKey("initial_launch_completed")
+    private val modelProvisioningCompletedKey = booleanPreferencesKey("model_provisioning_completed")
     private val fontScaleKey = floatPreferencesKey("font_scale_preference")
     private val reducedMotionKey = booleanPreferencesKey("reduced_motion")
     private val voiceAutoSpeakKey = booleanPreferencesKey("voice_auto_speak_enabled")
@@ -63,6 +66,7 @@ class AppPreferencesRepository(private val context: Context) {
             completedTutorialKeys = prefs[completedTutorialsKey] ?: emptySet(),
             firstUseTutorialsEnabled = prefs[firstUseTutorialsEnabledKey] ?: true,
             hasCompletedInitialLaunch = prefs[initialLaunchCompletedKey] ?: false,
+            modelProvisioningCompleted = prefs[modelProvisioningCompletedKey] ?: false,
             fontScalePreference = (prefs[fontScaleKey] ?: 1.0f).coerceIn(0.85f, 1.3f),
             reducedMotion = prefs[reducedMotionKey] ?: false,
             voiceAutoSpeakEnabled = prefs[voiceAutoSpeakKey] ?: true,
@@ -113,6 +117,12 @@ class AppPreferencesRepository(private val context: Context) {
     suspend fun markInitialLaunchCompleted() {
         context.dataStore.edit { prefs ->
             prefs[initialLaunchCompletedKey] = true
+        }
+    }
+
+    suspend fun markModelProvisioningCompleted() {
+        context.dataStore.edit { prefs ->
+            prefs[modelProvisioningCompletedKey] = true
         }
     }
 

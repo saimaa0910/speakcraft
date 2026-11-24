@@ -38,7 +38,9 @@ data class AcousticFeatures(
     /** Start of the first voiced frame, or `null` when no speech was found. */
     val firstVoicedMs: Long?,
     /** End of the last voiced frame, or `null` when no speech was found. */
-    val lastVoicedMs: Long?
+    val lastVoicedMs: Long?,
+    /** Pitch, loudness and rhythm evidence; only from app-owned PCM ([FeatureSource.PCM]), else `null`. */
+    val vocal: VocalFeatures? = null
 ) {
     val pauseCount: Int get() = pauses.size
     val longestPauseMs: Long? get() = pauses.maxOfOrNull { it.durationMs }

@@ -2,7 +2,6 @@ package com.example.speech.pipeline
 
 import com.example.speech.rules.IssueCode
 import com.example.speech.rules.RuleEngine
-import java.util.Locale
 
 /**
  * Deterministic transcript analyzer that produces inline [TranscriptInsight] annotations
@@ -28,23 +27,45 @@ object TranscriptAnalyzer {
     // Word-boundary regex for matching standalone filler/hedge words
     private val WORD_BOUNDARY_PATTERN = """(?<!\w)(%s)(?!\w)"""
 
+    /** Grammar observations shown per attempt, the same cap as the issue list (SRS-FR-EVAL-006). */
+    const val MAX_GRAMMAR_INSIGHTS = 2
+
     /**
      * Analyses [transcript] and returns [TranscriptInsight] entries sorted by span position.
      * Pure function: deterministic, no side effects.
+     *
+     * When the pipeline passes [raisedIssues] (the issues actually raised for the attempt, after technique
+     * overrides), highlights agree with the result (ARC-05 §8.4, CL-60):
+     * - a filler or hedge is a WARNING only when its issue was raised (rate beyond the target band); otherwise
+     *   it is shown as a TIP, because one "um" in a fluent answer is not a mistake;
+     * - codes in [suppressed] (technique overrides) are not highlighted at all;
+     * - grammar highlights come only from SPK-02-qualified rules, at most [MAX_GRAMMAR_INSIGHTS], the same
+     *   spans as the grammar issues.
+     * With [raisedIssues] `null` (stand-alone use) every filler and hedge is a WARNING.
      */
-    fun analyze(transcript: String): List<TranscriptInsight> {
+    fun analyze(
+        transcript: String,
+        raisedIssues: Set<IssueCode>? = null,
+        suppressed: Set<IssueCode> = emptySet()
+    ): List<TranscriptInsight> {
         if (transcript.isBlank()) return emptyList()
 
         val insights = mutableListOf<TranscriptInsight>()
+        fun severityFor(code: IssueCode) =
+            if (raisedIssues == null || code in raisedIssues) InsightSeverity.WARNING else InsightSeverity.TIP
 
         // 1. Grammar rule matches → ERROR severity
-        insights.addAll(findGrammarInsights(transcript))
+        if (IssueCode.ISSUE_GRAMMAR_POSSIBLE !in suppressed) insights.addAll(findGrammarInsights(transcript))
 
-        // 2. Filler words/phrases → WARNING severity
-        insights.addAll(findFillerInsights(transcript))
+        // 2. Filler words/phrases → WARNING when the filler issue was raised, else TIP
+        if (IssueCode.ISSUE_FILLERS_HIGH !in suppressed) {
+            insights.addAll(findFillerInsights(transcript).map { it.copy(severity = severityFor(it.issueCode)) })
+        }
 
-        // 3. Hedge words/phrases → WARNING severity
-        insights.addAll(findHedgeInsights(transcript))
+        // 3. Hedge words/phrases → WARNING when the hedging issue was raised, else TIP
+        if (IssueCode.ISSUE_HEDGING_HIGH !in suppressed) {
+            insights.addAll(findHedgeInsights(transcript).map { it.copy(severity = severityFor(it.issueCode)) })
+        }
 
         // Deduplicate overlapping spans (prioritizing severity, then length)
         return deduplicateOverlaps(insights)
@@ -114,7 +135,8 @@ object TranscriptAnalyzer {
 
     private fun findGrammarInsights(transcript: String): List<TranscriptInsight> {
         val insights = mutableListOf<TranscriptInsight>()
-        val rules = RuleEngine.activeRules.ifEmpty { RuleEngine.CANDIDATE_RULES }
+        // Only qualified rules may produce grammar observations (SRS-FR-EVAL-006); never fall back to candidates.
+        val rules = RuleEngine.activeRules
 
         for (rule in rules) {
             val matches = rule.regex.findAll(transcript)
@@ -134,12 +156,15 @@ object TranscriptAnalyzer {
             }
         }
 
-        return insights
+        // Same order as RuleEngine.evaluateGrammar, so these are exactly the spans of the reported grammar issues.
+        return insights.take(MAX_GRAMMAR_INSIGHTS)
     }
 
     private fun findFillerInsights(transcript: String): List<TranscriptInsight> {
         val insights = mutableListOf<TranscriptInsight>()
-        val lowerTranscript = transcript.lowercase(Locale.ROOT)
+        // Match on the original text (case-insensitive): lowercasing can change the string length for some
+        // characters, which would shift every offset after them.
+        val lowerTranscript = transcript
 
         // Multi-word filler phrases
         for (phrase in FILLER_PHRASES) {
@@ -182,7 +207,7 @@ object TranscriptAnalyzer {
 
     private fun findHedgeInsights(transcript: String): List<TranscriptInsight> {
         val insights = mutableListOf<TranscriptInsight>()
-        val lowerTranscript = transcript.lowercase(Locale.ROOT)
+        val lowerTranscript = transcript // original text, case-insensitive regex (offsets stay exact)
 
         // Multi-word hedge phrases
         for (phrase in HEDGE_PHRASES) {

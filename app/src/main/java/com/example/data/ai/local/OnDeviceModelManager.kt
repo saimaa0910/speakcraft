@@ -107,8 +107,8 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
             displayName = "MediaPipe Face Landmarker",
             fileName = "face_landmarker.task",
             version = "0.10.14",
-            fileSizeBytes = 1_000_000L,
-            sha256Hash = "",
+            fileSizeBytes = 3_758_596L,
+            sha256Hash = "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
             downloadUrl = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
             license = "Apache-2.0",
             minApiLevel = 24,
@@ -121,8 +121,8 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
             displayName = "MediaPipe Pose Landmarker Lite",
             fileName = "pose_landmarker_lite.task",
             version = "0.10.14",
-            fileSizeBytes = 5_000_000L,
-            sha256Hash = "",
+            fileSizeBytes = 5_777_746L,
+            sha256Hash = "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
             downloadUrl = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
             license = "Apache-2.0",
             minApiLevel = 24,
@@ -270,10 +270,14 @@ open class OnDeviceModelManager(protected val context: Context? = null) {
     // Integrity & Recovery
     // -----------------------------------------------------------------------
 
+    /**
+     * SHA-256 check before a downloaded model may be loaded (AI-SEC-19, TC-AI-021). Fails closed: a downloaded
+     * model without a pinned hash is not trusted. Bundled models ship inside the signed APK.
+     */
     suspend fun verifyIntegrity(id: LocalModelId): Boolean = withContext(Dispatchers.IO) {
         val spec = modelCatalogue[id] ?: return@withContext false
         if (spec.bundledInAssets) return@withContext true
-        if (spec.sha256Hash.isBlank()) return@withContext true
+        if (spec.sha256Hash.isBlank()) return@withContext false
 
         val file = getModelFile(id) ?: return@withContext false
 

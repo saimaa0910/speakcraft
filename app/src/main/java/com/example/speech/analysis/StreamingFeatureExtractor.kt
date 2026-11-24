@@ -29,6 +29,14 @@ class StreamingFeatureExtractor(
 ) {
     private val frameSamples = sampleRateHz * frameMs / 1000
     private val frameRms = ArrayList<Float>(4096)
+
+    // Pitch per frame (YIN over the last 40 ms), for the candidate vocal-delivery metrics (ARC-05 §8).
+    private val pitchTracker = PitchTracker(sampleRateHz)
+    private val pitchWindow = FloatArray(pitchTracker.windowSize)
+    private val history = FloatArray(pitchTracker.windowSize)
+    private var historyPos = 0
+    private var historyFilled = 0
+    private val framePitch = ArrayList<Float>(4096)
     private val pending = ShortArray(frameSamples)
     private var pendingCount = 0
     private var totalSamples = 0L
@@ -69,7 +77,8 @@ class StreamingFeatureExtractor(
             durationMs = durationMs,
             source = FeatureSource.PCM,
             clippingRatio = if (totalSamples > 0) clippedSamples.toDouble() / totalSamples else null,
-            absoluteMinVoiceLevel = MIN_VOICE_RMS
+            absoluteMinVoiceLevel = MIN_VOICE_RMS,
+            framePitchHz = framePitch.map { it.toDouble() }
         )
     }
 
@@ -79,9 +88,21 @@ class StreamingFeatureExtractor(
             val s = buf[k].toInt()
             if (abs(s) >= CLIP_LEVEL) clippedSamples++
             sumSq += s.toDouble() * s.toDouble()
+            history[historyPos] = (s / FULL_SCALE).toFloat()
+            historyPos = (historyPos + 1) % history.size
+            if (historyFilled < history.size) historyFilled++
         }
         totalSamples += count
-        frameRms.add((sqrt(sumSq / count) / FULL_SCALE).toFloat())
+        val rms = sqrt(sumSq / count) / FULL_SCALE
+        frameRms.add(rms.toFloat())
+        framePitch.add(pitchOfLastWindow(rms))
+    }
+
+    /** Pitch of the last 40 ms, or NaN when too quiet to be speech or not periodic. */
+    private fun pitchOfLastWindow(rms: Double): Float {
+        if (historyFilled < history.size || rms < MIN_VOICE_RMS) return Float.NaN
+        for (k in history.indices) pitchWindow[k] = history[(historyPos + k) % history.size]
+        return pitchTracker.estimate(pitchWindow)?.f0Hz?.toFloat() ?: Float.NaN
     }
 
     companion object {
@@ -144,7 +165,9 @@ internal object VoiceActivity {
         durationMs: Long,
         source: FeatureSource,
         clippingRatio: Double?,
-        absoluteMinVoiceLevel: Double
+        absoluteMinVoiceLevel: Double,
+        /** Per-frame pitch (NaN = none) from PCM; `null` for recogniser levels, which carry no pitch. */
+        framePitchHz: List<Double>? = null
     ): AcousticFeatures {
         if (levels.isEmpty()) {
             return AcousticFeatures(source, durationMs, 0L, emptyList(), emptyList(), 0.0, clippingRatio, null, null)
@@ -159,9 +182,10 @@ internal object VoiceActivity {
         fillShortGaps(voiced, frames(StreamingFeatureExtractor.HANGOVER_MS, frameMs))
         dropShortRuns(voiced, frames(StreamingFeatureExtractor.MIN_SPEECH_RUN_MS, frameMs))
 
+        val vocal = framePitchHz?.let { VocalDeliveryAnalyzer.analyse(levels, it, voiced, frameMs) }
         val first = voiced.indexOfFirst { it }
         if (first < 0) {
-            return AcousticFeatures(source, durationMs, 0L, emptyList(), emptyList(), noiseFloor, clippingRatio, null, null)
+            return AcousticFeatures(source, durationMs, 0L, emptyList(), emptyList(), noiseFloor, clippingRatio, null, null, vocal)
         }
         val last = voiced.indexOfLast { it }
 
@@ -193,7 +217,8 @@ internal object VoiceActivity {
             noiseFloorRms = noiseFloor,
             clippingRatio = clippingRatio,
             firstVoicedMs = first * frameMs,
-            lastVoicedMs = minOf((last + 1) * frameMs, durationMs)
+            lastVoicedMs = minOf((last + 1) * frameMs, durationMs),
+            vocal = vocal
         )
     }
 

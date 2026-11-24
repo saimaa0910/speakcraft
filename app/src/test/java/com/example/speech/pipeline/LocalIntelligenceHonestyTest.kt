@@ -112,7 +112,7 @@ class LocalIntelligenceHonestyTest {
         val input = AttemptInput.fromFeatures("att-pcm", "TPL-ANSWER", features, transcript = null)
         assertFalse(input.hasTranscript)
         val r = LocalIntelligencePipeline.evaluate(input) as AttemptEvaluationResult.Valid
-        assertEquals("1.5.0", r.evaluationVersion)
+        assertEquals("1.6.0", r.evaluationVersion)
         assertEquals(features.voicedDurationMs.toDouble(), r.allMetrics.getValue(SpeechMetricKey.M_SPK).rawValue!!, 0.0)
         assertEquals(1.0, r.allMetrics.getValue(SpeechMetricKey.M_PAUSE).rawValue!!, 0.0)
         assertTrue(r.issues.none { it.code in transcriptCodes })
