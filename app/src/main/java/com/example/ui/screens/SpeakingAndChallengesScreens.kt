@@ -638,6 +638,38 @@ fun SpeakingLabScreen(
                         )
                     }
 
+                    val hasCustomStudioPrompt = PhoneGeminiBridge.hasCustomStudioGeminiPrompt(context)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("studio_gemini_prompt_link_row"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (hasCustomStudioPrompt) {
+                                "Using your custom Gemini prompt from Settings."
+                            } else {
+                                "Using default Gemini review prompt."
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (hasCustomStudioPrompt) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = onOpenAiSettings,
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("studio_edit_gemini_prompt_button")
+                        ) {
+                            Text("Edit Prompt")
+                        }
+                    }
+
                     Button(
                         onClick = {
                             val currentPath = activeMediaPath?.takeIf { it.isNotBlank() }

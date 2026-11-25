@@ -15,6 +15,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.ai.PendingStudioGeminiHandoff
 import com.example.data.ai.PhoneGeminiBridge
@@ -346,6 +348,130 @@ class PhoneGeminiBridgeTest {
             composeRule.onNodeWithTag("studio_daily_video_banner").assertDoesNotExist()
         } finally {
             clip.delete()
+        }
+    }
+
+    @Test
+    fun customStudioGeminiPrompt_persistsSubstitutesPlaceholdersAndResetsToDefault() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        PhoneGeminiBridge.resetCustomStudioGeminiPrompt(ctx)
+
+        assertFalse(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(ctx))
+        assertEquals(PhoneGeminiBridge.DEFAULT_STUDIO_GEMINI_PROMPT, PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(ctx))
+
+        val customTemplate = "Score my {media} for {task} on \"{topic}\" ({duration}) from 1-10 and give 2 crisp drills."
+        assertTrue(PhoneGeminiBridge.saveCustomStudioGeminiPrompt(ctx, customTemplate))
+        assertTrue(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(ctx))
+        assertEquals(customTemplate, PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(ctx))
+
+        val built = PhoneGeminiBridge.buildStudioReviewPrompt(
+            taskType = StudioTaskType.SELECT_TOPIC,
+            taskTitle = "Product Launch Pitch",
+            isVideo = true,
+            transcript = "Here is why our release solves onboarding friction.",
+            durationSeconds = 55,
+            customInstructions = PhoneGeminiBridge.getCustomStudioGeminiPrompt(ctx)
+        )
+        assertTrue(built.contains("Score my video recording for 2. Select Topics on \"Product Launch Pitch\" (55s) from 1-10"))
+        assertTrue(built.contains("Here is why our release solves onboarding friction."))
+
+        // Verify sendStudioRecordingToGeminiApp automatically picks up the saved custom prompt
+        PhoneGeminiBridge.sendStudioRecordingToGeminiApp(
+            context = ctx,
+            mediaFile = null,
+            isVideo = false,
+            taskType = StudioTaskType.DAILY_VIDEO,
+            taskTitle = "Daily Reflection",
+            transcript = "Quick morning check-in",
+            durationSeconds = 25
+        )
+        val clipboard = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val copiedOutbound = clipboard.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+        assertTrue(copiedOutbound.contains("Score my audio recording for 1. Daily Video Recording"))
+        assertNull("Custom outbound studio prompt must still be excluded from clipboard import", PhoneGeminiBridge.readGeminiFeedbackFromClipboard(ctx))
+
+        PhoneGeminiBridge.resetCustomStudioGeminiPrompt(ctx)
+        assertFalse(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(ctx))
+        assertEquals(PhoneGeminiBridge.DEFAULT_STUDIO_GEMINI_PROMPT, PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(ctx))
+    }
+
+    @Test
+    fun settingsScreen_allowsEditingSavingAndResettingRecordAndReviewGeminiPrompt() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        PhoneGeminiBridge.resetCustomStudioGeminiPrompt(ctx)
+
+        composeRule.setContent {
+            SpeakCraftTheme {
+                SettingsScreen(
+                    prefs = AppPreferences(),
+                    userEmail = "learner@speakcraft.app",
+                    isAdmin = false,
+                    onSetTheme = {},
+                    onSetTtsRate = {},
+                    onOpenAdminConsole = {},
+                    onClearHistory = {},
+                    onSignOut = {}
+                )
+            }
+        }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_studio_gemini_prompt_section"))
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_section").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_badge").assertTextContains("Default")
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_studio_gemini_prompt_input"))
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_input").performTextClearance()
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_input")
+            .performTextInput("Focus strictly on pacing, filler words, and a 3-sentence rewrite.")
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_studio_gemini_prompt_save_button"))
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_save_button").performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(ctx))
+        assertEquals(
+            "Focus strictly on pacing, filler words, and a 3-sentence rewrite.",
+            PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(ctx)
+        )
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_badge").assertTextContains("Custom")
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_status").assertIsDisplayed()
+
+        // Reset back to default
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings_studio_gemini_prompt_reset_button"))
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_reset_button").performClick()
+        composeRule.waitForIdle()
+
+        assertFalse(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(ctx))
+        assertEquals(PhoneGeminiBridge.DEFAULT_STUDIO_GEMINI_PROMPT, PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(ctx))
+        composeRule.onNodeWithTag("settings_studio_gemini_prompt_badge").assertTextContains("Default")
+    }
+
+    @Test
+    fun speakingLabScreen_linksToSettingsToEditGeminiPrompt() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        PhoneGeminiBridge.saveCustomStudioGeminiPrompt(ctx, "Give me a 1-10 executive delivery rating.")
+        val vm = SpeakingAndLabsViewModel(
+            repository = SpeakCraftRepository(ensureFirestore()),
+            audioManager = AudioRecorderManager(ctx)
+        )
+        var openedSettings = false
+
+        try {
+            composeRule.setContent {
+                SpeakCraftTheme {
+                    SpeakingLabScreen(
+                        speakingVm = vm,
+                        pastSessions = emptyList(),
+                        onDeleteSession = {},
+                        onOpenAiSettings = { openedSettings = true }
+                    )
+                }
+            }
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("studio_edit_gemini_prompt_button").performScrollTo().assertIsDisplayed().performClick()
+            assertTrue(openedSettings)
+        } finally {
+            PhoneGeminiBridge.resetCustomStudioGeminiPrompt(ctx)
         }
     }
 }

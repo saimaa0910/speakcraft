@@ -24,12 +24,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TrendingUp
@@ -863,6 +866,13 @@ fun SettingsScreen(
                 mutableStateOf(PhoneGeminiBridge.inspectConnectionStatus(context))
             }
             var geminiActionMessage by remember { mutableStateOf<String?>(null) }
+            var studioPromptDraft by remember(context) {
+                mutableStateOf(PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(context))
+            }
+            var isCustomStudioPrompt by remember(context) {
+                mutableStateOf(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(context))
+            }
+            var studioPromptStatus by remember { mutableStateOf<String?>(null) }
 
             Card(
                 shape = MaterialTheme.shapes.large,
@@ -989,6 +999,162 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_studio_gemini_prompt_section"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.EditNote,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Record & Review Gemini Prompt",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = if (isCustomStudioPrompt) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ) {
+                                    Text(
+                                        text = if (isCustomStudioPrompt) "Custom" else "Default",
+                                        modifier = Modifier
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                            .testTag("settings_studio_gemini_prompt_badge"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isCustomStudioPrompt) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "Customize the coaching instructions sent with your Daily Video or Selected Topic recordings in Record & Review Studio. Task, topic, duration, and transcript are attached automatically.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                PhoneGeminiBridge.STUDIO_GEMINI_PROMPT_PRESETS.forEachIndexed { index, preset ->
+                                    val selected = studioPromptDraft.trim() == preset.instructions.trim()
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = {
+                                            studioPromptDraft = preset.instructions
+                                            studioPromptStatus = "Loaded \"${preset.label}\" preset — tap Save Prompt to apply."
+                                        },
+                                        label = { Text(preset.label) },
+                                        modifier = Modifier.testTag("settings_studio_gemini_preset_$index")
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = studioPromptDraft,
+                                onValueChange = { updated ->
+                                    studioPromptDraft = updated.take(1500)
+                                    studioPromptStatus = null
+                                },
+                                label = { Text("Coaching prompt sent to Gemini") },
+                                placeholder = { Text("Tell Gemini what feedback you want on your recording...") },
+                                supportingText = {
+                                    Text("${studioPromptDraft.length}/1500 • Optional tags: {task}, {topic}, {duration}, {media}")
+                                },
+                                minLines = 4,
+                                maxLines = 8,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("settings_studio_gemini_prompt_input")
+                            )
+
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        val savedCustom = PhoneGeminiBridge.saveCustomStudioGeminiPrompt(
+                                            context = context,
+                                            prompt = studioPromptDraft
+                                        )
+                                        studioPromptDraft = PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(context)
+                                        isCustomStudioPrompt = savedCustom
+                                        studioPromptStatus = if (savedCustom) {
+                                            "Saved custom Record & Review Gemini prompt."
+                                        } else {
+                                            "Using standard default Record & Review Gemini prompt."
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                        .testTag("settings_studio_gemini_prompt_save_button")
+                                ) {
+                                    Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Save Prompt")
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        PhoneGeminiBridge.resetCustomStudioGeminiPrompt(context)
+                                        studioPromptDraft = PhoneGeminiBridge.DEFAULT_STUDIO_GEMINI_PROMPT
+                                        isCustomStudioPrompt = false
+                                        studioPromptStatus = "Restored default Record & Review Gemini prompt."
+                                    },
+                                    enabled = isCustomStudioPrompt ||
+                                        studioPromptDraft.trim() != PhoneGeminiBridge.DEFAULT_STUDIO_GEMINI_PROMPT.trim(),
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                        .testTag("settings_studio_gemini_prompt_reset_button")
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Reset Default")
+                                }
+                            }
+
+                            if (!studioPromptStatus.isNullOrBlank()) {
+                                Text(
+                                    text = studioPromptStatus.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.testTag("settings_studio_gemini_prompt_status")
+                                )
+                            }
+                        }
                     }
                 }
             }

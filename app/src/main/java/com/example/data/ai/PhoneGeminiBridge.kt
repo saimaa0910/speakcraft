@@ -23,8 +23,10 @@ private const val TAG = "PhoneGeminiBridge"
 private const val PREFS_NAME = "speakcraft_phone_gemini_bridge"
 private const val KEY_PENDING_HANDOFF = "pending_studio_handoff_json"
 private const val KEY_STUDIO_FEEDBACK_LIST = "studio_gemini_feedback_list_json"
+private const val KEY_CUSTOM_STUDIO_PROMPT = "custom_studio_gemini_prompt"
 private const val OUTBOUND_STUDIO_PROMPT_MARKER = "SpeakCraft Record & Review Studio"
 private const val HANDOFF_WINDOW_MS = 12 * 60 * 60 * 1000L
+private const val MAX_CUSTOM_STUDIO_PROMPT_CHARS = 1500
 
 enum class StudioTaskType(val label: String, val badge: String) {
     DAILY_VIDEO("1. Daily Video Recording", "Daily Free Speak"),
@@ -51,6 +53,11 @@ data class StudioGeminiFeedbackEntry(
     val feedbackText: String = "",
     val source: String = "Gemini App",
     val receivedAtMs: Long = 0L
+)
+
+data class StudioGeminiPromptPreset(
+    val label: String,
+    val instructions: String
 )
 
 /**
@@ -101,6 +108,42 @@ object PhoneGeminiBridge {
     const val AICORE_PACKAGE = "com.google.android.aicore"
     private const val PLAY_STORE_GEMINI_URI = "market://details?id=$GEMINI_PACKAGE"
     private const val WEB_STORE_GEMINI_URI = "https://play.google.com/store/apps/details?id=$GEMINI_PACKAGE"
+
+    const val DEFAULT_STUDIO_GEMINI_PROMPT: String =
+        "Please give clear, structured coaching feedback covering:\n" +
+            "1. Top Strengths (delivery, body language/presence if video, pacing, tone)\n" +
+            "2. Specific Mistakes or Habits to Fix\n" +
+            "3. Clarity, Conciseness & Structure Tips\n" +
+            "4. Stronger Rewritten Take (30-45s example I can practice next)"
+
+    val STUDIO_GEMINI_PROMPT_PRESETS: List<StudioGeminiPromptPreset> = listOf(
+        StudioGeminiPromptPreset(
+            label = "Default Coach",
+            instructions = DEFAULT_STUDIO_GEMINI_PROMPT
+        ),
+        StudioGeminiPromptPreset(
+            label = "Concise Bullets",
+            instructions = "Give brief, high-impact coaching in 3 short sections:\n" +
+                "• 2 things that worked well\n" +
+                "• Top 2 speaking habits to fix right now\n" +
+                "• A sharper 20-second version I can repeat immediately"
+        ),
+        StudioGeminiPromptPreset(
+            label = "Executive & Interview",
+            instructions = "Review this like an executive communication & interview coach:\n" +
+                "1. Executive Presence & Confidence Score (1-10) with reason\n" +
+                "2. Structure Check (PREP / STAR clarity & answer focus)\n" +
+                "3. Filler Words, Rambling, or Weak Phrasing to Cut\n" +
+                "4. Upgraded Leadership-Ready Answer"
+        ),
+        StudioGeminiPromptPreset(
+            label = "Body Language & Delivery",
+            instructions = "Focus heavily on on-camera delivery and vocal presence:\n" +
+                "1. Eye Contact, Posture, Facial Expression & Gestures\n" +
+                "2. Vocal Pacing, Pauses, Pitch Variety & Energy\n" +
+                "3. Top 2 Drills to Practice Before My Next Recording"
+        )
+    )
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -329,12 +372,14 @@ object PhoneGeminiBridge {
         val cleanTitle = taskTitle.trim().ifBlank {
             if (taskType == StudioTaskType.DAILY_VIDEO) "Daily Video Recording (Open Speak)" else "Selected Topic Recording"
         }
+        val customPrompt = getCustomStudioGeminiPrompt(context)
         val prompt = buildStudioReviewPrompt(
             taskType = taskType,
             taskTitle = cleanTitle,
             isVideo = isVideo,
             transcript = transcript,
-            durationSeconds = durationSeconds
+            durationSeconds = durationSeconds,
+            customInstructions = customPrompt
         )
         val copied = copyToClipboard(context, "SpeakCraft Studio Review", prompt)
         val mediaLabel = buildString {
@@ -539,6 +584,46 @@ object PhoneGeminiBridge {
     }.getOrNull()
 
     // -----------------------------------------------------------------------
+    // Customizable Record & Review Studio Gemini Prompt Preferences
+    // -----------------------------------------------------------------------
+
+    fun getCustomStudioGeminiPrompt(context: Context): String? = runCatching {
+        prefs(context).getString(KEY_CUSTOM_STUDIO_PROMPT, null)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    fun getEffectiveStudioGeminiPrompt(context: Context): String =
+        getCustomStudioGeminiPrompt(context) ?: DEFAULT_STUDIO_GEMINI_PROMPT
+
+    fun hasCustomStudioGeminiPrompt(context: Context): Boolean =
+        getCustomStudioGeminiPrompt(context) != null
+
+    /**
+     * Persists a user-customized Record & Review Gemini coaching prompt.
+     * Passing blank text or the exact default prompt resets back to the built-in default.
+     * @return true if a custom prompt is now active, false if reset to default.
+     */
+    fun saveCustomStudioGeminiPrompt(context: Context, prompt: String): Boolean {
+        val cleaned = prompt.trim().take(MAX_CUSTOM_STUDIO_PROMPT_CHARS)
+        return if (cleaned.isBlank() || cleaned == DEFAULT_STUDIO_GEMINI_PROMPT.trim()) {
+            resetCustomStudioGeminiPrompt(context)
+            false
+        } else {
+            runCatching {
+                prefs(context).edit().putString(KEY_CUSTOM_STUDIO_PROMPT, cleaned).apply()
+            }.onFailure { AppLogger.w(TAG, "Unable to save custom studio Gemini prompt: ${it.message}") }
+            true
+        }
+    }
+
+    fun resetCustomStudioGeminiPrompt(context: Context) {
+        runCatching {
+            prefs(context).edit().remove(KEY_CUSTOM_STUDIO_PROMPT).apply()
+        }.onFailure { AppLogger.w(TAG, "Unable to reset custom studio Gemini prompt: ${it.message}") }
+    }
+
+    // -----------------------------------------------------------------------
     // Privacy-Safe Coaching Prompt Builders (explicitly triggered by user)
     // -----------------------------------------------------------------------
 
@@ -547,13 +632,23 @@ object PhoneGeminiBridge {
         taskTitle: String,
         isVideo: Boolean,
         transcript: String,
-        durationSeconds: Int = 0
+        durationSeconds: Int = 0,
+        customInstructions: String? = null
     ): String {
         val mediaWord = if (isVideo) "video recording" else "audio recording"
         val cleanTitle = taskTitle.trim().ifBlank {
             if (taskType == StudioTaskType.DAILY_VIDEO) "Daily Free Video Recording" else "Selected Topic Recording"
         }
         val cleanTranscript = transcript.trim()
+        val durationLabel = if (durationSeconds > 0) "${durationSeconds}s" else "unspecified"
+        val resolvedInstructions = (customInstructions?.trim()?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_STUDIO_GEMINI_PROMPT)
+            .replace("{task}", taskType.label)
+            .replace("{topic}", cleanTitle)
+            .replace("{media}", mediaWord)
+            .replace("{duration}", durationLabel)
+            .replace("{transcript}", cleanTranscript.ifBlank { "(attached $mediaWord)" })
+
         return buildString {
             append("$OUTBOUND_STUDIO_PROMPT_MARKER — Please review my $mediaWord.\n")
             when (taskType) {
@@ -576,11 +671,8 @@ object PhoneGeminiBridge {
             } else {
                 append("\n(Listen/watch the attached $mediaWord directly — live transcript was not captured.)\n")
             }
-            append("\nPlease give clear, structured coaching feedback covering:\n")
-            append("1. Top Strengths (delivery, body language/presence if video, pacing, tone)\n")
-            append("2. Specific Mistakes or Habits to Fix\n")
-            append("3. Clarity, Conciseness & Structure Tips\n")
-            append("4. Stronger Rewritten Take (30-45s example I can practice next)")
+            append("\n")
+            append(resolvedInstructions)
         }
     }
 

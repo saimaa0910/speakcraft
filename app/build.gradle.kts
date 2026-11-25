@@ -93,6 +93,12 @@ android {
       isReturnDefaultValues = true
       all {
         it.maxParallelForks = 1
+        providers.gradleProperty("robolectric.dependency.repo.url").orNull?.let { url ->
+          it.systemProperty("robolectric.dependency.repo.url", url)
+        }
+        providers.gradleProperty("robolectric.dependency.repo.id").orNull?.let { id ->
+          it.systemProperty("robolectric.dependency.repo.id", id)
+        }
       }
     }
   }
