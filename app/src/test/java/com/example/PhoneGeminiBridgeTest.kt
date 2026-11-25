@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.ai.PendingStudioGeminiHandoff
@@ -319,31 +320,27 @@ class PhoneGeminiBridgeTest {
             composeRule.waitForIdle()
             assertTrue(consumed)
 
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_task_daily_video_chip"))
-            composeRule.onNodeWithTag("studio_task_daily_video_chip").assertIsDisplayed().assertIsSelected()
-            composeRule.onNodeWithTag("studio_task_select_topics_chip").assertIsDisplayed()
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_daily_video_banner"))
-            composeRule.onNodeWithTag("studio_daily_video_banner").assertIsDisplayed()
+            composeRule.onNodeWithTag("studio_task_daily_video_chip").performScrollTo().assertIsDisplayed().assertIsSelected()
+            composeRule.onNodeWithTag("studio_task_select_topics_chip").performScrollTo().assertIsDisplayed()
+            composeRule.onNodeWithTag("studio_daily_video_banner").performScrollTo().assertIsDisplayed()
 
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_forward_to_gemini_switch"))
-            composeRule.onNodeWithTag("studio_forward_to_gemini_switch").assertIsDisplayed()
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("send_recording_to_gemini_button"))
-            composeRule.onNodeWithTag("send_recording_to_gemini_button").assertIsDisplayed()
+            composeRule.onNodeWithTag("studio_forward_to_gemini_switch").performScrollTo().assertIsDisplayed()
+            composeRule.onNodeWithTag("send_recording_to_gemini_button").performScrollTo().assertIsDisplayed()
 
             composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_gemini_feedback_card"))
-            composeRule.onNodeWithTag("studio_gemini_feedback_card").assertIsDisplayed()
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_gemini_feedback_input"))
+            composeRule.onNodeWithTag("studio_gemini_feedback_card").performScrollTo().assertIsDisplayed()
             composeRule.onNodeWithTag("studio_gemini_feedback_input")
+                .performScrollTo()
                 .assertIsDisplayed()
                 .assertTextContains("Gemini Feedback: Clear posture and strong opening hook.")
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_saved_feedback_text_0"))
             composeRule.onNodeWithTag("studio_saved_feedback_text_0")
+                .performScrollTo()
                 .assertIsDisplayed()
                 .assertTextContains("Gemini Feedback: Clear posture and strong opening hook.")
 
             // Switch to Task 2
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_task_select_topics_chip"))
-            composeRule.onNodeWithTag("studio_task_select_topics_chip").performClick()
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_two_tasks_panel"))
+            composeRule.onNodeWithTag("studio_task_select_topics_chip").performScrollTo().performClick()
             composeRule.waitForIdle()
             composeRule.onNodeWithTag("studio_task_select_topics_chip").assertIsSelected()
             composeRule.onNodeWithTag("studio_daily_video_banner").assertDoesNotExist()

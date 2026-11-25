@@ -440,8 +440,8 @@ object PhoneGeminiBridge {
                 val routeToStudio = pendingStudio != null &&
                     pendingStudio.targetRoute == "speaking_lab" &&
                     (System.currentTimeMillis() - pendingStudio.sentAtMs) in 0L..HANDOFF_WINDOW_MS
-                if (routeToStudio && context != null) {
-                    clearPendingStudioHandoff(context)
+                if (routeToStudio) {
+                    clearPendingStudioHandoff(context!!)
                 }
                 return InboundGeminiLink(
                     targetRoute = if (routeToStudio) "speaking_lab" else "ai_mentor",
