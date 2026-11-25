@@ -1,20 +1,27 @@
 package com.example
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.ai.PendingStudioGeminiHandoff
 import com.example.data.ai.PhoneGeminiBridge
+import com.example.data.ai.StudioGeminiFeedbackEntry
+import com.example.data.ai.StudioTaskType
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
+import com.example.data.media.AudioRecorderManager
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.UserProfile
@@ -22,9 +29,12 @@ import com.example.data.preferences.AppPreferences
 import com.example.ui.screens.AiMentorScreen
 import com.example.ui.screens.ConversationSimulatorScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.SpeakingLabScreen
 import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.viewmodel.InteractiveCoachViewModel
+import com.example.ui.viewmodel.SpeakingAndLabsViewModel
 import com.google.firebase.firestore.FirebaseFirestore
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -199,5 +209,146 @@ class PhoneGeminiBridgeTest {
         }
 
         composeRule.onNodeWithTag("conversation_gemini_voice_button").assertIsDisplayed()
+    }
+
+    @Test
+    fun parseInboundIntent_routesSharedGeminiFeedbackBackToSpeakingLabWhenPendingHandoffExists() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        PhoneGeminiBridge.clearPendingStudioHandoff(ctx)
+
+        PhoneGeminiBridge.savePendingStudioHandoff(
+            ctx,
+            PendingStudioGeminiHandoff(
+                targetRoute = "speaking_lab",
+                taskTypeName = StudioTaskType.DAILY_VIDEO.name,
+                taskTitle = "Daily Video Recording (Open Speak)",
+                mediaLabel = "Video (35s)",
+                isVideo = true,
+                sentAtMs = System.currentTimeMillis()
+            )
+        )
+
+        val returnedFromGemini = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, "Strengths: Strong eye contact. Improve: Pause 1s before closing.")
+        }
+        val studioLink = PhoneGeminiBridge.parseInboundIntent(returnedFromGemini, ctx)
+        assertNotNull(studioLink)
+        assertEquals("speaking_lab", studioLink?.targetRoute)
+        assertEquals("Strengths: Strong eye contact. Improve: Pause 1s before closing.", studioLink?.sharedText)
+        assertNull(PhoneGeminiBridge.getPendingStudioHandoff(ctx))
+
+        // Without pending studio handoff, plain share routes to ai_mentor
+        val mentorLink = PhoneGeminiBridge.parseInboundIntent(returnedFromGemini, ctx)
+        assertEquals("ai_mentor", mentorLink?.targetRoute)
+    }
+
+    @Test
+    fun studioReviewPromptAndFeedbackPersistence_workForDailyVideoAndTopicTasks() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val dailyPrompt = PhoneGeminiBridge.buildStudioReviewPrompt(
+            taskType = StudioTaskType.DAILY_VIDEO,
+            taskTitle = "Daily Video Recording (Open Speak)",
+            isVideo = true,
+            transcript = "Today I shared a short reflection on leading our sprint review cleanly.",
+            durationSeconds = 42
+        )
+        assertTrue(dailyPrompt.contains("1. Daily Video Recording"))
+        assertTrue(dailyPrompt.contains("whatever they wanted"))
+        assertTrue(dailyPrompt.contains("video recording"))
+        assertTrue(dailyPrompt.contains("42s"))
+
+        val topicPrompt = PhoneGeminiBridge.buildStudioReviewPrompt(
+            taskType = StudioTaskType.SELECT_TOPIC,
+            taskTitle = "STAR Interview",
+            isVideo = false,
+            transcript = "",
+            durationSeconds = 30
+        )
+        assertTrue(topicPrompt.contains("2. Selected Topic Practice"))
+        assertTrue(topicPrompt.contains("STAR Interview"))
+        assertTrue(topicPrompt.contains("audio recording"))
+
+        val clipboard = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("outbound", dailyPrompt))
+        assertNull("Outbound prompt on clipboard must not be imported as Gemini reply", PhoneGeminiBridge.readGeminiFeedbackFromClipboard(ctx))
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("gemini_reply", "Gemini Review: Calm voice pacing; trim filler phrases."))
+        assertEquals("Gemini Review: Calm voice pacing; trim filler phrases.", PhoneGeminiBridge.readGeminiFeedbackFromClipboard(ctx))
+
+        val savedList = PhoneGeminiBridge.saveStudioFeedbackEntry(
+            ctx,
+            StudioGeminiFeedbackEntry(
+                id = "test_fb_1",
+                taskTypeLabel = StudioTaskType.DAILY_VIDEO.label,
+                taskTitle = "Daily Video Recording (Open Speak)",
+                mediaLabel = "Video (42s)",
+                isVideo = true,
+                feedbackText = "Gemini Review: Calm voice pacing; trim filler phrases.",
+                source = "Gemini App Clipboard",
+                receivedAtMs = 1_764_000_000_000L
+            )
+        )
+        assertTrue(savedList.any { it.feedbackText.contains("Calm voice pacing") })
+        assertTrue(PhoneGeminiBridge.loadStudioFeedbackHistory(ctx).any { it.feedbackText.contains("Calm voice pacing") })
+    }
+
+    @Test
+    fun speakingLabScreen_supportsDailyVideoAndTopicTasksAndReceivesGeminiFeedback() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val vm = SpeakingAndLabsViewModel(
+            repository = SpeakCraftRepository(ensureFirestore()),
+            audioManager = AudioRecorderManager(ctx)
+        )
+        val clip = File(ctx.cacheDir, "studio_daily_test.mp4").apply { writeBytes(ByteArray(128) { 3 }) }
+        vm.attachRecordedVideoFile(clip, 18)
+        var consumed = false
+
+        try {
+            composeRule.setContent {
+                SpeakCraftTheme {
+                    SpeakingLabScreen(
+                        speakingVm = vm,
+                        pastSessions = emptyList(),
+                        onDeleteSession = {},
+                        incomingGeminiFeedback = "Gemini Feedback: Clear posture and strong opening hook.",
+                        onConsumeIncomingGeminiFeedback = { consumed = true }
+                    )
+                }
+            }
+            composeRule.waitForIdle()
+            assertTrue(consumed)
+
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_task_daily_video_chip"))
+            composeRule.onNodeWithTag("studio_task_daily_video_chip").assertIsDisplayed().assertIsSelected()
+            composeRule.onNodeWithTag("studio_task_select_topics_chip").assertIsDisplayed()
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_daily_video_banner"))
+            composeRule.onNodeWithTag("studio_daily_video_banner").assertIsDisplayed()
+
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_forward_to_gemini_switch"))
+            composeRule.onNodeWithTag("studio_forward_to_gemini_switch").assertIsDisplayed()
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("send_recording_to_gemini_button"))
+            composeRule.onNodeWithTag("send_recording_to_gemini_button").assertIsDisplayed()
+
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_gemini_feedback_card"))
+            composeRule.onNodeWithTag("studio_gemini_feedback_card").assertIsDisplayed()
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_gemini_feedback_input"))
+            composeRule.onNodeWithTag("studio_gemini_feedback_input")
+                .assertIsDisplayed()
+                .assertTextContains("Gemini Feedback: Clear posture and strong opening hook.")
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_saved_gemini_feedback_list"))
+            composeRule.onNodeWithTag("studio_saved_feedback_text_0")
+                .assertIsDisplayed()
+                .assertTextContains("Gemini Feedback: Clear posture and strong opening hook.")
+
+            // Switch to Task 2
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_task_select_topics_chip"))
+            composeRule.onNodeWithTag("studio_task_select_topics_chip").performClick()
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("studio_task_select_topics_chip").assertIsSelected()
+            composeRule.onNodeWithTag("studio_daily_video_banner").assertDoesNotExist()
+        } finally {
+            clip.delete()
+        }
     }
 }

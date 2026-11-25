@@ -29,9 +29,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
@@ -46,6 +48,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -53,8 +56,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,6 +73,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.ai.PhoneGeminiBridge
+import com.example.data.ai.StudioGeminiFeedbackEntry
+import com.example.data.ai.StudioTaskType
 import com.example.data.evaluation.CoachEvaluationState
 import com.example.data.evaluation.LabAttemptEvaluator
 import com.example.data.evaluation.LabPracticeTarget
@@ -92,6 +101,10 @@ import com.example.ui.components.VideoReviewPlayerCard
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private fun formatStudioDuration(seconds: Int): String {
     val safe = seconds.coerceAtLeast(0)
@@ -104,7 +117,9 @@ fun SpeakingLabScreen(
     speakingVm: SpeakingAndLabsViewModel,
     pastSessions: List<SpeakingSession>,
     onDeleteSession: (SpeakingSession) -> Unit,
-    onOpenAiSettings: () -> Unit = {}
+    onOpenAiSettings: () -> Unit = {},
+    incomingGeminiFeedback: String? = null,
+    onConsumeIncomingGeminiFeedback: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -139,11 +154,60 @@ fun SpeakingLabScreen(
         )
     }
 
+    var activeTaskType by remember { mutableStateOf(StudioTaskType.DAILY_VIDEO) }
+    var dailyFreeNote by remember { mutableStateOf("") }
     var customTopic by remember { mutableStateOf(quickTopicPresets.first().second) }
+    var sendToGeminiOnSubmit by remember { mutableStateOf(true) }
+    var geminiStatusMessage by remember { mutableStateOf<String?>(null) }
+    var geminiFeedbackDraft by remember { mutableStateOf("") }
+    var geminiFeedbackHistory by remember(context) {
+        mutableStateOf(PhoneGeminiBridge.loadStudioFeedbackHistory(context))
+    }
+    var pendingHandoff by remember(context) {
+        mutableStateOf(PhoneGeminiBridge.getPendingStudioHandoff(context))
+    }
     var selectedAuditStage by remember { mutableStateOf("Stage 2: Vocal (Eyes Closed)") }
     var showCameraDialog by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf<String?>(null) }
     var pendingDeleteSession by remember { mutableStateOf<SpeakingSession?>(null) }
+
+    val activePromptTitle = if (activeTaskType == StudioTaskType.DAILY_VIDEO) {
+        dailyFreeNote.trim().ifBlank { "Daily Video Recording (Open Speak)" }
+    } else {
+        customTopic.trim().ifBlank { "Selected Topic Practice" }
+    }
+
+    fun persistGeminiFeedback(feedbackText: String, source: String) {
+        val clean = feedbackText.trim()
+        if (clean.isBlank()) return
+        val handoff = pendingHandoff
+        val taskLabel = handoff?.taskTypeName?.let { raw ->
+            runCatching { StudioTaskType.valueOf(raw).label }.getOrNull()
+        } ?: activeTaskType.label
+        val entry = StudioGeminiFeedbackEntry(
+            taskTypeLabel = taskLabel,
+            taskTitle = handoff?.taskTitle?.ifBlank { activePromptTitle } ?: activePromptTitle,
+            mediaLabel = handoff?.mediaLabel?.ifBlank {
+                if (activeMediaIsVideo) "Video Clip" else "Audio Recording"
+            } ?: if (activeMediaIsVideo) "Video Clip" else "Audio Recording",
+            isVideo = handoff?.isVideo ?: activeMediaIsVideo,
+            feedbackText = clean,
+            source = source,
+            receivedAtMs = System.currentTimeMillis()
+        )
+        geminiFeedbackHistory = PhoneGeminiBridge.saveStudioFeedbackEntry(context, entry)
+        pendingHandoff = null
+    }
+
+    LaunchedEffect(incomingGeminiFeedback) {
+        val incoming = incomingGeminiFeedback?.trim()
+        if (!incoming.isNullOrBlank()) {
+            geminiFeedbackDraft = incoming
+            persistGeminiFeedback(incoming, "Shared from Gemini App")
+            geminiStatusMessage = "Feedback returned from phone Gemini app and saved in Record & Review Studio."
+            onConsumeIncomingGeminiFeedback()
+        }
+    }
 
     val micPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -237,30 +301,122 @@ fun SpeakingLabScreen(
                         }
                     }
 
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs),
-                        verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().testTag("studio_two_tasks_panel"),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        quickTopicPresets.forEachIndexed { idx, (label, promptText) ->
+                        Text(
+                            text = "Studio Tasks — Choose Your Recording Mode",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)
+                        ) {
                             FilterChip(
-                                selected = customTopic == promptText,
-                                onClick = { customTopic = promptText },
-                                label = { Text(label) },
+                                selected = activeTaskType == StudioTaskType.DAILY_VIDEO,
+                                onClick = { activeTaskType = StudioTaskType.DAILY_VIDEO },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                label = { Text("1. Daily Video Recording") },
                                 modifier = Modifier
+                                    .weight(1f)
                                     .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                    .testTag("speaking_preset_chip_$idx")
+                                    .testTag("studio_task_daily_video_chip")
+                            )
+                            FilterChip(
+                                selected = activeTaskType == StudioTaskType.SELECT_TOPIC,
+                                onClick = { activeTaskType = StudioTaskType.SELECT_TOPIC },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                label = { Text("2. Select Topics") },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                    .testTag("studio_task_select_topics_chip")
                             )
                         }
-                    }
 
-                    OutlinedTextField(
-                        value = customTopic,
-                        onValueChange = { customTopic = it },
-                        label = { Text("Speaking Prompt or Topic") },
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth().testTag("speaking_prompt_input")
-                    )
+                        if (activeTaskType == StudioTaskType.DAILY_VIDEO) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                                modifier = Modifier.fillMaxWidth().testTag("studio_daily_video_banner")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Task 1: Daily Video Recording — Speak Whatever You Want",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Speak freely on any daily topic (video or audio), then submit to Studio + Phone Gemini.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = dailyFreeNote,
+                                        onValueChange = { dailyFreeNote = it },
+                                        label = { Text("Optional focus note (or leave blank to speak freely)") },
+                                        singleLine = true,
+                                        shape = MaterialTheme.shapes.medium,
+                                        modifier = Modifier.fillMaxWidth().testTag("studio_daily_free_note_input")
+                                    )
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = if (activeTaskType == StudioTaskType.SELECT_TOPIC) {
+                                "Task 2 Active: Pick a Preset Topic or Enter Custom Prompt"
+                            } else {
+                                "Or switch to Task 2: Select a Practice Topic"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (activeTaskType == StudioTaskType.SELECT_TOPIC) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.xs)
+                        ) {
+                            quickTopicPresets.forEachIndexed { idx, (label, promptText) ->
+                                FilterChip(
+                                    selected = activeTaskType == StudioTaskType.SELECT_TOPIC && customTopic == promptText,
+                                    onClick = {
+                                        activeTaskType = StudioTaskType.SELECT_TOPIC
+                                        customTopic = promptText
+                                    },
+                                    label = { Text(label) },
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                        .testTag("speaking_preset_chip_$idx")
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = customTopic,
+                            onValueChange = {
+                                activeTaskType = StudioTaskType.SELECT_TOPIC
+                                customTopic = it
+                            },
+                            label = { Text("Task 2 Speaking Prompt or Topic") },
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().testTag("speaking_prompt_input")
+                        )
+                    }
 
                     LiveWaveformVisualizer(amplitude = amplitude, isRecording = isRecording, isPaused = isPaused)
 
@@ -469,12 +625,55 @@ fun SpeakingLabScreen(
                         )
                     }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth().testTag("studio_gemini_forward_row"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Also submit video/audio to Phone Gemini App",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                text = "Sends clip + prompt straight to Gemini chats so you can bring back feedback.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = sendToGeminiOnSubmit,
+                            onCheckedChange = { sendToGeminiOnSubmit = it },
+                            modifier = Modifier.testTag("studio_forward_to_gemini_switch")
+                        )
+                    }
+
                     Button(
                         onClick = {
+                            val currentPath = activeMediaPath?.takeIf { it.isNotBlank() }
+                                ?: recordedPath?.takeIf { it.isNotBlank() }
+                            val currentFile = currentPath?.let(::File)
+                            val transcriptText = liveTranscript.ifBlank { liveTranscriptionState.displayText }
+                            val durationSec = elapsed
+
                             speakingVm.submitForAiAnalysis(
                                 moduleType = "SPEAKING_LAB",
-                                promptTitle = customTopic
+                                promptTitle = activePromptTitle
                             )
+
+                            if (sendToGeminiOnSubmit && (currentFile != null || transcriptText.isNotBlank())) {
+                                val res = PhoneGeminiBridge.sendStudioRecordingToGeminiApp(
+                                    context = context,
+                                    mediaFile = currentFile,
+                                    isVideo = activeMediaIsVideo,
+                                    taskType = activeTaskType,
+                                    taskTitle = activePromptTitle,
+                                    transcript = transcriptText,
+                                    durationSeconds = durationSec
+                                )
+                                pendingHandoff = PhoneGeminiBridge.getPendingStudioHandoff(context)
+                                geminiStatusMessage = res.userMessage
+                            }
                         },
                         enabled = !isRecording,
                         modifier = Modifier
@@ -484,7 +683,57 @@ fun SpeakingLabScreen(
                     ) {
                         Icon(Icons.Default.Psychology, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Analyze With Local AI Coach")
+                        Text(
+                            if (sendToGeminiOnSubmit) {
+                                "Submit Recording (Studio + Gemini App)"
+                            } else {
+                                "Analyze With Local AI Coach"
+                            }
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val currentPath = activeMediaPath?.takeIf { it.isNotBlank() }
+                                ?: recordedPath?.takeIf { it.isNotBlank() }
+                            val currentFile = currentPath?.let(::File)
+                            val transcriptText = liveTranscript.ifBlank { liveTranscriptionState.displayText }
+                            val res = PhoneGeminiBridge.sendStudioRecordingToGeminiApp(
+                                context = context,
+                                mediaFile = currentFile,
+                                isVideo = activeMediaIsVideo,
+                                taskType = activeTaskType,
+                                taskTitle = activePromptTitle,
+                                transcript = transcriptText,
+                                durationSeconds = elapsed
+                            )
+                            pendingHandoff = PhoneGeminiBridge.getPendingStudioHandoff(context)
+                            geminiStatusMessage = res.userMessage
+                        },
+                        enabled = !isRecording && (hasMediaReady || liveTranscript.isNotBlank()),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            .testTag("send_recording_to_gemini_button")
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Send Current Clip / Prompt to Gemini App")
+                    }
+
+                    if (!geminiStatusMessage.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                            modifier = Modifier.fillMaxWidth().testTag("studio_gemini_status_message")
+                        ) {
+                            Text(
+                                text = geminiStatusMessage.orEmpty(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -589,6 +838,207 @@ fun SpeakingLabScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (sess.localMediaPath.isNotBlank() || sess.promptTitle.isNotBlank()) {
+                        OutlinedButton(
+                            onClick = {
+                                val file = sess.localMediaPath.takeIf { it.isNotBlank() }?.let(::File)
+                                val inferredTask = if (sess.promptTitle.startsWith("Daily Video", ignoreCase = true)) {
+                                    StudioTaskType.DAILY_VIDEO
+                                } else {
+                                    StudioTaskType.SELECT_TOPIC
+                                }
+                                val res = PhoneGeminiBridge.sendStudioRecordingToGeminiApp(
+                                    context = context,
+                                    mediaFile = file,
+                                    isVideo = sess.mediaType.contains("video", ignoreCase = true) ||
+                                        sess.localMediaPath.endsWith(".mp4", ignoreCase = true),
+                                    taskType = inferredTask,
+                                    taskTitle = sess.promptTitle,
+                                    transcript = sess.transcript,
+                                    durationSeconds = sess.durationSeconds.toInt()
+                                )
+                                pendingHandoff = PhoneGeminiBridge.getPendingStudioHandoff(context)
+                                geminiStatusMessage = res.userMessage
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Send Saved Clip to Gemini App")
+                        }
+                    }
+                }
+            }
+        }
+
+        val geminiFeedbackCardContent: @Composable () -> Unit = {
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().testTag("studio_gemini_feedback_card")
+            ) {
+                Column(
+                    modifier = Modifier.padding(SpeakCraftSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text("Gemini App Feedback (In-App Review)", style = MaterialTheme.typography.titleMedium)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (pendingHandoff != null) ext.infoContainer else MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = when {
+                                    pendingHandoff != null -> "Awaiting Reply"
+                                    geminiFeedbackHistory.isNotEmpty() -> "${geminiFeedbackHistory.size} Saved"
+                                    else -> "Ready"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (pendingHandoff != null) ext.info else MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "After Gemini reviews your Task 1 or Task 2 recording in the phone app, tap Share -> Practice with SpeakCraft or Copy Gemini's answer and tap Paste below to keep the feedback in this studio.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val clipped = PhoneGeminiBridge.readGeminiFeedbackFromClipboard(context)
+                                if (clipped != null) {
+                                    geminiFeedbackDraft = clipped
+                                    persistGeminiFeedback(clipped, "Gemini App Clipboard")
+                                    geminiStatusMessage = "Imported feedback from Gemini clipboard into Record & Review Studio!"
+                                } else {
+                                    geminiStatusMessage = "Copy Gemini's reply inside the Gemini app first, or Share -> Practice with SpeakCraft."
+                                }
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("studio_paste_gemini_feedback_button")
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Paste Gemini Feedback")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val openRes = PhoneGeminiBridge.openGeminiApp(context)
+                                geminiStatusMessage = openRes.userMessage
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("studio_open_gemini_for_reply_button")
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Gemini App")
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = geminiFeedbackDraft,
+                        onValueChange = { geminiFeedbackDraft = it },
+                        label = { Text("Gemini Coaching Feedback Received") },
+                        placeholder = { Text("Feedback shared or pasted from the Gemini app appears here...") },
+                        minLines = 3,
+                        maxLines = 6,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().testTag("studio_gemini_feedback_input")
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            persistGeminiFeedback(geminiFeedbackDraft, "Saved in Studio")
+                            geminiStatusMessage = "Saved Gemini feedback in Record & Review Studio."
+                        },
+                        enabled = geminiFeedbackDraft.isNotBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            .testTag("studio_save_gemini_feedback_button")
+                    ) {
+                        Text("Save Gemini Feedback to Studio")
+                    }
+
+                    if (geminiFeedbackHistory.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(
+                            text = "Saved Gemini Reviews (${geminiFeedbackHistory.size})",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth().testTag("studio_saved_gemini_feedback_list"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val timeFormatter = remember {
+                                SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+                            }
+                            geminiFeedbackHistory.take(5).forEachIndexed { idx, entry ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = ext.successContainer.copy(alpha = 0.25f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "${entry.taskTypeLabel} • ${entry.mediaLabel}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = ext.success,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            if (entry.receivedAtMs > 0L) {
+                                                Text(
+                                                    text = timeFormatter.format(Date(entry.receivedAtMs)),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = entry.taskTitle,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                        Text(
+                                            text = entry.feedbackText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.testTag("studio_saved_feedback_text_$idx")
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -661,7 +1111,7 @@ fun SpeakingLabScreen(
                                                 onRetry = {
                                                     speakingVm.submitForAiAnalysis(
                                                         moduleType = "SPEAKING_LAB",
-                                                        promptTitle = customTopic
+                                                        promptTitle = activePromptTitle
                                                     )
                                                 }
                                             )
@@ -675,6 +1125,7 @@ fun SpeakingLabScreen(
                                     null -> Unit
                                 }
                             }
+                            geminiFeedbackCardContent()
                         }
                         Column(
                             modifier = Modifier.weight(0.9f),
@@ -730,7 +1181,7 @@ fun SpeakingLabScreen(
                                         onRetry = {
                                             speakingVm.submitForAiAnalysis(
                                                 moduleType = "SPEAKING_LAB",
-                                                promptTitle = customTopic
+                                                promptTitle = activePromptTitle
                                             )
                                         }
                                     )
@@ -744,6 +1195,10 @@ fun SpeakingLabScreen(
                             null -> Unit
                         }
                     }
+                }
+
+                item {
+                    geminiFeedbackCardContent()
                 }
 
                 item {

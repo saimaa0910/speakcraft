@@ -560,6 +560,7 @@ private fun AuthenticatedAppShell(
                 var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
                 var baselineSessionCount by remember(userId) { mutableStateOf<Int?>(null) }
                 var pendingGeminiDraft by remember { mutableStateOf<String?>(null) }
+                var pendingStudioGeminiFeedback by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(userId, profile, enrollments) {
                     learningPathsVm.syncAccountAndEnrollments(
@@ -635,7 +636,11 @@ private fun AuthenticatedAppShell(
                         navigateTo(targetRoute)
                     }
                     if (!link.sharedText.isNullOrBlank()) {
-                        pendingGeminiDraft = link.sharedText
+                        if (targetRoute == "speaking_lab") {
+                            pendingStudioGeminiFeedback = link.sharedText
+                        } else {
+                            pendingGeminiDraft = link.sharedText
+                        }
                     }
                     onConsumeInboundGeminiLink()
                 }
@@ -1095,7 +1100,9 @@ private fun AuthenticatedAppShell(
                                         speakingVm = speakingVm,
                                         pastSessions = sessions,
                                         onDeleteSession = { sess -> mainVm.deleteSpeakingSession(sess) },
-                                        onOpenAiSettings = { navigateTo("settings") }
+                                        onOpenAiSettings = { navigateTo("settings") },
+                                        incomingGeminiFeedback = pendingStudioGeminiFeedback,
+                                        onConsumeIncomingGeminiFeedback = { pendingStudioGeminiFeedback = null }
                                     )
                                 }
                                 composable("coach_practice") {

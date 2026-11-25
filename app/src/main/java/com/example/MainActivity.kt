@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
 
         // Mandatory: Configure Firebase App Check with launch intent before any UI or ViewModels
         configureAppCheck(this, intent)
-        inboundGeminiLink = PhoneGeminiBridge.parseInboundIntent(intent)
+        inboundGeminiLink = PhoneGeminiBridge.parseInboundIntent(intent, this)
 
         enableEdgeToEdge()
         setContent {
@@ -35,6 +35,6 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        inboundGeminiLink = PhoneGeminiBridge.parseInboundIntent(intent)
+        inboundGeminiLink = PhoneGeminiBridge.parseInboundIntent(intent, this)
     }
 }
