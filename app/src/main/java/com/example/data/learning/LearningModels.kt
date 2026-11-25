@@ -76,7 +76,17 @@ enum class LearningEventType {
     QUIZ_COMPLETED,
     FLASHCARD_REVIEWED,
     DAILY_PLAN_COMPLETED,
-    STREAK_UPDATED
+    STREAK_UPDATED,
+    /** An Activity Engine attempt was evaluated (score / pass as recorded). */
+    ACTIVITY_ATTEMPTED,
+    /** A Coach Practice attempt finished (valid or inconclusive; see metadata `valid`). */
+    TECHNIQUE_PRACTICED,
+    /** Every task of the current daily set was completed; the next set was started. */
+    DAILY_SET_COMPLETED,
+    /** A step of the daily routine checklist was ticked. */
+    ROUTINE_STEP_COMPLETED,
+    /** A real-world communication task was marked completed (self-reported). */
+    REAL_WORLD_TASK_COMPLETED
 }
 
 @Serializable
@@ -105,7 +115,13 @@ data class DailyPracticeTask(
     val reasonTag: String = "",
     val isCompleted: Boolean = false,
     val completedAtMs: Long = 0L,
-    val isRemediation: Boolean = false
+    val isRemediation: Boolean = false,
+    /** Catalogue activity this task drills (completed by an evaluated attempt of that activity). */
+    val linkedActivityId: String = "",
+    /** Techniques this task practises (completed by a valid practice attempt of one of them). */
+    val linkedTechniqueIds: List<String> = emptyList(),
+    /** Content items of the daily set covered by this task; avoided in the next set once completed. */
+    val itemIds: List<String> = emptyList()
 )
 
 @Serializable
@@ -374,7 +390,7 @@ data class AdminAnnouncement(
 
 @Serializable
 data class PersistedLearningSnapshot(
-    val schemaVersion: Int = 2,
+    val schemaVersion: Int = 3,
     val userId: String = "",
     val currentLevel: LearningLevel = LearningLevel.BEGINNER,
     val targetLevel: LearningLevel = LearningLevel.ADVANCED,
@@ -397,5 +413,17 @@ data class PersistedLearningSnapshot(
     val totalPracticeMinutes: Int = 0,
     val recurringMistakeTags: List<String> = emptyList(),
     val masteredSkillTags: List<String> = emptyList(),
-    val lastUpdatedAtMs: Long = 0L
+    val lastUpdatedAtMs: Long = 0L,
+    /** Position in the completion-driven daily-set sequence (current set + recently completed items). */
+    val dailyRotation: DailyRotationState = DailyRotationState(),
+    /** Daily record: dateKey -> completed tasks / steps of that day. */
+    val dailyRecords: Map<String, List<DailyRecordEntry>> = emptyMap(),
+    /** Completed daily tasks from every set (most recent first), for the learning-path tasks pillar. */
+    val completedDailyTasks: List<DailyPracticeTask> = emptyList(),
+    /** Activity Engine progress per catalogue activity (activity + exercise pillars). */
+    val activityProgress: Map<String, LocalActivityProgress> = emptyMap(),
+    /** Evaluated Activity Engine attempts, most recent first. */
+    val activityAttempts: List<LocalActivityAttempt> = emptyList(),
+    /** Coach Practice evidence per technique (techniques pillar). */
+    val techniquePractice: Map<String, TechniquePracticeStat> = emptyMap()
 )

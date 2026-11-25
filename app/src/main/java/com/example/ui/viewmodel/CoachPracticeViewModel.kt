@@ -2,6 +2,7 @@ package com.example.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.learning.PracticeCompletion
 import com.example.speech.content.PracticeActivity
 import com.example.speech.content.PracticeCatalog
 import com.example.speech.metrics.SpeechMetricKey
@@ -72,7 +73,9 @@ class CoachPracticeViewModel(
     private val engine: PracticeEngine,
     private val consent: OnlineConsent,
     private val io: CoroutineDispatcher = Dispatchers.IO,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** Called once per finished attempt (state [PracticeSessionState.Done]) to record learning progress. */
+    private val onAttemptCompleted: (PracticeCompletion) -> Unit = {}
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CoachPracticeUiState(allowOnline = consent.granted))
@@ -179,6 +182,7 @@ class CoachPracticeViewModel(
                 _state.update {
                     it.copy(session = PracticeSessionState.Done(r), selfCheckAnswers = emptyMap(), attemptsThisVisit = it.attemptsThisVisit + 1)
                 }
+                _state.value.activity?.let { onAttemptCompleted(PracticeCompletion.fromAttempt(it, r.outcome.evaluation, clock())) }
             }.onFailure { e ->
                 _state.update { it.copy(session = PracticeSessionState.Failed("Something went wrong while analysing: ${e.message ?: "unknown error"}")) }
             }

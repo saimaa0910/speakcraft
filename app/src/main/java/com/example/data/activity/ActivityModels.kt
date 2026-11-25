@@ -317,7 +317,14 @@ data class PathTechniqueItemProgress(
     val percentComplete: Int,
     val averageScore: Int,
     val isPracticed: Boolean,
-    val isMastered: Boolean
+    val isMastered: Boolean,
+    /** Coach Practice attempts of this technique (valid + inconclusive), as recorded on the device. */
+    val practiceAttempts: Int = 0,
+    val validPracticeAttempts: Int = 0,
+    val inconclusivePracticeAttempts: Int = 0,
+    /** Best engine score of a scored practice template; null when no scored attempt exists. */
+    val bestPracticeScore: Int? = null,
+    val lastPracticedDateKey: String = ""
 )
 
 data class TechniquePathProgress(

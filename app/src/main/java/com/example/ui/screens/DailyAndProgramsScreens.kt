@@ -27,13 +27,25 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.TextButton
 import com.example.data.learning.DailyActivityItem
 import com.example.data.learning.DailyAdaptiveCurriculumEngine
 import com.example.data.learning.DailyAdaptiveCurriculumPackage
 import com.example.data.learning.DailyMissionTask
 import com.example.data.learning.DailyPracticeSentence
+import com.example.data.learning.DailyPracticeTask
+import com.example.data.learning.DailyRecordBook
+import com.example.data.learning.DailyRecordEntry
+import com.example.data.learning.DailyRecordOutcome
 import com.example.data.learning.DailyTechniqueFocus
 import com.example.data.learning.LearningLevel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.example.data.model.VocabSeed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -86,7 +98,14 @@ fun DailyPracticeScreen(
     onSpeakText: ((String) -> Unit)? = null,
     onToggleStep: (stepId: String, reflection: String, confidence: Long) -> Unit,
     onSaveReflection: (reflection: String, confidence: Long) -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    /** The current daily task set with completion state (falls back to the package's tasks). */
+    dailyTasks: List<DailyPracticeTask>? = null,
+    /** 1 for the first set of the day; +1 each time a whole set was completed today. */
+    setNumberToday: Int = 1,
+    /** Daily record: dateKey -> completed tasks / steps, from the local learning state. */
+    dailyRecords: Map<String, List<DailyRecordEntry>> = emptyMap(),
+    onCompleteTask: (taskId: String) -> Unit = {}
 ) {
     val completedIds = todayActivity?.completedStepIds.orEmpty()
     var reflection by remember(todayActivity?.reflectionText) {
@@ -198,8 +217,22 @@ fun DailyPracticeScreen(
             }
         }
 
+        val currentTasks = dailyTasks ?: effectivePackage.dailyTasks
+        val taskSetCard: @Composable () -> Unit = {
+            DailyTaskSetCard(
+                tasks = currentTasks,
+                setNumber = setNumberToday,
+                onCompleteTask = onCompleteTask,
+                onOpenRoute = onNavigate
+            )
+        }
+
+        val recordCard: @Composable () -> Unit = {
+            DailyRecordCard(records = dailyRecords, todayDateKey = todayDateKey)
+        }
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth),
+            modifier = Modifier.fillMaxSize().widthIn(max = containerMaxWidth).testTag("daily_practice_list"),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -232,6 +265,7 @@ fun DailyPracticeScreen(
                             modifier = Modifier.weight(1.15f),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            taskSetCard()
                             spokenSentencesCard()
                             activitiesCard()
                             steps.forEach { step ->
@@ -249,6 +283,7 @@ fun DailyPracticeScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             themeBanner()
+                            recordCard()
                             targetWordsCard()
                             techniqueCard()
                             missionCard()
@@ -258,6 +293,8 @@ fun DailyPracticeScreen(
                 }
             } else {
                 item { themeBanner() }
+                item { taskSetCard() }
+                item { recordCard() }
                 item { spokenSentencesCard() }
                 item { targetWordsCard() }
                 item { activitiesCard() }
@@ -320,7 +357,7 @@ private fun DailyCurriculumThemeBanner(packageInfo: DailyAdaptiveCurriculumPacka
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-                "Adaptive daily curriculum calibrated to your level. Words, sentences, drills, techniques, and missions rotate every 24 hours.",
+                "Adaptive daily curriculum calibrated to your level. Words, sentences, drills, technique and mission change as soon as you finish the current set, and again each new day.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
             )
@@ -366,7 +403,7 @@ private fun DailyTargetWordsCard(
                 }
             }
             Text(
-                "Words calibrated to your current proficiency level. Rotates daily.",
+                "Words calibrated to your current proficiency level. Part of the current daily set.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -462,7 +499,7 @@ private fun DailySpokenSentencesCard(
                 }
             }
             Text(
-                "Read aloud using the phonetic and grammar cues below. Rotates daily.",
+                "Read aloud using the phonetic and grammar cues below. Part of the current daily set.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -568,7 +605,7 @@ private fun DailyActivitiesCard(
                 }
             }
             Text(
-                "Curated exercises from the 150-activity catalogue, rotating daily for ${userLevel.label} learners.",
+                "Curated exercises from the 150-activity catalogue, chosen for ${userLevel.label} learners in the current daily set.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -945,6 +982,209 @@ fun LearningPathsScreen(
                                             Text(drillText, style = MaterialTheme.typography.bodyMedium)
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatTimeOfDay(epochMs: Long): String =
+    if (epochMs <= 0L) "" else SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
+
+/**
+ * The current daily task set. Tasks complete automatically from the matching practice (an evaluated drill,
+ * a valid Coach Practice attempt, a vocabulary review …) or by "Mark done". When the last one is done the
+ * next set appears straight away.
+ */
+@Composable
+private fun DailyTaskSetCard(
+    tasks: List<DailyPracticeTask>,
+    setNumber: Int,
+    onCompleteTask: (String) -> Unit,
+    onOpenRoute: (String) -> Unit
+) {
+    val ext = MaterialTheme.speakCraftColors
+    val doneCount = tasks.count { it.isCompleted }
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth().testTag("daily_task_set_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Checklist, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Today's tasks", style = MaterialTheme.typography.titleMedium)
+                }
+                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                    Text(
+                        "Set $setNumber",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp).testTag("daily_task_set_number")
+                    )
+                }
+            }
+            Text(
+                if (setNumber > 1) {
+                    "You finished ${setNumber - 1} set${if (setNumber > 2) "s" else ""} today — here is a fresh one. $doneCount/${tasks.size} done."
+                } else {
+                    "$doneCount/${tasks.size} done. Finish them all and the next set appears straight away."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            LinearProgressIndicator(
+                progress = { if (tasks.isEmpty()) 0f else doneCount.toFloat() / tasks.size },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                color = EmeraldSuccess,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            tasks.forEach { task ->
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (task.isCompleted) ext.successContainer.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth().testTag("daily_task_${task.id}")
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (task.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = if (task.isCompleted) "Done" else "Not done yet",
+                            tint = if (task.isCompleted) EmeraldSuccess else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(task.title, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                if (task.isCompleted) "${task.category} • done at ${formatTimeOfDay(task.completedAtMs)}"
+                                else "${task.category} • ~${task.durationMinutes} min",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (!task.isCompleted) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                if (task.targetRoute.isNotBlank() && task.targetRoute != "daily_practice") {
+                                    TextButton(onClick = { onOpenRoute(task.targetRoute) }) { Text("Start") }
+                                }
+                                OutlinedButton(
+                                    onClick = { onCompleteTask(task.id) },
+                                    modifier = Modifier.testTag("daily_task_done_${task.id}")
+                                ) { Text("Mark done") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The daily record: for each exercise / activity, which tasks or steps were completed, when, and the result
+ * exactly as recorded (score, pass, inconclusive or self-reported). Earlier days are one tap away.
+ */
+@Composable
+private fun DailyRecordCard(
+    records: Map<String, List<DailyRecordEntry>>,
+    todayDateKey: String
+) {
+    val days = remember(records, todayDateKey) {
+        (listOf(todayDateKey) + DailyRecordBook.daysWithRecords(records)).distinct().take(30)
+    }
+    var selectedDay by remember(todayDateKey) { mutableStateOf(todayDateKey) }
+    val groups = remember(records, selectedDay) { DailyRecordBook.groupsFor(records, selectedDay) }
+
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+        modifier = Modifier.fillMaxWidth().testTag("daily_record_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    if (selectedDay == todayDateKey) "Today's record" else "Record for $selectedDay",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            if (days.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    days.forEach { day ->
+                        FilterChip(
+                            selected = day == selectedDay,
+                            onClick = { selectedDay = day },
+                            label = { Text(if (day == todayDateKey) "Today" else day) },
+                            modifier = Modifier.testTag("daily_record_day_$day")
+                        )
+                    }
+                }
+            }
+            if (groups.isEmpty()) {
+                Text(
+                    "Nothing recorded for this day yet. Completed tasks, activity drills, Coach Practice attempts and lessons appear here with their results.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            groups.forEach { group ->
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth().testTag("daily_record_group_${group.groupId}")
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(group.groupTitle, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)) {
+                                Text(
+                                    group.kind.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        group.entries.forEach { entry ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    formatTimeOfDay(entry.timestampMs),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.width(40.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(entry.stepTitle, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        DailyRecordBook.resultText(entry) +
+                                            if (entry.outcome != DailyRecordOutcome.INCONCLUSIVE && entry.detail.isNotBlank()) " • ${entry.detail}" else "",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = when (entry.outcome) {
+                                            DailyRecordOutcome.PASSED -> EmeraldSuccess
+                                            DailyRecordOutcome.INCONCLUSIVE -> MaterialTheme.colorScheme.error
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
                                 }
                             }
                         }

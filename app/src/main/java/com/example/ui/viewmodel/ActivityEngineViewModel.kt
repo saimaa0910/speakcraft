@@ -27,12 +27,18 @@ import com.example.data.activity.SavedActivityRecord
 import com.example.data.activity.UserActivityProgress
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.ActivityFirestoreRepository
+import com.example.data.learning.LearningPathInputs
+import com.example.data.learning.LearningProgressManager
+import com.example.data.learning.PersistedLearningSnapshot
 import com.example.data.media.AudioRecorderManager
 import com.example.data.model.UserProfile
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +52,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 sealed class ActivitySessionStage {
     data object Ready : ActivitySessionStage()
@@ -80,7 +87,9 @@ class ActivityEngineViewModel(
     private val localOrchestrator: LocalIntelligenceOrchestrator? = null,
     val audioRecorder: AudioRecorderManager?,
     private val userId: String,
-    private val hybridCoordinator: com.example.data.ai.HybridAiCoachCoordinator? = null
+    private val hybridCoordinator: com.example.data.ai.HybridAiCoachCoordinator? = null,
+    /** Local learning state: persists attempts/progress across restarts and feeds the daily record. */
+    private val learningProgress: LearningProgressManager? = null
 ) : ViewModel() {
 
     val todayDateKey: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -88,6 +97,14 @@ class ActivityEngineViewModel(
     // Local shadow state enables instant UI updates and full offline/test resilience
     private val _localProgress = MutableStateFlow<List<UserActivityProgress>>(emptyList())
     private val _localAttempts = MutableStateFlow<List<ActivityAttemptRecord>>(emptyList())
+
+    /** The local learning state of this user (empty while another user's state is loaded). */
+    private val learningSnapshot: Flow<PersistedLearningSnapshot> = learningProgress?.state
+        ?.map { s -> if (s.userId.isBlank() || s.userId == userId.trim().ifBlank { "local_guest" }) s else PersistedLearningSnapshot() }
+        ?: flowOf(PersistedLearningSnapshot())
+
+    /** Locally persisted path inputs (activity progress, attempts, daily tasks, technique practice). */
+    private val persistedPathInputs: Flow<LearningPathInputs> = learningSnapshot.map { LearningPathInputs.from(it) }
     private val _localSaved = MutableStateFlow<List<SavedActivityRecord>>(emptyList())
     private val _localDailyRecord = MutableStateFlow<DailyPracticePlanRecord?>(null)
 
@@ -126,19 +143,25 @@ class ActivityEngineViewModel(
                 remote.forEach { merged[it.activityId] = it }
                 merged.values.toList()
             }
+        }.combine(persistedPathInputs) { live, persisted ->
+            LearningPathsEngine.mergeProgress(persisted.progress, live)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val attemptHistory: StateFlow<List<ActivityAttemptRecord>> = (
+    val attemptHistory: StateFlow<List<ActivityAttemptRecord>> = combine(
         activityRepository?.observeActivityAttempts(userId)
             ?.catch { err ->
                 val fsErr = generateSequence(err) { it.cause }.filterIsInstance<FirebaseFirestoreException>().firstOrNull()
                 if (fsErr == null && err is CancellationException) throw err
-                emit(_localAttempts.value)
+                emit(emptyList())
             }
-            ?: _localAttempts
-        ).combine(_localAttempts) { remote, local ->
-            if (remote.isEmpty()) local else remote
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            ?: flowOf(emptyList()),
+        _localAttempts,
+        persistedPathInputs
+    ) { remote, local, persisted ->
+        // Cloud history when available; otherwise this session's attempts plus the locally persisted ones.
+        if (remote.isNotEmpty()) remote
+        else (local + persisted.attempts).distinctBy { it.id }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val savedActivities: StateFlow<List<SavedActivityRecord>> = (
         activityRepository?.observeSavedActivities(userId)
@@ -175,11 +198,18 @@ class ActivityEngineViewModel(
         ActivityProgressAnalyticsEngine.computeSnapshot(emptyList(), emptyList(), todayDateKey)
     )
 
+    /** All 10 paths, every pillar computed from real (persisted + live) progress. */
     val learningPathSummaries: StateFlow<List<LearningPathProgressSummary>> = combine(
         progressList,
-        attemptHistory
-    ) { progress, attempts ->
-        LearningPathsEngine.evaluateAllPaths(progress, attempts)
+        attemptHistory,
+        persistedPathInputs
+    ) { progress, attempts, persisted ->
+        LearningPathsEngine.evaluateAllPaths(
+            progressList = progress,
+            attemptRecords = attempts,
+            dailyTasks = persisted.dailyTasks,
+            techniquePractice = persisted.techniquePractice
+        )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -391,12 +421,16 @@ class ActivityEngineViewModel(
             }
 
             // Update local shadow immediately
+            val attemptId = "local_" + UUID.randomUUID().toString()
+            val attempt = outcome.attemptRecord.copy(id = attemptId)
             _localProgress.update { current ->
                 current.filterNot { it.activityId == activity.activityId } + outcome.updatedProgress
             }
             _localAttempts.update { current ->
-                listOf(outcome.attemptRecord) + current
+                listOf(attempt) + current
             }
+            // Persist locally: path progress, daily record (score / pass as evaluated) and the daily task
+            learningProgress?.recordActivityAttempt(activity, attempt, attemptId)
 
             var persisted = false
             if (activityRepository != null) {

@@ -4,8 +4,8 @@ import com.example.data.activity.ActivityCatalogue
 import com.example.data.activity.ActivityDefinition
 import com.example.data.activity.ActivityDifficulty
 import com.example.data.activity.ActivitySkillCategory
-import com.example.data.activity.ExerciseTemplateType
 import com.example.data.activity.LearningPathsEngine
+import com.example.data.activity.TechniqueMetadata
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabSeed
@@ -57,8 +57,22 @@ data class DailyAdaptiveCurriculumPackage(
     val dailyActivities: List<DailyActivityItem>,
     val dailyTechnique: DailyTechniqueFocus,
     val dailyMission: DailyMissionTask,
-    val dailyTasks: List<DailyPracticeTask>
-)
+    val dailyTasks: List<DailyPracticeTask>,
+    /** 0 for the first set of the day; +1 each time the user completes a whole set that day. */
+    val setIndexToday: Int = 0,
+    /** The user's position in the daily-set sequence that produced this set. */
+    val sequencePosition: Int = 0
+) {
+    /** The content items of this set (persisted so the same set is rebuilt after a restart). */
+    fun items(): DailySetItems = DailySetItems(
+        level = userLevel,
+        wordIds = dailyWords.map { it.id },
+        sentenceIds = dailySentences.map { it.id },
+        activityIds = dailyActivities.map { it.activity.activityId },
+        techniqueId = dailyTechnique.techniqueId,
+        missionId = dailyMission.id
+    )
+}
 
 /**
  * Generates level-calibrated daily content that deterministically changes each day:
@@ -67,6 +81,9 @@ data class DailyAdaptiveCurriculumPackage(
  * - Level-matched Activities & Exercises (from ActivityCatalogue rotating daily)
  * - Daily Technique of the Day (core communication rule & action cue)
  * - Daily Real-World Communication Mission (contextual challenge for today)
+ *
+ * Each set is chosen from the date plus the user's sequence position, avoiding recently completed items;
+ * [DailySetRotation] advances the position when a set is completed, so the next set appears immediately.
  */
 object DailyAdaptiveCurriculumEngine {
 
@@ -338,19 +355,66 @@ object DailyAdaptiveCurriculumEngine {
         )
     )
 
-    private fun safeSeed(dateKey: String): Int {
-        val hash = dateKey.hashCode()
+    private fun safeSeed(seedKey: String): Int {
+        val hash = seedKey.hashCode()
         return if (hash == Int.MIN_VALUE) 0 else abs(hash)
     }
 
     /**
-     * Retrieves daily vocabulary words calibrated to user level and rotating daily.
+     * Seed key of one daily set: the date alone for sequence position 0 (so a date always maps to the same
+     * first set), otherwise date + position, so every completed set leads to a different next set.
      */
-    fun getDailyWords(dateKey: String, level: LearningLevel, count: Int = 3): List<VocabSeed> {
+    fun seedKeyFor(dateKey: String, sequencePosition: Int): String =
+        if (sequencePosition <= 0) dateKey else "$dateKey#$sequencePosition"
+
+    /** Key used in task ids: unique per day and per set of that day. */
+    fun setKeyFor(dateKey: String, setIndexToday: Int): String =
+        if (setIndexToday <= 0) dateKey else "$dateKey-s${setIndexToday + 1}"
+
+    private fun <T> rotate(list: List<T>, start: Int): List<T> =
+        if (list.isEmpty()) list else List(list.size) { i -> list[Math.floorMod(start + i, list.size)] }
+
+    /**
+     * Picks [count] items in rotation order, skipping [recent] ids (most recent first). When the primary pool
+     * runs out it continues with the [secondary] pool (adjacent level), and only then re-uses the least recently
+     * used items. With no recent ids this is exactly "the first [count] items of the rotation".
+     */
+    private fun <T> pickAvoidingRecent(
+        primary: List<T>,
+        secondary: List<T>,
+        count: Int,
+        recent: List<String>,
+        idOf: (T) -> String
+    ): List<T> {
+        val recentSet = recent.toSet()
+        val picked = LinkedHashMap<String, T>()
+        fun take(source: List<T>, allowRecent: Boolean) {
+            for (item in source) {
+                if (picked.size >= count) return
+                val key = idOf(item)
+                if (!allowRecent && key in recentSet) continue
+                picked.putIfAbsent(key, item)
+            }
+        }
+        take(primary, allowRecent = false)
+        if (recentSet.isNotEmpty()) {
+            take(secondary, allowRecent = false)
+            if (picked.size < count) {
+                val leastRecentFirst = (primary + secondary).distinctBy(idOf)
+                    .sortedByDescending { recent.indexOf(idOf(it)) }
+                take(leastRecentFirst, allowRecent = true)
+            }
+        }
+        return picked.values.toList()
+    }
+
+    private fun adjacentLevels(level: LearningLevel): List<LearningLevel> =
+        LearningLevel.entries.filter { abs(it.rank - level.rank) == 1 }
+
+    private fun levelWordPool(level: LearningLevel): List<VocabSeed> {
         val bank = CurriculumCatalog.vocabularyBank
         val targetLevelLabel = level.label.lowercase()
-
-        val matchingWords = bank.filter { it.level.lowercase() == targetLevelLabel }
+        return bank.filter { it.level.lowercase() == targetLevelLabel }
             .ifEmpty {
                 // Smooth fallback to adjacent level words
                 when (level) {
@@ -362,28 +426,44 @@ object DailyAdaptiveCurriculumEngine {
                         bank.filter { it.level.equals("Upper Intermediate", true) || it.level.equals("Advanced", true) }
                 }
             }.ifEmpty { bank }
+    }
 
-        val seed = safeSeed(dateKey)
-        val n = count.coerceIn(1, matchingWords.size)
-        return (0 until n).map { offset ->
-            matchingWords[(seed + offset) % matchingWords.size]
-        }.distinctBy { it.id }
+    /**
+     * Retrieves daily vocabulary words calibrated to user level and rotating daily.
+     */
+    fun getDailyWords(dateKey: String, level: LearningLevel, count: Int = 3): List<VocabSeed> =
+        selectWords(dateKey, level, count, emptyList())
+
+    private fun selectWords(seedKey: String, level: LearningLevel, count: Int, recent: List<String>): List<VocabSeed> {
+        val primary = levelWordPool(level)
+        if (primary.isEmpty()) return emptyList()
+        val n = count.coerceIn(1, primary.size)
+        val seed = safeSeed(seedKey)
+        val adjacentLabels = adjacentLevels(level).map { it.label.lowercase() }.toSet()
+        val secondary = CurriculumCatalog.vocabularyBank.filter { it.level.lowercase() in adjacentLabels }
+        return pickAvoidingRecent(rotate(primary, seed), rotate(secondary, seed), n, recent) { it.id }
     }
 
     /**
      * Retrieves daily practice sentences calibrated to user level and rotating daily.
      */
-    fun getDailySentences(dateKey: String, level: LearningLevel, count: Int = 3): List<DailyPracticeSentence> {
+    fun getDailySentences(dateKey: String, level: LearningLevel, count: Int = 3): List<DailyPracticeSentence> =
+        selectSentences(dateKey, level, count, emptyList())
+
+    private fun selectSentences(
+        seedKey: String,
+        level: LearningLevel,
+        count: Int,
+        recent: List<String>
+    ): List<DailyPracticeSentence> {
         val pool = levelSentenceBank[level]
             ?: levelSentenceBank[LearningLevel.INTERMEDIATE]
             ?: emptyList()
-
         if (pool.isEmpty()) return emptyList()
-        val seed = (safeSeed(dateKey) * 31) % pool.size
+        val start = Math.floorMod(safeSeed(seedKey) * 31, pool.size)
         val n = count.coerceIn(1, pool.size)
-        return (0 until n).map { offset ->
-            pool[(seed + offset) % pool.size]
-        }.distinctBy { it.id }
+        val secondary = adjacentLevels(level).flatMap { levelSentenceBank[it].orEmpty() }
+        return pickAvoidingRecent(rotate(pool, start), rotate(secondary, start), n, recent) { it.id }
     }
 
     /**
@@ -395,21 +475,29 @@ object DailyAdaptiveCurriculumEngine {
         profile: UserProfile? = null,
         completedTodayIds: Set<String> = emptySet(),
         count: Int = 3
+    ): List<DailyActivityItem> = selectActivities(dateKey, level, completedTodayIds, count, emptyList())
+
+    private fun selectActivities(
+        seedKey: String,
+        level: LearningLevel,
+        completedTodayIds: Set<String>,
+        count: Int,
+        recent: List<String>
     ): List<DailyActivityItem> {
         val allActivities = ActivityCatalogue.allActivities
-        val desiredDifficulty = when (level) {
-            LearningLevel.BEGINNER, LearningLevel.ELEMENTARY -> ActivityDifficulty.BEGINNER
-            LearningLevel.INTERMEDIATE -> ActivityDifficulty.INTERMEDIATE
-            else -> ActivityDifficulty.ADVANCED
-        }
+        val desiredDifficulty = desiredDifficultyFor(level)
 
         // Candidates matching desired difficulty or adjacent
-        val candidates = allActivities.filter { act ->
+        val base = allActivities.filter { act ->
             act.activityId !in completedTodayIds &&
                 (act.difficulty == desiredDifficulty || abs(act.difficulty.rank - desiredDifficulty.rank) <= 1)
         }.ifEmpty { allActivities }
+        // Skip recently completed activities while enough others remain
+        val recentSet = recent.toSet()
+        val fresh = base.filter { it.activityId !in recentSet }
+        val candidates = if (fresh.size >= count) fresh else base
 
-        val seed = safeSeed(dateKey)
+        val seed = safeSeed(seedKey)
         val selected = mutableListOf<DailyActivityItem>()
         val usedCategories = mutableSetOf<ActivitySkillCategory>()
 
@@ -423,37 +511,51 @@ object DailyAdaptiveCurriculumEngine {
             if (selected.any { it.activity.activityId == act.activityId }) continue
             // Prefer diverse skill categories
             if (act.skillCategory in usedCategories && selected.size < count - 1) continue
-
             usedCategories.add(act.skillCategory)
-            val reason = when (act.skillCategory) {
-                ActivitySkillCategory.ENGLISH_FLUENCY -> "Daily ${level.label} spontaneous speaking workout"
-                ActivitySkillCategory.PRONUNCIATION -> "Targeted articulation & sound precision drill"
-                ActivitySkillCategory.VOICE_MASTERY -> "Vocal melody, breath support & pause training"
-                ActivitySkillCategory.SPEAKING_CLARITY -> "Concise structure & PREP framework practice"
-                ActivitySkillCategory.CONVERSATION -> "Real-world conversational agility simulation"
-                ActivitySkillCategory.STORYTELLING -> "Sensory storytelling & narrative progression"
-                ActivitySkillCategory.PUBLIC_SPEAKING -> "High-impact delivery & scriptless poise"
-                ActivitySkillCategory.PROFESSIONAL -> "Executive communication & workplace clarity"
-                else -> "Core communication habit builder"
-            }
-
-            selected += DailyActivityItem(
-                activity = act,
-                reason = reason,
-                durationMinutes = act.duration,
-                isCompleted = act.activityId in completedTodayIds
-            )
+            selected += activityItem(act, level, completedTodayIds)
         }
-
+        // Small candidate pools: fill without the diversity preference
+        for (act in sortedCandidates) {
+            if (selected.size >= count) break
+            if (selected.any { it.activity.activityId == act.activityId }) continue
+            selected += activityItem(act, level, completedTodayIds)
+        }
         return selected
     }
 
-    /**
-     * Retrieves daily technique of the day calibrated to user level and rotating daily.
-     */
-    fun getDailyTechnique(dateKey: String, level: LearningLevel): DailyTechniqueFocus {
+    private fun desiredDifficultyFor(level: LearningLevel): ActivityDifficulty = when (level) {
+        LearningLevel.BEGINNER, LearningLevel.ELEMENTARY -> ActivityDifficulty.BEGINNER
+        LearningLevel.INTERMEDIATE -> ActivityDifficulty.INTERMEDIATE
+        else -> ActivityDifficulty.ADVANCED
+    }
+
+    private fun activityItem(
+        act: ActivityDefinition,
+        level: LearningLevel,
+        completedTodayIds: Set<String> = emptySet()
+    ): DailyActivityItem {
+        val reason = when (act.skillCategory) {
+            ActivitySkillCategory.ENGLISH_FLUENCY -> "Daily ${level.label} spontaneous speaking workout"
+            ActivitySkillCategory.PRONUNCIATION -> "Targeted articulation & sound precision drill"
+            ActivitySkillCategory.VOICE_MASTERY -> "Vocal melody, breath support & pause training"
+            ActivitySkillCategory.SPEAKING_CLARITY -> "Concise structure & PREP framework practice"
+            ActivitySkillCategory.CONVERSATION -> "Real-world conversational agility simulation"
+            ActivitySkillCategory.STORYTELLING -> "Sensory storytelling & narrative progression"
+            ActivitySkillCategory.PUBLIC_SPEAKING -> "High-impact delivery & scriptless poise"
+            ActivitySkillCategory.PROFESSIONAL -> "Executive communication & workplace clarity"
+            else -> "Core communication habit builder"
+        }
+        return DailyActivityItem(
+            activity = act,
+            reason = reason,
+            durationMinutes = act.duration,
+            isCompleted = act.activityId in completedTodayIds
+        )
+    }
+
+    private fun appropriateTechniques(level: LearningLevel): List<TechniqueMetadata> {
         val catalog = LearningPathsEngine.techniquesCatalog.values.toList()
-        val appropriateTechniques = when (level) {
+        return when (level) {
             LearningLevel.BEGINNER, LearningLevel.ELEMENTARY ->
                 catalog.filter { it.id in listOf("calm-clear-speaking", "articulation-warmup", "conversation-threads", "pause-not-filler") }
             LearningLevel.INTERMEDIATE ->
@@ -461,9 +563,9 @@ object DailyAdaptiveCurriculumEngine {
             else ->
                 catalog.filter { it.id in listOf("three-channels", "warm-and-assured", "vocal-variety", "adapt-to-listener-style") }
         }.ifEmpty { catalog }
+    }
 
-        val seed = safeSeed(dateKey)
-        val selected = appropriateTechniques[seed % appropriateTechniques.size]
+    private fun techniqueFocus(selected: TechniqueMetadata): DailyTechniqueFocus {
         val action = when (selected.id) {
             "prep-answer" -> "Use Point -> Reason -> Example -> Point in your next meeting or challenge response."
             "pause-not-filler" -> "Hold silent 1-second pauses whenever formulating your next thought."
@@ -475,7 +577,6 @@ object DailyAdaptiveCurriculumEngine {
             "three-channels" -> "Synchronize your vocal warmth, posture, and word choice for unified gravitas."
             else -> "Apply this core communication lever throughout today's conversations."
         }
-
         return DailyTechniqueFocus(
             techniqueId = selected.id,
             title = selected.name,
@@ -487,119 +588,200 @@ object DailyAdaptiveCurriculumEngine {
     }
 
     /**
+     * Retrieves daily technique of the day calibrated to user level and rotating daily.
+     */
+    fun getDailyTechnique(dateKey: String, level: LearningLevel): DailyTechniqueFocus =
+        selectTechnique(dateKey, level, emptyList())
+
+    private fun selectTechnique(seedKey: String, level: LearningLevel, recent: List<String>): DailyTechniqueFocus {
+        val appropriate = appropriateTechniques(level)
+        val rotated = rotate(appropriate, safeSeed(seedKey) % appropriate.size)
+        val selected = pickAvoidingRecent(rotated, emptyList(), 1, recent) { it.id }.first()
+        return techniqueFocus(selected)
+    }
+
+    /**
      * Retrieves daily real-world mission calibrated to user level and rotating daily.
      */
-    fun getDailyMission(dateKey: String, level: LearningLevel): DailyMissionTask {
+    fun getDailyMission(dateKey: String, level: LearningLevel): DailyMissionTask =
+        selectMission(dateKey, level, emptyList())
+
+    private fun selectMission(seedKey: String, level: LearningLevel, recent: List<String>): DailyMissionTask {
         val missions = levelMissionBank[level]
             ?: levelMissionBank[LearningLevel.INTERMEDIATE]
             ?: emptyList()
 
         if (missions.isEmpty()) {
             return DailyMissionTask(
-                id = "m_default_$dateKey",
+                id = "m_default_$seedKey",
                 title = "1-Second Silent Pause",
                 description = "Hold a deliberate pause before answering today.",
                 level = level,
                 contextCategory = "Workplace"
             )
         }
+        val rotated = rotate(missions, safeSeed(seedKey) % missions.size)
+        return pickAvoidingRecent(rotated, emptyList(), 1, recent) { it.id }.first()
+    }
 
-        val seed = safeSeed(dateKey)
-        return missions[seed % missions.size]
+    private fun themeFor(level: LearningLevel): String = when (level) {
+        LearningLevel.BEGINNER -> "Foundation, Clear Sentences & Calm Breathing"
+        LearningLevel.ELEMENTARY -> "Smooth Phrasing, Open Body Language & Everyday Conversations"
+        LearningLevel.INTERMEDIATE -> "Structured PREP Explanations & Impromptu Speaking Poise"
+        LearningLevel.UPPER_INTERMEDIATE -> "Executive Cadence, Influence & Diplomatic Clarity"
+        LearningLevel.ADVANCED -> "Executive Gravitas, Strategic Nuance & Compelling Presence"
     }
 
     /**
-     * Generates a complete daily curriculum package for today combining:
+     * Generates a complete daily curriculum package combining:
      * - Words
      * - Sentences
      * - Activities
      * - Technique of the Day
      * - Real-World Mission
      * - Daily Tasks
+     *
+     * [sequencePosition] is the user's position in the daily-set sequence (it advances each time a whole set
+     * is completed) and [recentItemIds] are recently completed items to avoid, most recent first. With the
+     * defaults the package depends on the date alone.
      */
     fun generateDailyPackage(
         dateKey: String,
         level: LearningLevel,
         profile: UserProfile? = null,
         completedTodayIds: Set<String> = emptySet(),
-        targetMinutes: Int = 20
+        targetMinutes: Int = 20,
+        sequencePosition: Int = 0,
+        setIndexToday: Int = 0,
+        recentItemIds: List<String> = emptyList()
     ): DailyAdaptiveCurriculumPackage {
-        val words = getDailyWords(dateKey, level, count = 3)
-        val sentences = getDailySentences(dateKey, level, count = 3)
-        val activities = getDailyActivities(dateKey, level, profile, completedTodayIds, count = 3)
-        val technique = getDailyTechnique(dateKey, level)
-        val mission = getDailyMission(dateKey, level)
+        val seedKey = seedKeyFor(dateKey, sequencePosition)
+        return assemblePackage(
+            dateKey = dateKey,
+            level = level,
+            targetMinutes = targetMinutes,
+            setIndexToday = setIndexToday,
+            sequencePosition = sequencePosition,
+            words = selectWords(seedKey, level, 3, recentItemIds),
+            sentences = selectSentences(seedKey, level, 3, recentItemIds),
+            activities = selectActivities(seedKey, level, completedTodayIds, 3, recentItemIds),
+            technique = selectTechnique(seedKey, level, recentItemIds),
+            mission = selectMission(seedKey, level, recentItemIds)
+        )
+    }
 
-        val theme = when (level) {
-            LearningLevel.BEGINNER -> "Foundation, Clear Sentences & Calm Breathing"
-            LearningLevel.ELEMENTARY -> "Smooth Phrasing, Open Body Language & Everyday Conversations"
-            LearningLevel.INTERMEDIATE -> "Structured PREP Explanations & Impromptu Speaking Poise"
-            LearningLevel.UPPER_INTERMEDIATE -> "Executive Cadence, Influence & Diplomatic Clarity"
-            LearningLevel.ADVANCED -> "Executive Gravitas, Strategic Nuance & Compelling Presence"
+    /**
+     * Rebuilds a stored daily set from its item ids (so the same set survives restarts and content order).
+     * Returns null when an item no longer exists; the caller then generates a fresh set.
+     */
+    fun rebuildPackage(
+        dateKey: String,
+        items: DailySetItems,
+        setIndexToday: Int,
+        sequencePosition: Int,
+        targetMinutes: Int = 20
+    ): DailyAdaptiveCurriculumPackage? {
+        val level = items.level
+        val wordsById = CurriculumCatalog.vocabularyBank.associateBy { it.id }
+        val sentencesById = levelSentenceBank.values.flatten().associateBy { it.id }
+        val missionsById = levelMissionBank.values.flatten().associateBy { it.id }
+        val words = items.wordIds.map { wordsById[it] ?: return null }
+        val sentences = items.sentenceIds.map { sentencesById[it] ?: return null }
+        val activities = items.activityIds.map { id ->
+            activityItem(ActivityCatalogue.getActivityById(id) ?: return null, level)
         }
+        val technique = LearningPathsEngine.techniquesCatalog[items.techniqueId]?.let { techniqueFocus(it) } ?: return null
+        val mission = missionsById[items.missionId] ?: return null
+        return assemblePackage(dateKey, level, targetMinutes, setIndexToday, sequencePosition, words, sentences, activities, technique, mission)
+    }
+
+    private fun assemblePackage(
+        dateKey: String,
+        level: LearningLevel,
+        targetMinutes: Int,
+        setIndexToday: Int,
+        sequencePosition: Int,
+        words: List<VocabSeed>,
+        sentences: List<DailyPracticeSentence>,
+        activities: List<DailyActivityItem>,
+        technique: DailyTechniqueFocus,
+        mission: DailyMissionTask
+    ): DailyAdaptiveCurriculumPackage {
+        val setKey = setKeyFor(dateKey, setIndexToday)
 
         // Generate matching daily practice tasks
         val tasks = mutableListOf<DailyPracticeTask>()
         tasks += DailyPracticeTask(
-            id = "task_vocab_$dateKey",
+            id = "task_vocab_$setKey",
             title = "Learn 3 ${level.label} Words (${words.joinToString(", ") { it.word }})",
             description = "Study meanings, phonetics, and collocations; practice speaking each word.",
             category = "Vocabulary",
             durationMinutes = 5,
             targetRoute = "vocabulary",
-            skillFocus = "Vocabulary"
+            skillFocus = "Vocabulary",
+            itemIds = words.map { it.id }
         )
         tasks += DailyPracticeTask(
-            id = "task_sentence_$dateKey",
+            id = "task_sentence_$setKey",
             title = "Speak 3 Spoken Sentences Aloud",
             description = "Practice level-calibrated sentence rhythm, pronunciation cues, and grammar focus.",
             category = "Speaking",
             durationMinutes = 5,
             targetRoute = "grammar_speaking",
-            skillFocus = "Fluency"
+            skillFocus = "Fluency",
+            itemIds = sentences.map { it.id }
         )
-        activities.forEachIndexed { idx, actItem ->
+        activities.forEach { actItem ->
+            val actId = actItem.activity.activityId
             tasks += DailyPracticeTask(
-                id = "task_act_${actItem.activity.activityId}",
+                id = "task_act_${setKey}_$actId",
                 title = "Drill: ${actItem.activity.title}",
                 description = actItem.reason,
                 category = actItem.activity.skillCategory.label,
                 durationMinutes = actItem.durationMinutes,
-                targetRoute = "universal_activity/${actItem.activity.activityId}",
+                targetRoute = "activity/$actId",
                 skillFocus = actItem.activity.skillCategory.label,
-                isCompleted = actItem.isCompleted
+                isCompleted = actItem.isCompleted,
+                linkedActivityId = actId,
+                linkedTechniqueIds = LearningPathsEngine.activityToTechniques[actId].orEmpty(),
+                itemIds = listOf(actId)
             )
         }
         tasks += DailyPracticeTask(
-            id = "task_technique_$dateKey",
+            id = "task_technique_$setKey",
             title = "Apply Technique: ${technique.title}",
             description = technique.suggestedDailyAction,
             category = "Technique",
             durationMinutes = 3,
-            targetRoute = "learning_paths",
-            skillFocus = technique.category
+            targetRoute = "coach_practice",
+            skillFocus = technique.category,
+            linkedTechniqueIds = listOf(technique.techniqueId),
+            itemIds = listOf(technique.techniqueId)
         )
         tasks += DailyPracticeTask(
-            id = "task_mission_$dateKey",
+            id = "task_mission_$setKey",
             title = "Mission: ${mission.title}",
             description = mission.description,
             category = "Mission",
             durationMinutes = mission.estimatedMinutes,
             targetRoute = "daily_practice",
-            skillFocus = "Confidence"
+            skillFocus = "Confidence",
+            itemIds = listOf(mission.id)
         )
 
         return DailyAdaptiveCurriculumPackage(
             dateKey = dateKey,
             userLevel = level,
-            headlineTheme = theme,
+            headlineTheme = themeFor(level),
             targetMinutes = targetMinutes,
             dailyWords = words,
             dailySentences = sentences,
             dailyActivities = activities,
             dailyTechnique = technique,
             dailyMission = mission,
-            dailyTasks = tasks
+            dailyTasks = tasks,
+            setIndexToday = setIndexToday,
+            sequencePosition = sequencePosition
         )
     }
 }

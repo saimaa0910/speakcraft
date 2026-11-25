@@ -4,15 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.common.time.DateKeyProvider
 import com.example.core.logging.AppLogger
-import com.example.data.learning.StreakAndCompletionEngine
 import com.example.data.activity.ActivityCatalogue
 import com.example.data.activity.UserActivityProgress
 import com.example.data.ai.local.audio.LiveTranscriptionManager
 import com.example.data.ai.local.audio.LiveTranscriptionState
 import com.example.data.firebase.ActivityFirestoreRepository
 import com.example.data.firebase.SpeakCraftRepository
-import com.example.data.learning.LearningEvent
-import com.example.data.learning.LearningEventType
 import com.example.data.learning.LearningGoal
 import com.example.data.learning.LearningLevel
 import com.example.data.learning.LearningProgressManager
@@ -21,6 +18,7 @@ import com.example.data.learningpaths.LearningPathEvaluationEngine
 import com.example.data.learningpaths.LearningPathFeedback
 import com.example.data.learningpaths.LearningPathLesson
 import com.example.data.learningpaths.LearningPathPersistenceRepository
+import com.example.data.learningpaths.LearningPathPracticeLinker
 import com.example.data.learningpaths.LearningPathProgram
 import com.example.data.learningpaths.LearningPathRecommendationEngine
 import com.example.data.learningpaths.LearningPathsUserState
@@ -28,6 +26,7 @@ import com.example.data.learningpaths.LessonSubmissionRequest
 import com.example.data.learningpaths.ModuleAssessmentEvaluation
 import com.example.data.learningpaths.ModuleAssessmentSpec
 import com.example.data.learningpaths.ModuleAssessmentSubmission
+import com.example.data.learningpaths.ProgramPracticeEvidence
 import com.example.data.learningpaths.ProgramRecommendation
 import com.example.data.learningpaths.ProgramUserStats
 import com.example.data.media.AudioRecorderManager
@@ -88,7 +87,9 @@ data class LearningPathsUiState(
     val activeAssessmentResult: ModuleAssessmentEvaluation? = null,
     val isGradingAssessment: Boolean = false,
     // Transient notification message
-    val bannerMessage: String? = null
+    val bannerMessage: String? = null,
+    /** Practice outside lessons that counts toward each program (drills, Coach Practice, daily tasks). */
+    val practiceEvidence: Map<String, ProgramPracticeEvidence> = emptyMap()
 )
 
 class LearningPathsViewModel(
@@ -112,6 +113,16 @@ class LearningPathsViewModel(
     private var lastSyncedAutoTranscript: String = ""
 
     init {
+        learningProgressManager?.let { manager ->
+            viewModelScope.launch {
+                manager.state.collectLatest { snapshot ->
+                    val evidence = withContext(computeDispatcher) {
+                        LearningPathPracticeLinker.evidenceForAll(LearningPathCurriculumRegistry.allPrograms, snapshot)
+                    }
+                    _uiState.update { it.copy(practiceEvidence = evidence) }
+                }
+            }
+        }
         aiSettingsRepository?.let { repo ->
             viewModelScope.launch {
                 repo.aiSettingsFlow.collectLatest { settings ->
@@ -271,6 +282,10 @@ class LearningPathsViewModel(
             val updated = persistenceRepository.toggleDayCompletionManual(uid, program, dayNumber)
             publishUserState(uid, updated, latestProfile)
             val record = updated.enrollments[programId]
+            if (record?.completedDays?.contains(dayNumber) == true) {
+                val lessonTitle = LearningPathCurriculumRegistry.getLesson(programId, dayNumber)?.title.orEmpty()
+                learningProgressManager?.recordLearningPathDayMarked(program.programId, program.title, dayNumber, lessonTitle)
+            }
             speakCraftRepository?.let { repo ->
                 runCatching {
                     repo.syncProgramEnrollment(
@@ -595,21 +610,19 @@ class LearningPathsViewModel(
                 )
             }
 
-            if (evaluation.passed) {
-                learningProgressManager?.recordEvent(
-                    LearningEvent(
-                        idempotencyKey = "lp_assess_${spec.assessmentId}",
-                        type = LearningEventType.LESSON_COMPLETED,
-                        timestampMs = System.currentTimeMillis(),
-                        localDateKey = dateKeyProvider?.todayDateKey() ?: StreakAndCompletionEngine.todayKey(),
-                        entityId = spec.assessmentId,
-                        title = spec.title,
-                        score = evaluation.combinedScore,
-                        minutesSpent = (elapsedSec / 60).coerceAtLeast(2),
-                        skillTag = program.primarySkillFocus.firstOrNull() ?: "Fluency"
-                    )
-                )
-            }
+            // Daily record gets every graded attempt; a pass also counts once toward points, streak and tasks.
+            learningProgressManager?.recordLearningPathAssessmentAttempt(
+                programId = program.programId,
+                programTitle = program.title,
+                assessmentId = spec.assessmentId,
+                moduleId = spec.moduleId,
+                title = spec.title,
+                isCapstone = spec.isCapstone,
+                combinedScore = evaluation.combinedScore,
+                passed = evaluation.passed,
+                minutesSpent = (elapsedSec / 60).coerceAtLeast(2),
+                skillTag = program.primarySkillFocus.firstOrNull() ?: "Fluency"
+            )
         }
     }
 
@@ -634,21 +647,21 @@ class LearningPathsViewModel(
             }
         }
 
-        if (feedback.passed) {
-            learningProgressManager?.recordEvent(
-                LearningEvent(
-                    idempotencyKey = "lp_${lesson.lessonId}",
-                    type = LearningEventType.LESSON_COMPLETED,
-                    timestampMs = System.currentTimeMillis(),
-                    localDateKey = dateKeyProvider?.todayDateKey() ?: StreakAndCompletionEngine.todayKey(),
-                    entityId = lesson.lessonId,
-                    title = lesson.title,
-                    score = feedback.overallScore,
-                    minutesSpent = lesson.estimatedMinutes,
-                    skillTag = program.primarySkillFocus.firstOrNull() ?: "Fluency"
-                )
-            )
+        // Daily record gets every evaluated attempt; a pass also counts once toward points, streak and tasks.
+        learningProgressManager?.recordLearningPathLessonAttempt(
+            programId = program.programId,
+            programTitle = program.title,
+            lessonId = lesson.lessonId,
+            dayNumber = lesson.dayNumber,
+            lessonTitle = lesson.title,
+            score = feedback.overallScore,
+            passed = feedback.passed,
+            attemptNumber = enrollmentRecord?.dayRecords?.get(lesson.dayNumber)?.attempts ?: 1,
+            minutesSpent = lesson.estimatedMinutes,
+            skillTag = program.primarySkillFocus.firstOrNull() ?: "Fluency"
+        )
 
+        if (feedback.passed) {
             // Bidirectionally cross-update linked ActivityCatalogue progress cleanly
             val linkedActivity = ActivityCatalogue.getActivityById(lesson.linkedActivityId)
             val actRepo = activityRepository

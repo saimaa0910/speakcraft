@@ -66,12 +66,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.data.learning.DailyRecordBook
 import com.example.data.learningpaths.LearningPathCurriculumRegistry
 import com.example.data.learningpaths.LearningPathLesson
 import com.example.data.learningpaths.LearningPathModule
 import com.example.data.learningpaths.LearningPathProgram
 import com.example.data.learningpaths.LearningPathRecommendationEngine
 import com.example.data.learningpaths.PathDifficultyTier
+import com.example.data.learningpaths.ProgramPracticeEvidence
 import com.example.data.learningpaths.ProgramRecommendation
 import com.example.data.learningpaths.ProgramUserStats
 import com.example.ui.components.FeatureGuideStrip
@@ -987,6 +989,11 @@ fun LearningPathDetailScreen(
             }
         }
 
+        // Practice outside lessons that counts toward this program (drills, Coach Practice, daily tasks)
+        uiState.practiceEvidence[programId]?.let { evidence ->
+            item { ProgramPracticeEvidenceCard(evidence = evidence) }
+        }
+
         // Advisory Prerequisites Banner
         if (unmetPrereqs.isNotEmpty()) {
             item {
@@ -1340,5 +1347,60 @@ internal fun SmallPillTag(
             color = fg,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
+    }
+}
+
+/**
+ * Practice outside the lessons that counts toward this program: linked Activity Engine drills, Coach Practice
+ * of the techniques they teach, completed daily tasks, and the latest daily-record entries (results as recorded).
+ */
+@Composable
+private fun ProgramPracticeEvidenceCard(evidence: ProgramPracticeEvidence) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().testTag("lp_practice_evidence_${evidence.programId}")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Practice that counts toward this program",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            if (!evidence.hasAnyPractice) {
+                Text(
+                    text = "Nothing yet. Lessons, linked activity drills, Coach Practice of these techniques and daily tasks will show up here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                return@Column
+            }
+            Text(
+                text = "Linked drills practised: ${evidence.practicedActivityIds.size}/${evidence.linkedActivityIds.size}" +
+                    " • passed: ${evidence.passedActivityIds.size}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = "Techniques practised in Coach Practice: ${evidence.practicedTechniqueIds.size}/${evidence.techniqueIds.size}" +
+                    " (${evidence.validCoachAttempts} evaluated, ${evidence.inconclusiveCoachAttempts} inconclusive)",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = "Daily tasks completed for these drills: ${evidence.completedDailyTasks}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (evidence.recentRecordEntries.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Text("Recent", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                evidence.recentRecordEntries.take(5).forEach { entry ->
+                    Text(
+                        text = "${entry.dateKey} • ${entry.groupTitle}: ${entry.stepTitle} — ${DailyRecordBook.resultText(entry)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }

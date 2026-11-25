@@ -324,7 +324,8 @@ private fun AuthenticatedAppShell(
                     repository = container.repository,
                     localOrchestrator = container.localIntelligenceOrchestrator,
                     currentUserId = userId,
-                    hybridCoordinator = container.hybridAiCoordinator
+                    hybridCoordinator = container.hybridAiCoordinator,
+                    learningProgressManager = container.learningProgressManager
                 )
             }
         }
@@ -388,7 +389,8 @@ private fun AuthenticatedAppShell(
                     localOrchestrator = container.localIntelligenceOrchestrator,
                     audioRecorder = container.audioRecorderManager,
                     userId = userId,
-                    hybridCoordinator = container.hybridAiCoordinator
+                    hybridCoordinator = container.hybridAiCoordinator,
+                    learningProgress = container.learningProgressManager
                 )
             }
         }
@@ -935,11 +937,20 @@ private fun AuthenticatedAppShell(
                                         todaysWords = if (dailyPackage.dailyWords.isNotEmpty()) dailyPackage.dailyWords else mainVm.dailyVocabularyBatch,
                                         userLevel = userLevel,
                                         dailyPackage = dailyPackage,
-                                        onStartActivity = { activityId -> navigateTo("universal_activity/$activityId") },
+                                        onStartActivity = { activityId -> navigateTo("activity/$activityId") },
                                         onSpeakText = { text -> ttsHelper.speak(text, prefs.ttsRate) },
                                         onToggleStep = { id, refl, conf -> mainVm.toggleDailyStep(id, todayActivity, refl, conf) },
                                         onSaveReflection = { refl, conf -> mainVm.saveDailyReflection(todayActivity, refl, conf) },
-                                        onNavigate = navigateTo
+                                        onNavigate = navigateTo,
+                                        // Current set (completion-driven) and the persisted daily record
+                                        dailyTasks = learningSnapshot.dailyPlan
+                                            ?.takeIf { it.dateKey == dailyPackage.dateKey }
+                                            ?.tasks,
+                                        setNumberToday = learningSnapshot.dailyRotation
+                                            .takeIf { it.dateKey == dailyPackage.dateKey }
+                                            ?.let { it.setIndexToday + 1 } ?: 1,
+                                        dailyRecords = learningSnapshot.dailyRecords,
+                                        onCompleteTask = { taskId -> learningProgressManager.completeDailyTask(taskId) }
                                     )
                                 }
                                 composable("learning_paths") {
@@ -1066,6 +1077,10 @@ private fun AuthenticatedAppShell(
                                                         override fun set(granted: Boolean) {
                                                             if (granted) consentStore.grant() else consentStore.revoke()
                                                         }
+                                                    },
+                                                    // Each finished attempt -> daily record + techniques pillar + technique daily task
+                                                    onAttemptCompleted = { completion ->
+                                                        container.learningProgressManager.recordPracticeCompletion(completion)
                                                     }
                                                 )
                                             }

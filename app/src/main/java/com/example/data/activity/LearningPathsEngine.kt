@@ -1,6 +1,7 @@
 package com.example.data.activity
 
 import com.example.data.learning.DailyPracticeTask
+import com.example.data.learning.TechniquePracticeStat
 
 data class TechniqueMetadata(
     val id: String,
@@ -623,15 +624,22 @@ object LearningPathsEngine {
         )
     )
 
+    /** Evaluated Coach Practice attempts of one technique that count it as fully practised. */
+    const val TECHNIQUE_PRACTICE_TARGET = 3
+
     /**
      * Evaluates comprehensive learning progress for a specific learning path across all 4 pillars:
      * Activity, Exercise, Techniques, and Tasks.
+     *
+     * [techniquePractice] is Coach Practice evidence per technique id (valid / inconclusive attempts as recorded
+     * by the on-device engine); [dailyTasks] are the current daily set plus completed daily tasks of earlier sets.
      */
     fun evaluatePathProgress(
         path: LearningPathDefinition,
         progressList: List<UserActivityProgress>,
         attemptRecords: List<ActivityAttemptRecord> = emptyList(),
-        dailyTasks: List<DailyPracticeTask> = emptyList()
+        dailyTasks: List<DailyPracticeTask> = emptyList(),
+        techniquePractice: Map<String, TechniquePracticeStat> = emptyMap()
     ): LearningPathProgressSummary {
         val progressMap = progressList.associateBy { it.activityId }
         val attemptsMap = attemptRecords.groupBy { it.activityId }
@@ -760,11 +768,22 @@ object LearningPathsEngine {
                 activityItems.firstOrNull { it.activityId == actId }?.takeIf { it.isCompleted }?.bestObjectiveScore
             }.takeIf { it.isNotEmpty() }?.average()?.toInt() ?: 0
 
-            val isPracticed = completedForTech > 0 || associated.any { actId ->
+            // Coach Practice evidence (on-device engine): only evaluated attempts count as practice;
+            // inconclusive attempts are shown but never counted as practice or mastery.
+            val practice = techniquePractice[techId]
+            val validPractice = practice?.validAttempts ?: 0
+            val practiceMastered = validPractice >= TECHNIQUE_PRACTICE_TARGET &&
+                ((practice?.judgedAttempts ?: 0) == 0 || (practice?.passedAttempts ?: 0) > 0)
+
+            val activityPracticed = completedForTech > 0 || associated.any { actId ->
                 (activityItems.firstOrNull { it.activityId == actId }?.attemptsCount ?: 0) > 0
             }
-            val isMastered = completedForTech > 0 && (techAvgScore >= 70 || completedForTech == totalForTech)
-            val techPct = ((completedForTech * 100f) / totalForTech).toInt().coerceIn(0, 100)
+            val isPracticed = activityPracticed || validPractice > 0
+            val activityMastered = completedForTech > 0 && (techAvgScore >= 70 || completedForTech == totalForTech)
+            val isMastered = activityMastered || practiceMastered
+            val activityPct = ((completedForTech * 100f) / totalForTech).toInt().coerceIn(0, 100)
+            val practicePct = (validPractice.coerceAtMost(TECHNIQUE_PRACTICE_TARGET) * 100) / TECHNIQUE_PRACTICE_TARGET
+            val techPct = if (practiceMastered) 100 else maxOf(activityPct, practicePct).coerceIn(0, 100)
 
             PathTechniqueItemProgress(
                 techniqueId = techId,
@@ -778,15 +797,21 @@ object LearningPathsEngine {
                 percentComplete = techPct,
                 averageScore = techAvgScore,
                 isPracticed = isPracticed,
-                isMastered = isMastered
+                isMastered = isMastered,
+                practiceAttempts = practice?.attempts ?: 0,
+                validPracticeAttempts = validPractice,
+                inconclusivePracticeAttempts = practice?.inconclusiveAttempts ?: 0,
+                bestPracticeScore = practice?.bestScore,
+                lastPracticedDateKey = practice?.lastPracticedDateKey.orEmpty()
             )
         }
 
         val totalTechniques = techniqueItems.size
         val practicedTechniques = techniqueItems.count { it.isPracticed }
         val masteredTechniques = techniqueItems.count { it.isMastered }
+        // Average per-technique progress, so practice moves the pillar before full mastery.
         val techniquePercent = if (totalTechniques > 0) {
-            ((masteredTechniques * 100f) / totalTechniques).toInt().coerceIn(0, 100)
+            techniqueItems.map { it.percentComplete }.average().toInt().coerceIn(0, 100)
         } else 0
 
         val techniqueProgress = TechniquePathProgress(
@@ -846,10 +871,14 @@ object LearningPathsEngine {
         }
 
         // 4d. Matching Daily Practice Tasks
-        val relevantDailyTasks = dailyTasks.filter { dt ->
+        val pathActivityIds = activityItems.map { it.activityId }.toSet()
+        fun linkedActivityOf(dt: DailyPracticeTask): String? =
+            dt.linkedActivityId.ifBlank { dt.targetRoute.removePrefix("activity/") }.takeIf { it in pathActivityIds }
+        val relevantDailyTasks = dailyTasks.distinctBy { it.id }.filter { dt ->
             dt.targetRoute.contains(path.pathId) ||
-            activityItems.any { it.activityId == dt.targetRoute } ||
-            techniqueItems.any { it.title.contains(dt.skillFocus, ignoreCase = true) }
+                linkedActivityOf(dt) != null ||
+                dt.linkedTechniqueIds.any { it in pathTechniqueIds } ||
+                (dt.skillFocus.isNotBlank() && techniqueItems.any { it.title.contains(dt.skillFocus, ignoreCase = true) })
         }
         relevantDailyTasks.forEach { dt ->
             tasksList += PathTaskItemProgress(
@@ -858,7 +887,9 @@ object LearningPathsEngine {
                 description = dt.description,
                 category = PathTaskCategory.PRACTICE_DRILL,
                 isCompleted = dt.isCompleted,
-                sourceActivityId = dt.targetRoute.takeIf { tr -> activityItems.any { it.activityId == tr } }
+                completedAtMs = dt.completedAtMs,
+                sourceActivityId = linkedActivityOf(dt),
+                currentProgress = if (dt.isCompleted) 1 else 0
             )
         }
 
@@ -897,7 +928,9 @@ object LearningPathsEngine {
         val pathStatus = when {
             !prereqsMet -> LearningPathStatus.LOCKED
             completedActivities == path.orderedActivityIds.size && taskPercent >= 90 -> LearningPathStatus.COMPLETED
-            completedActivities > 0 || totalAttempts > 0 -> LearningPathStatus.IN_PROGRESS
+            completedActivities > 0 || totalAttempts > 0 ||
+                techniqueItems.any { it.validPracticeAttempts > 0 } ||
+                relevantDailyTasks.any { it.isCompleted } -> LearningPathStatus.IN_PROGRESS
             else -> LearningPathStatus.NOT_STARTED
         }
 
@@ -943,7 +976,33 @@ object LearningPathsEngine {
     fun evaluateAllPaths(
         progressList: List<UserActivityProgress>,
         attemptRecords: List<ActivityAttemptRecord> = emptyList(),
-        dailyTasks: List<DailyPracticeTask> = emptyList()
+        dailyTasks: List<DailyPracticeTask> = emptyList(),
+        techniquePractice: Map<String, TechniquePracticeStat> = emptyMap()
     ): List<LearningPathProgressSummary> =
-        allPaths.map { evaluatePathProgress(it, progressList, attemptRecords, dailyTasks) }
+        allPaths.map { evaluatePathProgress(it, progressList, attemptRecords, dailyTasks, techniquePractice) }
+
+    /**
+     * Merges activity progress from several sources (cloud, in-memory, locally persisted) per activity:
+     * completion and best score are monotonic; the latest values come from the most-practised record.
+     */
+    fun mergeProgress(vararg sources: List<UserActivityProgress>): List<UserActivityProgress> {
+        val merged = LinkedHashMap<String, UserActivityProgress>()
+        sources.forEach { list ->
+            list.forEach { p ->
+                if (p.activityId.isBlank()) return@forEach
+                val prev = merged[p.activityId]
+                merged[p.activityId] = if (prev == null) p else {
+                    val newer = if (p.attemptsCount >= prev.attemptsCount) p else prev
+                    newer.copy(
+                        completed = prev.completed || p.completed,
+                        attemptsCount = maxOf(prev.attemptsCount, p.attemptsCount),
+                        bestObjectiveScore = maxOf(prev.bestObjectiveScore, p.bestObjectiveScore),
+                        totalPracticeSeconds = maxOf(prev.totalPracticeSeconds, p.totalPracticeSeconds),
+                        lastPracticedDateKey = maxOf(prev.lastPracticedDateKey, p.lastPracticedDateKey)
+                    )
+                }
+            }
+        }
+        return merged.values.toList()
+    }
 }

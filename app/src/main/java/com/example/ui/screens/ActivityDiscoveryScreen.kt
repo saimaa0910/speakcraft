@@ -1112,6 +1112,15 @@ fun ComprehensiveLearningPathCard(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
+                                            Text(
+                                                "Progress ${tech.percentComplete}% • drills ${tech.completedActivitiesCount}/${tech.totalActivitiesCount}" +
+                                                    if (tech.practiceAttempts > 0) {
+                                                        " • Coach Practice: ${tech.validPracticeAttempts} evaluated, ${tech.inconclusivePracticeAttempts} inconclusive" +
+                                                            (tech.bestPracticeScore?.let { " (best score $it)" } ?: "")
+                                                    } else "",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                     }
                                 }

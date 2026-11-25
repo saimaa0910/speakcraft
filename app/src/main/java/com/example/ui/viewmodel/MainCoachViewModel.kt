@@ -12,6 +12,7 @@ import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.learning.DailyAdaptiveCurriculumEngine
 import com.example.data.learning.DailyAdaptiveCurriculumPackage
 import com.example.data.learning.LearningLevel
+import com.example.data.learning.LearningProgressManager
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
 import com.example.data.model.LearningChallenge
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -48,7 +50,9 @@ class MainCoachViewModel(
     private val repository: SpeakCraftRepository,
     private val localOrchestrator: LocalIntelligenceOrchestrator,
     private val currentUserId: String,
-    private val hybridCoordinator: HybridAiCoachCoordinator? = null
+    private val hybridCoordinator: HybridAiCoachCoordinator? = null,
+    /** Local learning state: daily set, daily record and learning-path progress (survives restarts). */
+    private val learningProgressManager: LearningProgressManager? = null
 ) : ViewModel() {
 
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
@@ -145,15 +149,20 @@ class MainCoachViewModel(
         LearningLevel.fromLabel(profile?.communicationLevel)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LearningLevel.INTERMEDIATE)
 
+    /**
+     * Today's current daily set. Comes from the local learning state (completion-driven: the next set appears
+     * as soon as the current one is finished); the date-only package is the fallback before that state loads.
+     */
     val dailyCurriculumPackage: StateFlow<DailyAdaptiveCurriculumPackage> = combine(
         currentLearningLevel,
         userProfile,
-        dailyActivities
-    ) { level, pState, dState ->
+        dailyActivities,
+        learningProgressManager?.dailyPackage ?: flowOf(null)
+    ) { level, pState, dState, currentSet ->
         val profile = (pState as? UiState.Success)?.data
         val dailyList = (dState as? UiState.Success)?.data.orEmpty()
         val today = dailyList.firstOrNull { it.dateKey == todayDateKey }
-        DailyAdaptiveCurriculumEngine.generateDailyPackage(
+        currentSet?.takeIf { it.dateKey == todayDateKey } ?: DailyAdaptiveCurriculumEngine.generateDailyPackage(
             dateKey = todayDateKey,
             level = level,
             profile = profile,
@@ -167,6 +176,7 @@ class MainCoachViewModel(
 
     val dailyVocabularyBatch: List<VocabSeed>
         get() {
+            learningProgressManager?.dailyPackage?.value?.takeIf { it.dateKey == todayDateKey }?.let { return it.dailyWords }
             val level = currentLearningLevel.value
             return DailyAdaptiveCurriculumEngine.getDailyWords(todayDateKey, level, count = 3)
         }
@@ -258,6 +268,10 @@ class MainCoachViewModel(
         viewModelScope.launch {
             val existing = currentActivity?.completedStepIds.orEmpty()
             val updated = if (existing.contains(stepId)) existing - stepId else existing + stepId
+            if (stepId !in existing) {
+                val title = CurriculumCatalog.dailySteps.firstOrNull { it.id == stepId }?.title ?: stepId
+                learningProgressManager?.recordDailyRoutineStep(stepId, title)
+            }
             val mins = (updated.size * 3L).coerceAtLeast(3L)
             val res = repository.saveDailyActivity(
                 dateKey = todayDateKey,
@@ -279,6 +293,7 @@ class MainCoachViewModel(
     ) {
         viewModelScope.launch {
             val existing = (currentActivity?.completedStepIds.orEmpty() + "reflection").distinct()
+            learningProgressManager?.recordDailyRoutineStep("reflection", "Daily self-reflection saved")
             val res = repository.saveDailyActivity(
                 dateKey = todayDateKey,
                 completedSteps = existing,
@@ -302,6 +317,12 @@ class MainCoachViewModel(
         score: Long? = null
     ) {
         viewModelScope.launch {
+            if (completed) {
+                val title = CurriculumCatalog.lessons.firstOrNull { it.id == lessonId }?.title
+                    ?: publishedSharedLessons.value.firstOrNull { it.id == lessonId }?.title
+                    ?: lessonId
+                learningProgressManager?.recordLessonCompleted(lessonId, title, score?.toInt())
+            }
             val res = repository.toggleLessonProgress(lessonId, moduleSlug, completed, notes, score)
             _actionMessage.value = if (res.isSuccess) {
                 if (completed) "Lesson marked completed!" else "Lesson progress updated"
@@ -328,6 +349,7 @@ class MainCoachViewModel(
     }
 
     fun reviewVocabularyCard(seed: VocabSeed, existingEntry: VocabularyEntry?, qualityGood: Boolean) {
+        learningProgressManager?.recordFlashcardReview(seed.id, seed.word, qualityGood)
         viewModelScope.launch {
             val prevReps = existingEntry?.repetitions ?: 0L
             val prevMastery = existingEntry?.masteryLevel ?: 0L
@@ -405,6 +427,7 @@ class MainCoachViewModel(
             )
             eval.onSuccess { result ->
                 _vocabEvalState.value = UiState.Success(result)
+                learningProgressManager?.recordVocabularyUsageCheck(seed.id, seed.word, result.usedCorrectly, result.naturalnessScore)
                 if (result.usedCorrectly) {
                     repository.upsertVocabularyEntry(
                         wordId = seed.id,
@@ -428,6 +451,7 @@ class MainCoachViewModel(
     }
 
     fun toggleRealWorldTask(taskId: String, title: String, completed: Boolean, reflection: String) {
+        if (completed) learningProgressManager?.recordRealWorldTask(taskId, title)
         viewModelScope.launch {
             val res = repository.toggleRealWorldTask(taskId, title, completed, reflection)
             _actionMessage.value = if (res.isSuccess) {
