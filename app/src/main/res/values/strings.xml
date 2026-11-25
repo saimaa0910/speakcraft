@@ -3,4 +3,13 @@
     <string name="launch_studio_eyebrow">VOICE &amp; COMMUNICATION STUDIO</string>
     <string name="launch_tagline">Speak with Confidence. Communicate with Impact.</string>
     <string name="launch_logo_content_description">SpeakCraft acoustic brand emblem</string>
+    <string name="share_to_speakcraft">Practice with SpeakCraft</string>
+    <string name="shortcut_daily_short">Daily Practice</string>
+    <string name="shortcut_daily_long">Start Today\'s Daily Practice</string>
+    <string name="shortcut_vocab_short">Vocabulary</string>
+    <string name="shortcut_vocab_long">Open Vocabulary Builder &amp; Quiz</string>
+    <string name="shortcut_speaking_short">Speaking Lab</string>
+    <string name="shortcut_speaking_long">Open Speaking &amp; Record Lab</string>
+    <string name="shortcut_mentor_short">AI Mentor</string>
+    <string name="shortcut_mentor_long">Ask SpeakCraft AI Mentor</string>
 </resources>

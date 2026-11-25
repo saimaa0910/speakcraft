@@ -6,9 +6,12 @@ import com.example.data.activity.ActivityAttemptRecord
 import com.example.data.activity.ActivityCatalogue
 import com.example.data.activity.ActivityDefinition
 import com.example.data.activity.LearningPathsEngine
+import com.example.data.ai.local.language.LocalVocabStageEvaluation
+import com.example.data.model.CurriculumCatalog
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabSeed
+import com.example.data.model.VocabularyEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -104,12 +107,13 @@ class LearningProgressManager(
         } else loaded.selectedGoals.ifEmpty { listOf(LearningGoal.DAILY_FLUENCY, LearningGoal.CONFIDENCE) }
 
         val refreshedStreak = StreakAndCompletionEngine.refreshForDate(loaded.streak, todayKey)
+        val todayEpoch = todayEpochDayProvider()
 
         val skillScores = buildSkillScoreMap(profile)
         val recurringMistakes = recentSessions.take(5).flatMap { it.mistakes }.distinct().take(6)
             .ifEmpty { loaded.recurringMistakeTags }
         val masteredSkills = skillScores.filterValues { it >= 90 }.keys + loaded.masteredSkillTags
-        val dueWords = SpacedRepetitionScheduler.dueItems(loaded.spacedRepetition, todayEpochDayProvider()).size
+        val dueWords = SpacedRepetitionScheduler.dueItems(loaded.spacedRepetition, todayEpoch).size
 
         var updated = ensureCurrentSet(
             snapshot = loaded.copy(
@@ -125,7 +129,28 @@ class LearningProgressManager(
             todayKey = todayKey,
             nowMs = now
         )
+        updated = ensureDailyVocabularyState(updated, todayKey, todayEpoch)
         val plan = updated.dailyPlan
+
+        val weeklyEligibility = VocabularyMasteryEngine.computeWeeklyEligibility(
+            learnedLog = updated.learnedVocabularyLog,
+            wordProgress = updated.wordProgress,
+            weeklyAssessments = updated.weeklyAssessments,
+            firstVocabEpochDay = updated.firstVocabularyEpochDay,
+            vocabularyActiveDateKeys = updated.vocabularyActiveDateKeys,
+            todayEpochDay = todayEpoch
+        )
+        if (weeklyEligibility.isDueNow) {
+            updated = appendNotificationIfAllowed(
+                snapshot = updated,
+                category = NotificationCategory.WEEKLY_SUMMARY,
+                title = "7-Day AI Vocabulary Quiz Ready!",
+                body = "Speak and review the ${weeklyEligibility.learnedWordIdsInCycle.size} words you learnt over the past 7 days.",
+                targetRoute = "vocabulary",
+                dedupKey = "weekly_vocab_quiz_c${weeklyEligibility.cycleNumber}_$todayKey",
+                nowMs = now
+            )
+        }
 
         // Generate helpful, deduplicated learning notifications (NEVER APK/update alerts!)
         if (plan != null) {
@@ -201,7 +226,9 @@ class LearningProgressManager(
             // Re-choose the untouched set at the new level (same sequence position).
             next = next.copy(dailyRotation = next.dailyRotation.copy(items = null), dailyPlan = null)
         }
-        commitState(ensureCurrentSet(next, todayKey, now))
+        next = ensureCurrentSet(next, todayKey, now)
+        next = ensureDailyVocabularyState(next, todayKey, todayEpochDayProvider())
+        commitState(next)
     }
 
     // -----------------------------------------------------------------------
@@ -634,10 +661,273 @@ class LearningProgressManager(
         )
     }
 
+    /** Ensures today's 3 level-calibrated non-repeating words are active for [level]. */
+    fun ensureDailyVocabulary(level: LearningLevel = _state.value.currentLevel) {
+        val todayKey = todayKeyProvider()
+        val todayEpoch = todayEpochDayProvider()
+        val current = _state.value
+        val withLevel = if (current.currentLevel != level) current.copy(currentLevel = level) else current
+        val updated = ensureDailyVocabularyState(withLevel, todayKey, todayEpoch)
+        if (updated != current) {
+            commitState(updated.copy(lastUpdatedAtMs = clockMs()))
+        }
+    }
+
+    /**
+     * Evaluates a user's spoken attempt for [seed] in Vocabulary Builder.
+     * ONLY marks the word Done when the spoken assessment passes!
+     */
+    fun recordVocabularyWordSpokenAssessment(
+        seed: VocabSeed,
+        recognizedText: String,
+        alternatives: List<String> = emptyList(),
+        asrConfidence: Float = 0.85f,
+        consecutiveFailures: Int = 0
+    ): LocalVocabStageEvaluation {
+        val eval = VocabularyMasteryEngine.evaluateSpokenWordAttempt(
+            seed = seed,
+            transcript = recognizedText,
+            alternatives = alternatives,
+            asrConfidence = asrConfidence,
+            consecutiveFailures = consecutiveFailures
+        )
+        val todayKey = todayKeyProvider()
+        val todayEpoch = todayEpochDayProvider()
+        val now = clockMs()
+        val base = ensureDailyVocabularyState(_state.value, todayKey, todayEpoch)
+
+        val currentAssign = base.dailyVocabulary ?: DailyVocabularyAssignment(
+            dateKey = todayKey,
+            level = base.currentLevel,
+            wordIds = listOf(seed.id)
+        )
+        val updatedAssign = currentAssign.copy(
+            completedWordIds = if (eval.passed) currentAssign.completedWordIds + seed.id else currentAssign.completedWordIds,
+            wordScores = currentAssign.wordScores + (seed.id to eval.score),
+            lastTranscripts = if (eval.recognizedText.isNotBlank()) {
+                currentAssign.lastTranscripts + (seed.id to eval.recognizedText)
+            } else {
+                currentAssign.lastTranscripts
+            }
+        )
+
+        val prevWp = base.wordProgress[seed.id] ?: VocabularyWordProgress(wordId = seed.id, word = seed.word)
+        val updatedWp = if (eval.passed) {
+            prevWp.copy(
+                highestStageCompleted = maxOf(prevWp.highestStageCompleted, 2),
+                stage1Completed = true,
+                stage2Passed = true,
+                stage2BestScore = maxOf(prevWp.stage2BestScore, eval.score),
+                isCompleted = true,
+                completedAtMs = prevWp.completedAtMs.takeIf { it > 0L } ?: now,
+                totalAttempts = prevWp.totalAttempts + 1,
+                pointsEarned = prevWp.pointsEarned + 15,
+                updatedAtMs = now
+            )
+        } else {
+            prevWp.copy(
+                stage1Completed = true,
+                totalAttempts = prevWp.totalAttempts + 1,
+                updatedAtMs = now
+            )
+        }
+
+        val updatedLog = if (eval.passed) {
+            val newRecord = LearnedWordRecord(
+                wordId = seed.id,
+                word = seed.word,
+                level = seed.level.ifBlank { base.currentLevel.label },
+                learnedDateKey = todayKey,
+                learnedEpochDay = todayEpoch,
+                spokenAssessmentScore = eval.score,
+                spokenTranscript = eval.recognizedText,
+                markedDoneAtMs = now
+            )
+            listOf(newRecord) + base.learnedVocabularyLog.filterNot { it.wordId == seed.id }
+        } else {
+            base.learnedVocabularyLog
+        }
+
+        val updatedSrs = if (eval.passed || seed.id !in base.spacedRepetition) {
+            val srsItem = SpacedRepetitionScheduler.scheduleNext(
+                wordId = seed.id,
+                word = seed.word,
+                current = base.spacedRepetition[seed.id],
+                known = eval.passed,
+                todayEpochDay = todayEpoch,
+                nowMs = now
+            )
+            base.spacedRepetition + (seed.id to srsItem)
+        } else {
+            base.spacedRepetition
+        }
+
+        val stateWithVocab = base.copy(
+            dailyVocabulary = updatedAssign,
+            learnedVocabularyLog = updatedLog,
+            wordProgress = base.wordProgress + (seed.id to updatedWp),
+            spacedRepetition = updatedSrs,
+            vocabularyActiveDateKeys = (base.vocabularyActiveDateKeys + todayKey).distinct().takeLast(90),
+            firstVocabularyEpochDay = base.firstVocabularyEpochDay.takeIf { it > 0L } ?: todayEpoch,
+            lastUpdatedAtMs = now
+        )
+
+        val recordOutcome = when {
+            eval.passed -> DailyRecordOutcome.PASSED
+            eval.isInconclusive -> DailyRecordOutcome.INCONCLUSIVE
+            else -> DailyRecordOutcome.NOT_PASSED
+        }
+        val record = DailyRecordEntry(
+            id = "vocab_speak_${seed.id}_$now",
+            dateKey = todayKey,
+            timestampMs = now,
+            groupId = vocabGroupId(seed.id),
+            groupTitle = "Vocabulary: ${seed.word}",
+            kind = DailyRecordKind.VOCABULARY,
+            stepId = "speak_$now",
+            stepTitle = "Spoken word assessment",
+            outcome = recordOutcome,
+            score = if (eval.isInconclusive) null else eval.score,
+            detail = eval.recognizedText
+        )
+
+        if (!eval.passed) {
+            commitState(stateWithVocab.copy(dailyRecords = DailyRecordBook.append(stateWithVocab.dailyRecords, record)))
+            return eval
+        }
+
+        val allDailyWordsDone = updatedAssign.wordIds.isNotEmpty() && updatedAssign.allDone
+        val eventType = if (allDailyWordsDone) LearningEventType.VOCABULARY_WORD_COMPLETED else LearningEventType.WORD_SPOKEN
+        val eventKey = if (allDailyWordsDone) "vocab_daily_done_${todayKey}_${seed.id}" else "vocab_spoken_${seed.id}_${updatedWp.totalAttempts}"
+        val event = LearningEvent(
+            idempotencyKey = eventKey,
+            type = eventType,
+            timestampMs = now,
+            localDateKey = todayKey,
+            entityId = seed.id,
+            title = seed.word,
+            score = eval.score,
+            minutesSpent = 1,
+            skillTag = "Vocabulary",
+            metadata = mapOf("passed" to "true", "stage" to "Speak Word Assessment")
+        )
+        val afterEvent = ingestEvent(stateWithVocab, event, listOf(record)) ?: stateWithVocab
+        commitState(afterEvent)
+        return eval
+    }
+
+    fun getWeeklyAssessmentEligibility(
+        extraEntries: List<VocabularyEntry> = emptyList()
+    ): WeeklyAssessmentEligibility {
+        val current = _state.value
+        return VocabularyMasteryEngine.computeWeeklyEligibility(
+            learnedLog = current.learnedVocabularyLog,
+            wordProgress = current.wordProgress,
+            weeklyAssessments = current.weeklyAssessments,
+            firstVocabEpochDay = current.firstVocabularyEpochDay,
+            vocabularyActiveDateKeys = current.vocabularyActiveDateKeys,
+            todayEpochDay = todayEpochDayProvider(),
+            fallbackEntries = extraEntries
+        )
+    }
+
+    fun recordWeeklyVocabularyAssessment(
+        result: WeeklyVocabularyAssessmentRecord,
+        wordOutcomes: Map<String, Boolean>
+    ) {
+        val current = _state.value
+        val now = clockMs()
+        val todayKey = todayKeyProvider()
+        val todayEpoch = todayEpochDayProvider()
+
+        var updatedSrs = current.spacedRepetition
+        wordOutcomes.forEach { (wordId, passed) ->
+            val wordName = current.learnedVocabularyLog.firstOrNull { it.wordId == wordId }?.word
+                ?: CurriculumCatalog.vocabularyBank.firstOrNull { it.id == wordId }?.word
+                ?: wordId
+            updatedSrs = updatedSrs + (
+                wordId to SpacedRepetitionScheduler.scheduleNext(
+                    wordId = wordId,
+                    word = wordName,
+                    current = updatedSrs[wordId],
+                    known = passed,
+                    todayEpochDay = todayEpoch,
+                    nowMs = now
+                )
+            )
+        }
+
+        val finalizedResult = result.copy(
+            completedDateKey = result.completedDateKey.ifBlank { todayKey },
+            completedEpochDay = result.completedEpochDay.takeIf { it > 0L } ?: todayEpoch,
+            completedAtMs = result.completedAtMs.takeIf { it > 0L } ?: now
+        )
+
+        var next = current.copy(
+            weeklyAssessments = (listOf(finalizedResult) + current.weeklyAssessments).take(52),
+            spacedRepetition = updatedSrs,
+            lastUpdatedAtMs = now
+        )
+        if (finalizedResult.scorePercent >= 60) {
+            next = unlockAchievementIfNew(
+                snapshot = next,
+                id = "weekly_vocab_7day",
+                title = "7-Day Lexicon Master",
+                description = "Completed a 7-day cumulative spoken vocabulary assessment in AI Quiz.",
+                category = "Vocabulary",
+                nowMs = now
+            )
+        }
+
+        val record = DailyRecordEntry(
+            id = "weekly_quiz_${finalizedResult.id}",
+            dateKey = todayKey,
+            timestampMs = now,
+            groupId = "quiz:weekly_${finalizedResult.cycleNumber}",
+            groupTitle = "7-Day Spoken AI Quiz (Cycle ${finalizedResult.cycleNumber})",
+            kind = DailyRecordKind.QUIZ,
+            stepId = finalizedResult.id,
+            stepTitle = "Weekly assessment (${finalizedResult.passedWordIds.size}/${finalizedResult.assessedWordIds.size} words)",
+            outcome = if (finalizedResult.scorePercent >= 60) DailyRecordOutcome.PASSED else DailyRecordOutcome.COMPLETED,
+            score = finalizedResult.scorePercent
+        )
+        val event = LearningEvent(
+            idempotencyKey = "weekly_vocab_quiz_${finalizedResult.id}",
+            type = LearningEventType.QUIZ_COMPLETED,
+            timestampMs = now,
+            localDateKey = todayKey,
+            entityId = finalizedResult.id,
+            title = "7-Day AI Vocabulary Quiz (${finalizedResult.scorePercent}%)",
+            score = finalizedResult.scorePercent,
+            minutesSpent = 5,
+            skillTag = "Vocabulary"
+        )
+        commitState(ingestEvent(next, event, listOf(record)) ?: next)
+    }
+
     /** A vocabulary sentence-usage check finished; result and score exactly as the evaluator returned them. */
     fun recordVocabularyUsageCheck(wordId: String, word: String, usedCorrectly: Boolean, score: Int?): Boolean {
         val todayKey = todayKeyProvider()
+        val todayEpoch = todayEpochDayProvider()
         val now = clockMs()
+        val current = _state.value
+        val stateWithLog = if (usedCorrectly) {
+            val existingSeed = CurriculumCatalog.vocabularyBank.firstOrNull { it.id == wordId }
+            val recordItem = LearnedWordRecord(
+                wordId = wordId,
+                word = word,
+                level = existingSeed?.level ?: current.currentLevel.label,
+                learnedDateKey = todayKey,
+                learnedEpochDay = todayEpoch,
+                spokenAssessmentScore = score ?: 80,
+                markedDoneAtMs = now
+            )
+            current.copy(
+                learnedVocabularyLog = listOf(recordItem) + current.learnedVocabularyLog.filterNot { it.wordId == wordId },
+                vocabularyActiveDateKeys = (current.vocabularyActiveDateKeys + todayKey).distinct().takeLast(90),
+                firstVocabularyEpochDay = current.firstVocabularyEpochDay.takeIf { it > 0L } ?: todayEpoch
+            )
+        } else current
         val record = DailyRecordEntry(
             id = "vocab_usage_${wordId}_$now",
             dateKey = todayKey,
@@ -650,21 +940,27 @@ class LearningProgressManager(
             outcome = if (usedCorrectly) DailyRecordOutcome.PASSED else DailyRecordOutcome.NOT_PASSED,
             score = score
         )
-        return recordEventWithRecords(
-            LearningEvent(
-                idempotencyKey = "vocab_usage_${wordId}_$now",
-                type = LearningEventType.OWN_SENTENCE_SUBMITTED,
-                timestampMs = now,
-                localDateKey = todayKey,
-                entityId = wordId,
-                title = word,
-                score = score,
-                minutesSpent = 1,
-                skillTag = "Vocabulary",
-                metadata = mapOf("passed" to usedCorrectly.toString())
-            ),
-            listOf(record)
+        val event = LearningEvent(
+            idempotencyKey = "vocab_usage_${wordId}_$now",
+            type = LearningEventType.OWN_SENTENCE_SUBMITTED,
+            timestampMs = now,
+            localDateKey = todayKey,
+            entityId = wordId,
+            title = word,
+            score = score,
+            minutesSpent = 1,
+            skillTag = "Vocabulary",
+            metadata = mapOf("passed" to usedCorrectly.toString())
         )
+        val next = ingestEvent(stateWithLog, event, listOf(record))
+        if (next != null) {
+            commitState(next)
+            return true
+        }
+        if (stateWithLog != current) {
+            commitState(stateWithLog)
+        }
+        return false
     }
 
     // -----------------------------------------------------------------------
@@ -966,13 +1262,21 @@ class LearningProgressManager(
             )
         }
         if (options.clearVocabularyProgress) {
-            next = next.copy(wordProgress = emptyMap(), spacedRepetition = emptyMap())
+            next = next.copy(
+                wordProgress = emptyMap(),
+                spacedRepetition = emptyMap(),
+                shownVocabularyWordIds = emptyList(),
+                dailyVocabulary = null,
+                learnedVocabularyLog = emptyList(),
+                vocabularyActiveDateKeys = emptyList(),
+                firstVocabularyEpochDay = 0L
+            )
         }
         if (options.clearNotebook) {
             next = next.copy(notebook = emptyMap())
         }
         if (options.clearQuizHistory) {
-            next = next.copy(quizHistory = emptyList())
+            next = next.copy(quizHistory = emptyList(), weeklyAssessments = emptyList())
         }
         if (options.clearNotifications) {
             next = next.copy(notifications = emptyList())
@@ -1134,7 +1438,21 @@ class LearningProgressManager(
                 dailyRotation = furthestRotation.copy(
                     recentItemIds = DailySetRotation.withRecent(remote.dailyRotation.recentItemIds, local.dailyRotation.recentItemIds)
                 ),
-                dailyPlan = if (furthestRotation === local.dailyRotation) local.dailyPlan else remote.dailyPlan
+                dailyPlan = if (furthestRotation === local.dailyRotation) local.dailyPlan else remote.dailyPlan,
+                firstVocabularyEpochDay = listOf(local.firstVocabularyEpochDay, remote.firstVocabularyEpochDay).filter { it > 0L }.minOrNull() ?: 0L,
+                vocabularyActiveDateKeys = (local.vocabularyActiveDateKeys + remote.vocabularyActiveDateKeys).distinct().sorted().takeLast(90),
+                shownVocabularyWordIds = (local.shownVocabularyWordIds + remote.shownVocabularyWordIds).distinct(),
+                dailyVocabulary = if ((local.dailyVocabulary?.dateKey.orEmpty()) >= (remote.dailyVocabulary?.dateKey.orEmpty())) {
+                    local.dailyVocabulary ?: remote.dailyVocabulary
+                } else {
+                    remote.dailyVocabulary
+                },
+                learnedVocabularyLog = (local.learnedVocabularyLog + remote.learnedVocabularyLog)
+                    .sortedByDescending { it.markedDoneAtMs }
+                    .distinctBy { it.wordId },
+                weeklyAssessments = (local.weeklyAssessments + remote.weeklyAssessments)
+                    .distinctBy { it.id }
+                    .sortedByDescending { it.completedAtMs }
             )
         }
     }
@@ -1600,6 +1918,32 @@ class LearningProgressManager(
             dedupKey = dedupKey
         )
         return snapshot.copy(notifications = (listOf(item) + snapshot.notifications).take(100))
+    }
+
+    private fun ensureDailyVocabularyState(
+        snapshot: PersistedLearningSnapshot,
+        todayKey: String,
+        todayEpochDay: Long
+    ): PersistedLearningSnapshot {
+        val completedAllTime = snapshot.learnedVocabularyLog.map { it.wordId }.toSet() +
+            snapshot.wordProgress.filterValues { it.isCompleted || it.stage2Passed }.keys
+        val (assignment, updatedShown) = VocabularyMasteryEngine.ensureDailyVocabularyWords(
+            bank = CurriculumCatalog.vocabularyBank,
+            level = snapshot.currentLevel,
+            todayDateKey = todayKey,
+            shownWordIds = snapshot.shownVocabularyWordIds,
+            completedAllTimeIds = completedAllTime,
+            existingAssignment = snapshot.dailyVocabulary,
+            previousDaysCount = snapshot.vocabularyActiveDateKeys.size
+        )
+        val updatedActiveDays = (snapshot.vocabularyActiveDateKeys + todayKey).distinct().takeLast(90)
+        val firstEpoch = snapshot.firstVocabularyEpochDay.takeIf { it > 0L } ?: todayEpoch
+        return snapshot.copy(
+            dailyVocabulary = assignment,
+            shownVocabularyWordIds = updatedShown,
+            vocabularyActiveDateKeys = updatedActiveDays,
+            firstVocabularyEpochDay = firstEpoch
+        )
     }
 
     private fun buildSkillScoreMap(profile: UserProfile?): Map<String, Int> {

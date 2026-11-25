@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.HybridAiCoachCoordinator
 import com.example.data.ai.local.LocalIntelligenceOrchestrator
+import com.example.data.ai.local.language.LocalVocabStageEvaluation
 import com.example.data.ai.RecommendationEngine
 import com.example.data.ai.RecommendedNextAction
 import com.example.data.ai.VocabEvaluationResult
@@ -13,6 +14,10 @@ import com.example.data.learning.DailyAdaptiveCurriculumEngine
 import com.example.data.learning.DailyAdaptiveCurriculumPackage
 import com.example.data.learning.LearningLevel
 import com.example.data.learning.LearningProgressManager
+import com.example.data.learning.PersistedLearningSnapshot
+import com.example.data.learning.VocabularyMasteryEngine
+import com.example.data.learning.WeeklyAssessmentEligibility
+import com.example.data.learning.WeeklyVocabularyAssessmentRecord
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.DailyActivity
 import com.example.data.model.LearningChallenge
@@ -45,6 +50,17 @@ import java.util.Locale
 
 private const val TAG = "MainCoachVM"
 private const val STOP_TIMEOUT_MS = 5000L
+
+data class DailyVocabBuilderUiState(
+    val userLevel: LearningLevel = LearningLevel.INTERMEDIATE,
+    val dailyWords: List<VocabSeed> = emptyList(),
+    val completedWordIds: Set<String> = emptySet(),
+    val wordScores: Map<String, Int> = emptyMap(),
+    val lastTranscripts: Map<String, String> = emptyMap(),
+    val learnedWordIds: Set<String> = emptySet(),
+    val weeklyEligibility: WeeklyAssessmentEligibility = WeeklyAssessmentEligibility(),
+    val learnedWordsForAssessment: List<VocabSeed> = emptyList()
+)
 
 class MainCoachViewModel(
     private val repository: SpeakCraftRepository,
@@ -176,10 +192,80 @@ class MainCoachViewModel(
 
     val dailyVocabularyBatch: List<VocabSeed>
         get() {
-            learningProgressManager?.dailyPackage?.value?.takeIf { it.dateKey == todayDateKey }?.let { return it.dailyWords }
             val level = currentLearningLevel.value
-            return DailyAdaptiveCurriculumEngine.getDailyWords(todayDateKey, level, count = 3)
+            val snap = learningProgressManager?.state?.value
+            if (snap != null) {
+                val wordsById = CurriculumCatalog.vocabularyBank.associateBy { it.id }
+                val ids = snap.dailyVocabulary?.takeIf { it.dateKey == todayDateKey && it.level == level }?.wordIds.orEmpty()
+                val resolved = ids.mapNotNull { wordsById[it] }
+                if (resolved.size == VocabularyMasteryEngine.DAILY_WORD_COUNT) return resolved
+            }
+            return VocabularyMasteryEngine.ensureDailyVocabularyWords(
+                bank = CurriculumCatalog.vocabularyBank,
+                level = level,
+                todayDateKey = todayDateKey
+            ).first.wordIds.mapNotNull { id -> CurriculumCatalog.vocabularyBank.firstOrNull { it.id == id } }
         }
+
+    val vocabBuilderState: StateFlow<DailyVocabBuilderUiState> = combine(
+        currentLearningLevel,
+        vocabularyEntries,
+        learningProgressManager?.state ?: flowOf(PersistedLearningSnapshot())
+    ) { level, vState, snap ->
+        val entries = (vState as? UiState.Success)?.data.orEmpty()
+        val wordsById = CurriculumCatalog.vocabularyBank.associateBy { it.id }
+        val completedAllTime = snap.learnedVocabularyLog.map { it.wordId }.toSet() +
+            snap.wordProgress.filterValues { it.isCompleted || it.stage2Passed }.keys
+        val (assignment, _) = VocabularyMasteryEngine.ensureDailyVocabularyWords(
+            bank = CurriculumCatalog.vocabularyBank,
+            level = level,
+            todayDateKey = todayDateKey,
+            shownWordIds = snap.shownVocabularyWordIds,
+            completedAllTimeIds = completedAllTime,
+            existingAssignment = snap.dailyVocabulary,
+            previousDaysCount = snap.vocabularyActiveDateKeys.size
+        )
+        val dailyWords = assignment.wordIds.mapNotNull { wordsById[it] }
+        val eligibility = VocabularyMasteryEngine.computeWeeklyEligibility(
+            learnedLog = snap.learnedVocabularyLog,
+            wordProgress = snap.wordProgress,
+            weeklyAssessments = snap.weeklyAssessments,
+            firstVocabEpochDay = snap.firstVocabularyEpochDay,
+            vocabularyActiveDateKeys = snap.vocabularyActiveDateKeys,
+            todayEpochDay = todayEpochDay,
+            fallbackEntries = entries
+        )
+        val learnedSeeds = VocabularyMasteryEngine.resolveLearnedSeeds(
+            learnedWordIds = eligibility.learnedWordIdsInCycle,
+            bank = CurriculumCatalog.vocabularyBank,
+            entries = entries
+        )
+        val entryLearnedIds = entries.filter { it.usageAssessed || it.masteryLevel > 0L }.map { it.id }.toSet()
+        DailyVocabBuilderUiState(
+            userLevel = level,
+            dailyWords = dailyWords,
+            completedWordIds = assignment.completedWordIds,
+            wordScores = assignment.wordScores,
+            lastTranscripts = assignment.lastTranscripts,
+            learnedWordIds = completedAllTime + entryLearnedIds,
+            weeklyEligibility = eligibility,
+            learnedWordsForAssessment = learnedSeeds
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+        DailyVocabBuilderUiState()
+    )
+
+    init {
+        if (learningProgressManager != null) {
+            viewModelScope.launch {
+                currentLearningLevel.collect { level ->
+                    learningProgressManager.ensureDailyVocabulary(level)
+                }
+            }
+        }
+    }
 
     private val _actionMessage = MutableStateFlow<String?>(null)
     val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
@@ -223,6 +309,10 @@ class MainCoachViewModel(
                 confidenceSelf = confidenceSelf
             )
             if (res.isSuccess) {
+                learningProgressManager?.updateLearningPreferences(
+                    currentLevel = LearningLevel.fromLabel(level),
+                    dailyTargetMinutes = dailyGoalMinutes.toInt()
+                )
                 repository.enrollInProgram("30_day_challenge", "30-Day Communication Challenge")
             } else {
                 _actionMessage.value = res.exceptionOrNull()?.localizedMessage ?: "Failed to save profile"
@@ -251,10 +341,14 @@ class MainCoachViewModel(
                 listening = existing.listeningScore,
                 confidenceSelf = existing.confidenceSelfRating
             )
-            _actionMessage.value = if (res.isSuccess) {
-                "Profile updated!"
+            if (res.isSuccess) {
+                learningProgressManager?.updateLearningPreferences(
+                    currentLevel = LearningLevel.fromLabel(level),
+                    dailyTargetMinutes = dailyGoalMinutes.toInt()
+                )
+                _actionMessage.value = "Profile updated!"
             } else {
-                res.exceptionOrNull()?.localizedMessage ?: "Failed to update profile"
+                _actionMessage.value = res.exceptionOrNull()?.localizedMessage ?: "Failed to update profile"
             }
         }
     }
@@ -412,9 +506,87 @@ class MainCoachViewModel(
         }
     }
 
+    /**
+     * Evaluates a user's spoken pronunciation of [seed] and marks the word Done ONLY when spoken correctly.
+     */
+    fun assessDailyWordSpeaking(
+        seed: VocabSeed,
+        existingEntry: VocabularyEntry?,
+        transcript: String,
+        alternatives: List<String> = emptyList(),
+        confidence: Float = 0.85f
+    ): LocalVocabStageEvaluation {
+        val eval = learningProgressManager?.recordVocabularyWordSpokenAssessment(
+            seed = seed,
+            recognizedText = transcript,
+            alternatives = alternatives,
+            asrConfidence = confidence
+        ) ?: VocabularyMasteryEngine.evaluateSpokenWordAttempt(
+            seed = seed,
+            transcript = transcript,
+            alternatives = alternatives,
+            asrConfidence = confidence
+        )
+
+        if (eval.passed) {
+            viewModelScope.launch {
+                repository.upsertVocabularyEntry(
+                    wordId = seed.id,
+                    word = seed.word,
+                    phonetic = seed.phonetic,
+                    meaning = seed.meaning,
+                    level = seed.level,
+                    exampleSentence = seed.exampleSentence,
+                    collocations = seed.collocations,
+                    personalNote = existingEntry?.personalNote.orEmpty(),
+                    masteryLevel = ((existingEntry?.masteryLevel ?: 0L) + 1L).coerceAtLeast(1L).coerceAtMost(5L),
+                    repetitions = (existingEntry?.repetitions ?: 0L) + 1L,
+                    nextReviewEpochDay = todayEpochDay + 3L,
+                    usageAssessed = true
+                )
+            }
+        }
+        return eval
+    }
+
+    /**
+     * Persists a completed 7-day cumulative AI Quiz spoken assessment and updates spaced repetition.
+     */
+    fun submitWeeklyVocabAssessment(
+        result: WeeklyVocabularyAssessmentRecord,
+        perWordPassed: Map<String, Boolean>,
+        entriesByWordId: Map<String, VocabularyEntry> = emptyMap()
+    ) {
+        learningProgressManager?.recordWeeklyVocabularyAssessment(result, perWordPassed)
+        val bankById = CurriculumCatalog.vocabularyBank.associateBy { it.id }
+        viewModelScope.launch {
+            perWordPassed.forEach { (wordId, passed) ->
+                val seed = bankById[wordId] ?: return@forEach
+                val existing = entriesByWordId[wordId]
+                val nextMastery = if (passed) ((existing?.masteryLevel ?: 1L) + 1L).coerceAtMost(5L) else (existing?.masteryLevel ?: 1L).coerceAtLeast(0L)
+                val nextDays = if (passed) 7L else 1L
+                repository.upsertVocabularyEntry(
+                    wordId = seed.id,
+                    word = seed.word,
+                    phonetic = seed.phonetic,
+                    meaning = seed.meaning,
+                    level = seed.level,
+                    exampleSentence = seed.exampleSentence,
+                    collocations = seed.collocations,
+                    personalNote = existing?.personalNote.orEmpty(),
+                    masteryLevel = nextMastery,
+                    repetitions = (existing?.repetitions ?: 0L) + if (passed) 1L else 0L,
+                    nextReviewEpochDay = todayEpochDay + nextDays,
+                    usageAssessed = existing?.usageAssessed ?: passed
+                )
+            }
+            _actionMessage.value = "7-Day Spoken Assessment complete: ${result.scorePercent}% (${result.passedWordIds.size}/${result.assessedWordIds.size} words mastered)"
+        }
+    }
+
     fun evaluateVocabUsage(seed: VocabSeed, existingEntry: VocabularyEntry?, userSentence: String) {
         if (userSentence.isBlank()) {
-            _actionMessage.value = "Enter a sentence using '${seed.word}' first."
+            _actionMessage.value = "Speak a sentence using '${seed.word}' first."
             return
         }
         viewModelScope.launch {

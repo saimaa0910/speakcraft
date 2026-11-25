@@ -57,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,7 @@ import com.example.BuildConfig
 import com.example.data.ai.CapabilityStatus
 import com.example.data.ai.IntelligenceCapabilityManager
 import com.example.data.ai.IntelligenceCapabilityMatrix
+import com.example.data.ai.PhoneGeminiBridge
 import com.example.data.evaluation.LabAttemptEvaluator
 import com.example.data.model.DailyActivity
 import com.example.data.model.SpeakingSession
@@ -856,6 +858,12 @@ fun SettingsScreen(
         }
 
         val integrationsCard: @Composable () -> Unit = {
+            val context = LocalContext.current
+            var geminiStatus by remember(context) {
+                mutableStateOf(PhoneGeminiBridge.inspectConnectionStatus(context))
+            }
+            var geminiActionMessage by remember { mutableStateOf<String?>(null) }
+
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -874,6 +882,114 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_phone_gemini_card"),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SettingsCardHeader(
+                            icon = Icons.Default.AutoAwesome,
+                            tint = if (geminiStatus.isAnyGeminiPathAvailable) ext.success else MaterialTheme.colorScheme.primary,
+                            bg = if (geminiStatus.isAnyGeminiPathAvailable) ext.successContainer else MaterialTheme.colorScheme.primaryContainer,
+                            title = "Phone Gemini App Connection"
+                        )
+                        Text(
+                            text = geminiStatus.statusLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = geminiStatus.detailMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (geminiStatus.geminiAppInstalled) ext.successContainer else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = if (geminiStatus.geminiAppInstalled) "Gemini App: Installed" else "Gemini App: Not Installed",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (geminiStatus.geminiAppInstalled) ext.success else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (geminiStatus.assistantVoiceAvailable) ext.successContainer else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = if (geminiStatus.assistantVoiceAvailable) "Voice Overlay: Ready" else "Share Handoff: Ready",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (geminiStatus.assistantVoiceAvailable) ext.success else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (geminiStatus.aiCoreServiceInstalled) {
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = ext.successContainer
+                                ) {
+                                    Text(
+                                        text = "Android AICore: Active",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = ext.success
+                                    )
+                                }
+                            }
+                        }
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    geminiStatus = PhoneGeminiBridge.inspectConnectionStatus(context)
+                                    val result = PhoneGeminiBridge.openGeminiApp(context)
+                                    geminiActionMessage = result.userMessage
+                                },
+                                modifier = Modifier.testTag("settings_open_gemini_app_button")
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (geminiStatus.geminiAppInstalled) "Open Gemini App" else "Connect / Install Gemini")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    geminiStatus = PhoneGeminiBridge.inspectConnectionStatus(context)
+                                    val result = PhoneGeminiBridge.launchGeminiLiveVoice(context)
+                                    geminiActionMessage = result.userMessage
+                                },
+                                modifier = Modifier.testTag("settings_launch_gemini_voice_button")
+                            ) {
+                                Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Launch Gemini Voice")
+                            }
+                        }
+                        if (!geminiActionMessage.isNullOrBlank()) {
+                            Text(
+                                text = geminiActionMessage.orEmpty(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Text(
+                            text = "Share text or responses directly from your phone's Gemini app into SpeakCraft (via Android Share or speakcraft:// links) to practice them in AI Mentor.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

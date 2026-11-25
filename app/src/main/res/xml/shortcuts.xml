@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="daily_practice"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_daily_short"
+        android:shortcutLongLabel="@string/shortcut_daily_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.aistudio.speakcraft.qxmvkp"
+            android:targetClass="com.example.MainActivity"
+            android:data="speakcraft://daily_practice" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="vocabulary_builder"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_vocab_short"
+        android:shortcutLongLabel="@string/shortcut_vocab_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.aistudio.speakcraft.qxmvkp"
+            android:targetClass="com.example.MainActivity"
+            android:data="speakcraft://vocabulary" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="speaking_lab"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_speaking_short"
+        android:shortcutLongLabel="@string/shortcut_speaking_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.aistudio.speakcraft.qxmvkp"
+            android:targetClass="com.example.MainActivity"
+            android:data="speakcraft://speaking_lab" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="ai_mentor"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_mentor_short"
+        android:shortcutLongLabel="@string/shortcut_mentor_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.aistudio.speakcraft.qxmvkp"
+            android:targetClass="com.example.MainActivity"
+            android:data="speakcraft://ai_mentor" />
+    </shortcut>
+</shortcuts>

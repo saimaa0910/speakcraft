@@ -882,7 +882,7 @@ object CurriculumCatalog {
             ),
             category = "Leadership"
         )
-    )
+    ) + LevelVocabularySeeds.extraSeeds
 
     val speakingChallenges = listOf(
         SpeakingChallengeItem("chal_1min_nonstop", "1-Minute Nonstop Flow", "DAILY", 60, "Keep thinking in English—pause silently if needed, no fillers.", "Speak continuously for 60 seconds about a skill you learned recently and why it mattered.", "Fluency & Silence Control"),

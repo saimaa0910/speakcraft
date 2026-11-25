@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.data.ai.PhoneGeminiBridge
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.SpeakingSession
@@ -117,6 +118,7 @@ fun ConversationSimulatorScreen(
 
     var messageInput by remember { mutableStateOf("") }
     var voiceStatus by remember { mutableStateOf<String?>(null) }
+    var geminiBridgeFeedback by remember { mutableStateOf<String?>(null) }
     var voiceModeEnabled by remember { mutableStateOf(false) }
     var pendingScenarioSwitch by remember { mutableStateOf<String?>(null) }
 
@@ -497,6 +499,34 @@ fun ConversationSimulatorScreen(
                         .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
                         .testTag("conversation_autospeak_toggle")
                 )
+                OutlinedButton(
+                    onClick = {
+                        val prompt = PhoneGeminiBridge.buildConversationRoleplayPrompt(
+                            scenario = selectedScenario,
+                            userLevel = userLevel
+                        )
+                        val result = PhoneGeminiBridge.sendPromptToGeminiApp(
+                            context = context,
+                            promptText = prompt,
+                            title = "Roleplay with Gemini"
+                        )
+                        geminiBridgeFeedback = result.userMessage
+                    },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                        .testTag("conversation_gemini_voice_button")
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Ask Gemini Voice")
+                }
+            }
+            if (!geminiBridgeFeedback.isNullOrBlank()) {
+                Text(
+                    text = geminiBridgeFeedback.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
             FeatureGuideStrip(featureKey = "conversation")
 
@@ -599,7 +629,9 @@ fun AiMentorScreen(
     profile: UserProfile?,
     sessions: List<SpeakingSession>,
     feedbackList: List<SpeechFeedback> = emptyList(),
-    ttsHelper: TtsAndSpeechHelper? = null
+    ttsHelper: TtsAndSpeechHelper? = null,
+    initialDraftFromGemini: String? = null,
+    onConsumeInitialDraft: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val mentorMessages by coachVm.mentorMessages.collectAsStateWithLifecycle()
@@ -609,7 +641,16 @@ fun AiMentorScreen(
 
     var question by remember { mutableStateOf("") }
     var voiceNoteError by remember { mutableStateOf<String?>(null) }
+    var geminiBridgeFeedback by remember { mutableStateOf<String?>(null) }
     var showClearConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialDraftFromGemini) {
+        val draft = initialDraftFromGemini?.trim()
+        if (!draft.isNullOrBlank()) {
+            question = draft
+            onConsumeInitialDraft()
+        }
+    }
 
     val mentorMicLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && ttsHelper != null) {
@@ -685,7 +726,28 @@ fun AiMentorScreen(
                             )
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                val prompt = PhoneGeminiBridge.buildMentorPrompt(
+                                    userQuestionOrDraft = question,
+                                    userLevel = profile?.communicationLevel ?: "Intermediate"
+                                )
+                                val result = PhoneGeminiBridge.sendPromptToGeminiApp(
+                                    context = context,
+                                    promptText = prompt,
+                                    title = "Coach with Gemini"
+                                )
+                                geminiBridgeFeedback = result.userMessage
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                                .testTag("mentor_open_gemini_button")
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Gemini App")
+                        }
                         if (mentorMessages.size > 1) {
                             TextButton(
                                 onClick = { showClearConfirm = true },
@@ -700,6 +762,14 @@ fun AiMentorScreen(
                         }
                     }
                 }
+            }
+
+            if (!geminiBridgeFeedback.isNullOrBlank()) {
+                Text(
+                    text = geminiBridgeFeedback.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {

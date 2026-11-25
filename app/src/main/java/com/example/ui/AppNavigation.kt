@@ -108,6 +108,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.data.AppContainer
 import com.example.data.activity.ActivityCatalogue
+import com.example.data.ai.InboundGeminiLink
 import com.example.data.firebase.authStateFlow
 import com.example.data.firebase.signOut
 import com.example.data.learning.LearningLevel
@@ -215,7 +216,9 @@ private val routeTitles = mapOf(
 @Composable
 fun SpeakCraftRoot(
     auth: FirebaseAuth = Firebase.auth,
-    launchVm: LaunchExperienceViewModel = viewModel()
+    launchVm: LaunchExperienceViewModel = viewModel(),
+    inboundGeminiLink: InboundGeminiLink? = null,
+    onConsumeInboundGeminiLink: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val container = remember { context.appContainer }
@@ -261,7 +264,9 @@ fun SpeakCraftRoot(
                         userEmail = user.email.orEmpty(),
                         prefs = prefs,
                         prefsLoaded = prefsLoaded,
-                        container = container
+                        container = container,
+                        inboundGeminiLink = inboundGeminiLink,
+                        onConsumeInboundGeminiLink = onConsumeInboundGeminiLink
                     )
                 }
             }
@@ -298,7 +303,9 @@ private fun AuthenticatedAppShell(
     userEmail: String,
     prefs: AppPreferences,
     prefsLoaded: Boolean,
-    container: AppContainer
+    container: AppContainer,
+    inboundGeminiLink: InboundGeminiLink? = null,
+    onConsumeInboundGeminiLink: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -552,6 +559,7 @@ private fun AuthenticatedAppShell(
                 var manualTourSteps by remember { mutableStateOf<List<TutorialOverlayStep>?>(null) }
                 var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
                 var baselineSessionCount by remember(userId) { mutableStateOf<Int?>(null) }
+                var pendingGeminiDraft by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(userId, profile, enrollments) {
                     learningPathsVm.syncAccountAndEnrollments(
@@ -618,6 +626,18 @@ private fun AuthenticatedAppShell(
                         launchSingleTop = true
                         restoreState = true
                     }
+                }
+
+                LaunchedEffect(inboundGeminiLink) {
+                    val link = inboundGeminiLink ?: return@LaunchedEffect
+                    val targetRoute = link.targetRoute
+                    if (!targetRoute.isNullOrBlank()) {
+                        navigateTo(targetRoute)
+                    }
+                    if (!link.sharedText.isNullOrBlank()) {
+                        pendingGeminiDraft = link.sharedText
+                    }
+                    onConsumeInboundGeminiLink()
                 }
 
                 if (showFeatureGuideDialog) {
@@ -1043,6 +1063,8 @@ private fun AuthenticatedAppShell(
                                     )
                                 }
                                 composable("vocabulary") {
+                                    val vocabBuilderState by mainVm.vocabBuilderState.collectAsStateWithLifecycle()
+                                    val entriesById = remember(vocabEntries) { vocabEntries.associateBy { it.id } }
                                     VocabularyScreen(
                                         entries = vocabEntries,
                                         todayEpochDay = mainVm.todayEpochDay,
@@ -1051,7 +1073,21 @@ private fun AuthenticatedAppShell(
                                         onReviewCard = { seed, existing, ok -> mainVm.reviewVocabularyCard(seed, existing, ok) },
                                         onEvaluateUsage = { seed, existing, sent -> mainVm.evaluateVocabUsage(seed, existing, sent) },
                                         onSaveCustomWord = { w, m, l, e, n -> mainVm.saveCustomVocabularyWord(w, m, l, e, n) },
-                                        onClearEval = { mainVm.clearVocabEval() }
+                                        onClearEval = { mainVm.clearVocabEval() },
+                                        userLevel = vocabBuilderState.userLevel,
+                                        dailyVocabWords = vocabBuilderState.dailyWords,
+                                        completedDailyWordIds = vocabBuilderState.completedWordIds,
+                                        dailyWordScores = vocabBuilderState.wordScores,
+                                        learnedWordIds = vocabBuilderState.learnedWordIds,
+                                        weeklyEligibility = vocabBuilderState.weeklyEligibility,
+                                        learnedWordsForAssessment = vocabBuilderState.learnedWordsForAssessment,
+                                        ttsHelper = ttsHelper,
+                                        onAssessSpokenWord = { seed, existing, transcript, alts, conf ->
+                                            mainVm.assessDailyWordSpeaking(seed, existing, transcript, alts, conf)
+                                        },
+                                        onCompleteWeeklyAssessment = { record, perWordPassed ->
+                                            mainVm.submitWeeklyVocabAssessment(record, perWordPassed, entriesById)
+                                        }
                                     )
                                 }
                                 composable("speaking_lab") {
@@ -1199,7 +1235,9 @@ private fun AuthenticatedAppShell(
                                         profile = profile,
                                         sessions = sessions,
                                         feedbackList = feedbackList,
-                                        ttsHelper = ttsHelper
+                                        ttsHelper = ttsHelper,
+                                        initialDraftFromGemini = pendingGeminiDraft,
+                                        onConsumeInitialDraft = { pendingGeminiDraft = null }
                                     )
                                 }
                                 composable("admin_console") {

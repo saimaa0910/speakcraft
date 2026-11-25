@@ -384,6 +384,55 @@ data class AdminAnnouncement(
     val active: Boolean = true
 )
 
+@Serializable
+data class LearnedWordRecord(
+    val wordId: String,
+    val word: String,
+    val level: String = "Intermediate",
+    val learnedDateKey: String = "",
+    val learnedEpochDay: Long = 0L,
+    val spokenAssessmentScore: Int = 0,
+    val spokenTranscript: String = "",
+    val markedDoneAtMs: Long = 0L
+)
+
+@Serializable
+data class DailyVocabularyAssignment(
+    val dateKey: String = "",
+    val level: LearningLevel = LearningLevel.INTERMEDIATE,
+    val wordIds: List<String> = emptyList(),
+    val completedWordIds: Set<String> = emptySet(),
+    val wordScores: Map<String, Int> = emptyMap(),
+    val lastTranscripts: Map<String, String> = emptyMap(),
+    val dayIndex: Int = 1
+) {
+    val allDone: Boolean get() = wordIds.isNotEmpty() && wordIds.all { it in completedWordIds }
+}
+
+@Serializable
+data class WeeklyVocabularyAssessmentRecord(
+    val id: String = "",
+    val completedDateKey: String = "",
+    val completedEpochDay: Long = 0L,
+    val completedAtMs: Long = 0L,
+    val cycleNumber: Int = 1,
+    val assessedWordIds: List<String> = emptyList(),
+    val passedWordIds: List<String> = emptyList(),
+    val scorePercent: Int = 0
+)
+
+@Serializable
+data class WeeklyAssessmentEligibility(
+    val isUnlocked: Boolean = false,
+    val isDueNow: Boolean = false,
+    val daysElapsed: Int = 0,
+    val distinctActiveDays: Int = 0,
+    val daysRemaining: Int = 7,
+    val cycleNumber: Int = 1,
+    val learnedWordIdsInCycle: List<String> = emptyList(),
+    val latestAssessment: WeeklyVocabularyAssessmentRecord? = null
+)
+
 // ---------------------------------------------------------------------------
 // Unified Persisted Learning Snapshot (Offline-First Local Store + Sync)
 // ---------------------------------------------------------------------------
@@ -425,5 +474,17 @@ data class PersistedLearningSnapshot(
     /** Evaluated Activity Engine attempts, most recent first. */
     val activityAttempts: List<LocalActivityAttempt> = emptyList(),
     /** Coach Practice evidence per technique (techniques pillar). */
-    val techniquePractice: Map<String, TechniquePracticeStat> = emptyMap()
+    val techniquePractice: Map<String, TechniquePracticeStat> = emptyMap(),
+    /** Vocabulary Builder: epoch day when the user started learning vocabulary. */
+    val firstVocabularyEpochDay: Long = 0L,
+    /** Vocabulary Builder: distinct local dates where vocabulary words were shown or practiced. */
+    val vocabularyActiveDateKeys: List<String> = emptyList(),
+    /** Vocabulary Builder: ordered history of shown daily word IDs so daily 3 words never repeat. */
+    val shownVocabularyWordIds: List<String> = emptyList(),
+    /** Vocabulary Builder: today's 3 level-matched non-repeating words + spoken completion tracking. */
+    val dailyVocabulary: DailyVocabularyAssignment? = null,
+    /** Vocabulary Builder: all words passed via speaking assessment (feeds the 7-day AI Quiz). */
+    val learnedVocabularyLog: List<LearnedWordRecord> = emptyList(),
+    /** Vocabulary Builder: completed 7-day cumulative AI Quiz assessments. */
+    val weeklyAssessments: List<WeeklyVocabularyAssessmentRecord> = emptyList()
 )
