@@ -170,15 +170,15 @@ class VocabularyMasteryAndQuizTest {
         // Grade each question with spoken answers
         val perWordOutcomes = mutableMapOf<String, Boolean>()
         val passedWordIds = mutableListOf<String>()
-        questions.forEachIndexed { idx, q ->
+        questions.forEach { q ->
             val spoken = when (q.mode) {
                 com.example.data.learning.WeeklyQuestionMode.SPOKEN_WORD_RECALL -> q.seed.word
                 com.example.data.learning.WeeklyQuestionMode.SPOKEN_SENTENCE_USAGE -> q.seed.exampleSentence
             }
             val ans = VocabularyMasteryEngine.evaluateWeeklyQuestionResponse(q, spoken)
             assertTrue("Spoken answer should pass for ${q.seed.word}: ${ans.feedback}", ans.passed)
-            perWordOutcomes[q.wordId] = true
-            passedWordIds += q.wordId
+            perWordOutcomes[q.seed.id] = true
+            passedWordIds += q.seed.id
         }
 
         mgr.recordWeeklyVocabularyAssessment(
@@ -276,7 +276,10 @@ class VocabularyMasteryAndQuizTest {
         composeRule.onNodeWithTag("vocab_quiz_speak_panel").assertIsDisplayed()
         composeRule.onNodeWithTag("ai_quiz_list")
             .performScrollToNode(hasTestTag("vocab_quiz_speak_button"))
-        composeRule.onNodeWithTag("vocab_quiz_speak_button").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("vocab_quiz_speak_button").assertIsDisplayed()
+
+        nextSimulatedTranscript = "Executives ${advancedWords[0].word.lowercase()} complex data into clear takeaways."
+        composeRule.onNodeWithTag("vocab_quiz_speak_button").performClick()
         composeRule.waitForIdle()
         assertEquals(nextSimulatedTranscript, quizEvaluatedSentence)
         composeRule.onNodeWithTag("ai_quiz_list")
