@@ -1,6 +1,7 @@
 package com.example.data.evaluation
 
 import com.example.data.model.SpeakingSession
+import com.example.speech.pipeline.AttemptEvaluationResult
 
 /**
  * Explicit 12-state lifecycle for SpeakCraft Coach and Activity evaluations.
@@ -92,7 +93,13 @@ data class CoachEvaluationReport(
     val honestyNotice: String = "",
     val session: SpeakingSession? = null,
     val validation: EvidenceValidationResult,
-    val evaluatedAtMs: Long = System.currentTimeMillis()
+    val evaluatedAtMs: Long = System.currentTimeMillis(),
+    /**
+     * The local intelligence engine's result when the report comes from [LabAttemptEvaluator] (ARC-05): the
+     * measured metrics with their Measured/Estimated labels, the transcript highlights and `evaluationVersion`.
+     * `null` for reports from the legacy scoring engine (Activity Engine).
+     */
+    val engineResult: AttemptEvaluationResult? = null
 )
 
 /**

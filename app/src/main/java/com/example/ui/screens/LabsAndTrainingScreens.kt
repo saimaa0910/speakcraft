@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.evaluation.CoachEvaluationState
+import com.example.data.evaluation.LabPracticeTarget
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.RealWorldTaskRecord
@@ -190,8 +191,7 @@ fun PronunciationLabScreen(
                                 speakingVm.submitForAiAnalysis(
                                     moduleType = "PRONUNCIATION",
                                     promptTitle = activeDrill.title,
-                                    previousSession = pastSessions.firstOrNull(),
-                                    extraInstructions = "Compare pronunciation strictly against target phrase: '${activeDrill.practicePhrase}' focusing on ${activeDrill.targetIpa}."
+                                    practiceTarget = LabPracticeTarget.readAloud(activeDrill.practicePhrase)
                                 )
                             },
                             enabled = !isRecording,
@@ -414,8 +414,7 @@ fun ListeningShadowingScreen(
                                 speakingVm.submitForAiAnalysis(
                                     moduleType = "SHADOWING",
                                     promptTitle = activeSegment.title,
-                                    previousSession = pastSessions.firstOrNull(),
-                                    extraInstructions = "Compare timing, WPM (target ${activeSegment.pacingTargetWpm}), pause placement, and pronunciation against reference transcript: '${activeSegment.plainScript}'."
+                                    practiceTarget = LabPracticeTarget.readAloud(activeSegment.plainScript)
                                 )
                             },
                             enabled = !isRecording,
@@ -603,8 +602,7 @@ fun GrammarSpeakingScreen(
                                 speakingVm.submitForAiAnalysis(
                                     moduleType = "GRAMMAR_SPEAKING",
                                     promptTitle = activeLesson.topic,
-                                    previousSession = pastSessions.firstOrNull(),
-                                    extraInstructions = "Evaluate grammatical accuracy and thought organization for: ${activeLesson.topic}. Rule: ${activeLesson.ruleSummary}"
+                                    practiceTarget = LabPracticeTarget.answer()
                                 )
                             },
                             enabled = !isRecording,
@@ -790,8 +788,7 @@ fun PublicSpeakingScreen(
                                 speakingVm.submitForAiAnalysis(
                                     moduleType = "PRESENTATION",
                                     promptTitle = activeModule.title,
-                                    previousSession = pastSessions.firstOrNull(),
-                                    extraInstructions = "Evaluate presentation delivery, opening hook, vocal modulation, and structure using ${activeModule.creatorFramework}."
+                                    practiceTarget = LabPracticeTarget.fromPrompt(activeModule.creatorFramework, activeModule.title)
                                 )
                             },
                             enabled = !isRecording,

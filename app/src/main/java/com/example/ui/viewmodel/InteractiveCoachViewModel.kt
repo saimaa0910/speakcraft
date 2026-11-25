@@ -41,8 +41,7 @@ class InteractiveCoachViewModel(
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
         hybridCoordinator ?: HybridAiCoachCoordinator(
             localOrchestrator = localOrchestrator,
-            prefsRepo = prefsRepo,
-            appContext = appContext
+            prefsRepo = prefsRepo
         )
     }
 

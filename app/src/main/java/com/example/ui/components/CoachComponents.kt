@@ -103,7 +103,10 @@ import com.example.data.ai.local.audio.LiveTranscriptionState
 import com.example.data.ai.local.audio.LiveTranscriptionStatus
 import com.example.data.evaluation.CoachEvaluationReport
 import com.example.data.evaluation.DimensionAvailability
+import com.example.data.evaluation.LabAttemptEvaluator
 import com.example.data.model.SpeakingSession
+import com.example.speech.metrics.SpeechMetricValue
+import com.example.speech.pipeline.AttemptEvaluationResult
 import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 import java.io.File
@@ -1299,8 +1302,15 @@ fun FeedbackReportCard(
     val ext = MaterialTheme.speakCraftColors
     var selectedTab by remember(session.id) { mutableStateOf("Insights") }
 
+    // Feedback from the local intelligence engine (ARC-05): no legacy skill scores, only measured metrics and the
+    // engine's own score where it gives one (read-aloud). Legacy reports keep the dimension view below.
+    val engineResult = evaluationReport?.engineResult as? AttemptEvaluationResult.Valid
+    val isEngine = engineResult != null || LabAttemptEvaluator.isEngineEvaluated(session)
+
     val metricsList = remember(session, evaluationReport) {
-        if (evaluationReport != null && evaluationReport.dimensions.isNotEmpty()) {
+        if (isEngine) {
+            emptyList()
+        } else if (evaluationReport != null && evaluationReport.dimensions.isNotEmpty()) {
             evaluationReport.dimensions.values
                 .filter { it.score != null && it.availabilityStatus == DimensionAvailability.EVALUATED }
                 .map { it.label to it.score!! }
@@ -1321,11 +1331,11 @@ fun FeedbackReportCard(
             ?: (metricsList.sumOf { it.second } / metricsList.size.coerceAtLeast(1)).coerceIn(0, 100)
     }
     val prevComposite = remember(previousSession) {
-        previousSession?.takeIf { it.evaluationStatus == "COMPLETED" }?.let {
+        previousSession?.takeIf { it.evaluationStatus == "COMPLETED" && !LabAttemptEvaluator.isEngineEvaluated(it) }?.let {
             ((it.fluencyScore + it.vocabularyScore + it.grammarScore + it.articulationScore) / 4L).toInt()
         }
     }
-    val delta = prevComposite?.let { compositeScore - it }
+    val delta = if (isEngine) null else prevComposite?.let { compositeScore - it }
 
     val paceStatus = remember(session.wordsPerMinute) {
         when {
@@ -1415,7 +1425,7 @@ fun FeedbackReportCard(
                     }
                 }
 
-                Surface(
+                if (!isEngine) Surface(
                     shape = RoundedCornerShape(50),
                     color = when (session.confidenceLevel) {
                         "High" -> ext.successContainer
@@ -1456,8 +1466,10 @@ fun FeedbackReportCard(
                 }
             }
 
-            // Score Ring + Pace + Trend Strip
-            Surface(
+            // Engine: measured headline metrics (and its score only where it gives one). Legacy: score ring + pace.
+            if (isEngine) {
+                EngineMeasurementStrip(session = session, result = engineResult, score = evaluationReport?.overallScore)
+            } else Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.fillMaxWidth()
@@ -1578,11 +1590,11 @@ fun FeedbackReportCard(
             }
 
             // Interactive Deep-Dive Tabs
-            val tabs = remember(session.transcript, parsedRewrites) {
+            val tabs = remember(session.transcript, parsedRewrites, isEngine, engineResult) {
                 buildList {
                     add("Insights")
                     if (parsedRewrites.isNotEmpty() || session.betterAlternatives.isNotEmpty()) add("Rewrites")
-                    add("Skills")
+                    if (!isEngine) add("Skills") else if (engineResult != null) add("Metrics")
                     if (session.transcript.isNotBlank()) add("Transcript")
                 }
             }
@@ -1654,6 +1666,10 @@ fun FeedbackReportCard(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
+
+                "Metrics" -> {
+                    if (engineResult != null) EngineMetricsDetail(result = engineResult)
                 }
 
                 "Skills" -> {
@@ -1737,15 +1753,19 @@ fun FeedbackReportCard(
                 }
 
                 "Transcript" -> {
-                    val insights = remember(session.transcript) {
-                        if (session.transcript.isNotBlank()) {
-                            com.example.speech.pipeline.TranscriptAnalyzer.analyze(session.transcript)
-                        } else emptyList()
+                    // Engine results carry highlights that agree with the raised issues (ARC-05 §8.4, 1.6.0).
+                    val insights = remember(session.transcript, engineResult) {
+                        when {
+                            engineResult != null -> engineResult.transcriptInsights
+                            isEngine || session.transcript.isBlank() -> emptyList()
+                            else -> com.example.speech.pipeline.TranscriptAnalyzer.analyze(session.transcript)
+                        }
                     }
-                    val summary = remember(insights) {
-                        if (insights.isNotEmpty()) {
-                            com.example.speech.pipeline.TranscriptAnalyzer.composeSummary(insights)
-                        } else null
+                    val summary = remember(insights, engineResult) {
+                        engineResult?.feedback?.transcriptInsightSummary
+                            ?: if (insights.isNotEmpty()) {
+                                com.example.speech.pipeline.TranscriptAnalyzer.composeSummary(insights)
+                            } else null
                     }
                     TranscriptDisplayCard(
                         transcript = session.transcript,
@@ -1790,6 +1810,125 @@ fun FeedbackReportCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * Headline of an engine-evaluated attempt (ARC-05 §7): the engine's score only when it gives one (read-aloud
+ * "recognised as intended"), otherwise the three headline metrics with their Measured/Estimated labels.
+ */
+@Composable
+private fun EngineMeasurementStrip(
+    session: SpeakingSession,
+    result: AttemptEvaluationResult.Valid?,
+    score: Int?
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("coach_engine_measurements")
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (score != null && result != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "$score%",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("coach_engine_score")
+                    )
+                    Column {
+                        Text(
+                            text = LabAttemptEvaluator.scoreLabel(result) ?: "Score",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = when (result.passed) {
+                                true -> "Pass mark reached (75%)"
+                                false -> "Below the 75% pass mark"
+                                null -> "Measured"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            val headline = result?.headlineMetrics.orEmpty()
+            if (headline.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    headline.forEach { metric ->
+                        EngineMetricTile(metric = metric, modifier = Modifier.weight(1f))
+                    }
+                }
+            } else {
+                Text(
+                    text = if (session.wordsPerMinute > 0L) "${session.wordsPerMinute} WPM • On-device feedback" else "On-device feedback",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EngineMetricTile(metric: SpeechMetricValue, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = modifier.testTag("coach_engine_metric_${metric.key.code}")
+    ) {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(metric.key.displayName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(metric.displayValue, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                text = "${LabAttemptEvaluator.methodologyLabel(metric.key)} • ${metric.band}",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (metric.isIssue) MaterialTheme.speakCraftColors.warning else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** Every metric the engine computed for the attempt, with how it was obtained (ARC-05 §6, §10). */
+@Composable
+private fun EngineMetricsDetail(result: AttemptEvaluationResult.Valid) {
+    val explain = remember(result) { result.feedback.explainability.associateBy { it.key } }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("coach_engine_metrics_detail")) {
+        LabAttemptEvaluator.detailMetrics(result).forEach { metric ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(metric.key.displayName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                        Text(metric.displayValue, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Text(
+                        text = "${LabAttemptEvaluator.methodologyLabel(metric.key)} • ${metric.band}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    explain[metric.key]?.let { Text(it.explanation, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        Text(
+            text = "Evaluated on this device • engine ${result.evaluationVersion}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

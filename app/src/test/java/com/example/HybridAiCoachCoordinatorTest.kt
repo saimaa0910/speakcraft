@@ -50,7 +50,6 @@ class HybridAiCoachCoordinatorTest {
         val coordinator = HybridAiCoachCoordinator(
             localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             prefsRepo = prefsRepo,
-            appContext = ctx,
             aiSettingsRepo = aiSettingsRepo
         )
 

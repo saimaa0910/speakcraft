@@ -137,7 +137,6 @@ class SpeakCraftComposeCujTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         var toggledId = ""
@@ -226,7 +225,6 @@ class SpeakCraftComposeCujTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         val fakeVideo = File(ctx.cacheDir, "test_clip.mp4").apply { writeBytes(ByteArray(256) { 1 }) }
@@ -289,7 +287,6 @@ class SpeakCraftComposeCujTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         val ttsHelper = TtsAndSpeechHelper(ctx)
@@ -547,89 +544,5 @@ class SpeakCraftComposeCujTest {
         composeRule.waitForIdle()
         assertEquals("Sruthi K", savedName)
         assertEquals(15L, savedMinutes)
-    }
-
-    @Test
-    fun `dynamic local coach produces topic specific rewrites and tailored feedback`() {
-        val orchestrator = LocalIntelligenceOrchestrator()
-        val speechWav = buildSyntheticSpeechWavBytes(durationSeconds = 4)
-
-        val emptyAttempt = kotlinx.coroutines.runBlocking {
-            orchestrator.analyzeSpeechRecording(
-                mediaBytes = ByteArray(0),
-                mimeType = "audio/wav",
-                moduleType = "speaking_lab",
-                promptTitle = "Missing Audio Test",
-                durationSeconds = 0,
-                previousSession = null,
-                liveTranscript = "Um I think maybe this shouldn't score without audio"
-            )
-        }
-        assertTrue(
-            "Empty audio must fail evaluation rather than fabricating a score",
-            emptyAttempt.isFailure
-        )
-
-        val interviewReport = kotlinx.coroutines.runBlocking {
-            orchestrator.analyzeSpeechRecording(
-                mediaBytes = speechWav,
-                mimeType = "audio/wav",
-                moduleType = "speaking_lab",
-                promptTitle = "Interview Practice",
-                durationSeconds = 12,
-                previousSession = null,
-                liveTranscript = "Um I think maybe I kind of did good work on the backend API migration and like basically we finished it fast."
-            ).getOrThrow()
-        }
-        val storyReport = kotlinx.coroutines.runBlocking {
-            orchestrator.analyzeSpeechRecording(
-                mediaBytes = speechWav,
-                mimeType = "audio/wav",
-                moduleType = "speaking_lab",
-                promptTitle = "Storytelling Challenge",
-                durationSeconds = 18,
-                previousSession = null,
-                liveTranscript = "Last Friday during our product launch, the checkout server slowed down. Because we prepared a rollback plan, our team restored stability in four minutes and kept every customer order intact."
-            ).getOrThrow()
-        }
-
-        assertTrue(interviewReport.overallAssessment.isNotBlank())
-        assertTrue(interviewReport.betterAlternatives.any { it.contains("→") })
-        assertFalse(
-            "Dynamic coach should tailor narrative per transcript, not repeat static boilerplate",
-            interviewReport.overallAssessment == storyReport.overallAssessment
-        )
-        assertTrue(storyReport.fluencyScore > interviewReport.fluencyScore)
-    }
-
-    private fun buildSyntheticSpeechWavBytes(durationSeconds: Int): ByteArray {
-        val sampleRate = 16000
-        val totalSamples = sampleRate * durationSeconds
-        val pcmBytes = ByteArray(totalSamples * 2)
-        for (i in 0 until totalSamples) {
-            val t = i.toDouble() / sampleRate
-            // Modulated speech-like harmonic envelope so voiced syllables exceed silence threshold
-            val envelope = if ((i / 2400) % 2 == 0) 0.45 else 0.25
-            val wave = kotlin.math.sin(2.0 * kotlin.math.PI * 180.0 * t) * envelope
-            val sample = (wave * 32767.0).toInt().coerceIn(-32768, 32767)
-            pcmBytes[i * 2] = (sample and 0xFF).toByte()
-            pcmBytes[i * 2 + 1] = ((sample shr 8) and 0xFF).toByte()
-        }
-        val header = ByteArray(44)
-        val totalDataLen = pcmBytes.size + 36
-        val byteRate = sampleRate * 2
-        header[0] = 'R'.code.toByte(); header[1] = 'I'.code.toByte(); header[2] = 'F'.code.toByte(); header[3] = 'F'.code.toByte()
-        header[4] = (totalDataLen and 0xff).toByte(); header[5] = ((totalDataLen shr 8) and 0xff).toByte()
-        header[6] = ((totalDataLen shr 16) and 0xff).toByte(); header[7] = ((totalDataLen shr 24) and 0xff).toByte()
-        header[8] = 'W'.code.toByte(); header[9] = 'A'.code.toByte(); header[10] = 'V'.code.toByte(); header[11] = 'E'.code.toByte()
-        header[12] = 'f'.code.toByte(); header[13] = 'm'.code.toByte(); header[14] = 't'.code.toByte(); header[15] = ' '.code.toByte()
-        header[16] = 16; header[20] = 1; header[22] = 1
-        header[24] = (sampleRate and 0xff).toByte(); header[25] = ((sampleRate shr 8) and 0xff).toByte()
-        header[28] = (byteRate and 0xff).toByte(); header[29] = ((byteRate shr 8) and 0xff).toByte()
-        header[32] = 2; header[34] = 16
-        header[36] = 'd'.code.toByte(); header[37] = 'a'.code.toByte(); header[38] = 't'.code.toByte(); header[39] = 'a'.code.toByte()
-        header[40] = (pcmBytes.size and 0xff).toByte(); header[41] = ((pcmBytes.size shr 8) and 0xff).toByte()
-        header[42] = ((pcmBytes.size shr 16) and 0xff).toByte(); header[43] = ((pcmBytes.size shr 24) and 0xff).toByte()
-        return header + pcmBytes
     }
 }

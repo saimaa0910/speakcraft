@@ -6,7 +6,24 @@ import kotlinx.coroutines.flow.map
 enum class RecognitionEnginePreference(val label: String) {
     AUTO("Automatic (On-Device Preferred)"),
     ANDROID_OFFLINE("Android SpeechRecognizer (On-Device)"),
-    LOCAL_WHISPER("Local Whisper / Moonshine TFLite")
+
+    /**
+     * Retired: the app-managed Whisper/Moonshine recogniser was fabricated and is removed (FND-AI-03). Kept only
+     * so stored preferences still parse; it is read as [AUTO] ([fromStored]) and never offered.
+     */
+    LOCAL_WHISPER("Automatic (On-Device Preferred)");
+
+    companion object {
+        /** Choices offered in Settings. */
+        val SELECTABLE: List<RecognitionEnginePreference> = listOf(AUTO, ANDROID_OFFLINE)
+
+        /** Parses a stored preference; unknown values and the retired [LOCAL_WHISPER] behave as [AUTO]. */
+        fun fromStored(name: String?): RecognitionEnginePreference =
+            when (entries.firstOrNull { it.name == name }) {
+                ANDROID_OFFLINE -> ANDROID_OFFLINE
+                else -> AUTO
+            }
+    }
 }
 
 /**
@@ -33,9 +50,7 @@ class AISettingsRepository(
     private val preferencesRepository: AppPreferencesRepository
 ) {
     val aiSettingsFlow: Flow<AISettings> = preferencesRepository.preferencesFlow.map { prefs ->
-        val enginePref = RecognitionEnginePreference.entries.firstOrNull {
-            it.name == prefs.selectedRecognitionEngine
-        } ?: RecognitionEnginePreference.AUTO
+        val enginePref = RecognitionEnginePreference.fromStored(prefs.selectedRecognitionEngine)
         AISettings(
             localAiEnabled = prefs.localAiEnabled,
             liveTranscriptionEnabled = prefs.liveTranscriptionEnabled,
@@ -72,6 +87,6 @@ class AISettingsRepository(
     }
 
     suspend fun setSelectedRecognitionEngine(engine: RecognitionEnginePreference) {
-        preferencesRepository.setSelectedRecognitionEngine(engine.name)
+        preferencesRepository.setSelectedRecognitionEngine(RecognitionEnginePreference.fromStored(engine.name).name)
     }
 }

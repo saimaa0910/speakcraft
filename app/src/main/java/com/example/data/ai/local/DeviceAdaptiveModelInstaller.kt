@@ -22,6 +22,7 @@ private const val TAG = "DeviceModelInstaller"
  */
 data class DeviceModelPlan(
     val profile: DeviceProfile,
+    /** Always `null`: no local speech model is ever selected; transcripts come from the platform recogniser. */
     val selectedSpeechModel: LocalModelId?,
     val selectedVideoModels: List<LocalModelId>,
     val recommendedEngine: RecognitionEnginePreference,
@@ -43,19 +44,17 @@ sealed interface ModelProvisioningState {
 /**
  * Autonomous Device-Adaptive Model Provisioner & Installer.
  *
- * Automatically inspects device RAM, CPU/NPU, free storage, and Android API level to
- * install the optimal lightweight models for audio and video analysis:
- * - High-end (ADVANCED, ≥4 GB RAM, ≥300 MB free): Whisper Tiny EN (39MB) + full MediaPipe Face/Pose/Hand suite
- * - Mid-range (STANDARD, 2–4 GB RAM, ≥200 MB free): Moonshine Tiny INT8 (26MB) + MediaPipe Face/Pose suite
- * - Entry-level (BASIC, <2 GB RAM or low storage): Pure DSP audio + Android verified OS offline ASR + light face vision
+ * Inspects the device profile and Android API level to install the vision models suited to it:
+ * - ADVANCED: MediaPipe Face/Pose/Hand · STANDARD: Face/Pose · BASIC: Face only.
  *
- * Strict zero-cloud-AI policy: all models run 100% locally on-device.
+ * Speech recognition always uses the platform recogniser: no local ASR model is selected or installed, and the
+ * recognition engine is never switched to a local model (FND-AI-03 — the former Whisper/Moonshine path was
+ * fabricated and is removed).
  *
  * Safety rules (AI-SEC-19, threat THR-37, TC-AI-021; ARC-06):
  * - a model is downloaded only if its SHA-256 is pinned in the app, and the file is verified after download
- *   (deleted on mismatch); a model without a pinned hash is never downloaded and the platform recogniser is kept;
+ *   (deleted on mismatch); a model without a pinned hash is never downloaded;
  * - downloads happen only on an unmetered network;
- * - the recognition engine is switched to a local model only when that model is installed and verified;
  * - default settings are applied once, on the first provisioning, so later launches never override user choices;
  * - provisioning has its own completion marker and never touches the first-launch flag used by the launch screen.
  */
@@ -80,30 +79,13 @@ class DeviceAdaptiveModelInstaller(
         val apiLevel = report.apiLevel
         val profile = report.profile
 
-        // 1. Audio Analyser Speech Model Selection
-        val selectedSpeechModel: LocalModelId?
-        val recommendedEngine: RecognitionEnginePreference
-
-        when {
-            // ADVANCED tier: RAM >= 4GB and sufficient storage (>= 300MB) -> Whisper Tiny EN (39MB)
-            profile == DeviceProfile.ADVANCED && storageMb >= 300L -> {
-                selectedSpeechModel = LocalModelId.WHISPER_TINY_EN
-                recommendedEngine = RecognitionEnginePreference.LOCAL_WHISPER
-            }
-            // STANDARD tier: RAM 2-4GB and sufficient storage (>= 200MB) -> Moonshine Tiny INT8 (26MB)
-            profile == DeviceProfile.STANDARD && storageMb >= 200L -> {
-                selectedSpeechModel = LocalModelId.MOONSHINE_TINY_INT8
-                recommendedEngine = RecognitionEnginePreference.LOCAL_WHISPER
-            }
-            // BASIC tier or storage-constrained -> Zero extra download; use Android native offline recognizer
-            else -> {
-                selectedSpeechModel = null
-                recommendedEngine = if (apiLevel >= 31) {
-                    RecognitionEnginePreference.ANDROID_OFFLINE
-                } else {
-                    RecognitionEnginePreference.AUTO
-                }
-            }
+        // 1. Speech: never a local ASR model. Transcripts come only from the platform recogniser (FND-AI-03: the
+        // app-managed Whisper/Moonshine recogniser was fabricated and is removed; ADR-009).
+        val selectedSpeechModel: LocalModelId? = null
+        val recommendedEngine = if (apiLevel >= 31) {
+            RecognitionEnginePreference.ANDROID_OFFLINE
+        } else {
+            RecognitionEnginePreference.AUTO
         }
 
         // 2. Video Analyser Vision Models Selection
@@ -125,17 +107,11 @@ class DeviceAdaptiveModelInstaller(
             }
         }
 
-        val speechBytes = selectedSpeechModel?.let { modelManager.downloadSize(it) } ?: 0L
-        val videoBytes = selectedVideoModels.sumOf { modelManager.downloadSize(it) }
-        val totalBytes = speechBytes + videoBytes
+        val totalBytes = selectedVideoModels.sumOf { modelManager.downloadSize(it) }
 
         val reason = buildString {
             append("Device profile: ${profile.name} (${ramMb}MB RAM, ${storageMb}MB free storage, API $apiLevel). ")
-            if (selectedSpeechModel != null) {
-                append("Configured for lightweight neural speech recognizer '${selectedSpeechModel.name}' (${speechBytes / (1024 * 1024)}MB). ")
-            } else {
-                append("Configured for native Android on-device speech engine to conserve memory. ")
-            }
+            append("Speech recognition uses the device's own recogniser. ")
             append("Selected ${selectedVideoModels.size} video models (${selectedVideoModels.joinToString { it.name }}).")
         }
 
@@ -162,7 +138,7 @@ class DeviceAdaptiveModelInstaller(
         AppLogger.i(TAG, "Starting device-adaptive model installation: ${plan.reason}")
 
         var installedCount = 0
-        val totalModels = (if (plan.selectedSpeechModel != null) 1 else 0) + plan.selectedVideoModels.size
+        val totalModels = plan.selectedVideoModels.size
 
         // Step 1: Provision video models
         for ((idx, videoModelId) in plan.selectedVideoModels.withIndex()) {
@@ -181,45 +157,10 @@ class DeviceAdaptiveModelInstaller(
             }
         }
 
-        // Step 2: Provision speech model (if selected for this device tier)
-        val speechModel = plan.selectedSpeechModel
-        var speechReady = false
-        if (speechModel != null) {
-            val progress = if (totalModels > 0) ((installedCount * 100) / totalModels) else 50
-            _state.value = ModelProvisioningState.Installing(speechModel, progress)
-            onProgress?.invoke(progress, "Setting up speech model: ${speechModel.name}")
-
-            if (modelManager.isInstalled(speechModel)) {
-                installedCount++
-                AppLogger.d(TAG, "Speech model $speechModel already installed")
-            } else {
-                val extracted = modelManager.extractBundledAssetIfPresent(speechModel)
-                if (extracted) {
-                    installedCount++
-                } else {
-                    val downloaded = downloadModelIfAllowed(speechModel)
-                    if (downloaded) {
-                        installedCount++
-                    } else {
-                        AppLogger.w(TAG, "Speech model $speechModel setup deferred (offline/unavailable). Android OS recognizer will act as fallback.")
-                    }
-                }
-            }
-        }
-
-        // A local speech model counts only when it is installed and passes its pinned-hash check.
-        if (speechModel != null && modelManager.isInstalled(speechModel)) {
-            speechReady = modelManager.verifyIntegrity(speechModel)
-        }
-
-        // Step 3: Apply default settings once (first provisioning only). The recogniser is switched to a local
-        // model only when that model is verified; otherwise the user's choice (default AUTO) is left alone, which
-        // already prefers the platform's offline recogniser when it is available.
+        // Step 2: Apply default settings once (first provisioning only). The recognition engine is left as the user
+        // chose (default AUTO, which already prefers the platform's on-device recogniser when it is available).
         if (applyDefaultSettings) {
             runCatching {
-                if (plan.recommendedEngine == RecognitionEnginePreference.LOCAL_WHISPER && speechReady) {
-                    aiSettingsRepository?.setSelectedRecognitionEngine(plan.recommendedEngine)
-                }
                 aiSettingsRepository?.setLocalVideoAnalysisEnabled(plan.selectedVideoModels.isNotEmpty())
                 aiSettingsRepository?.setLocalAudioAnalysisEnabled(true)
                 preferencesRepository?.markModelProvisioningCompleted()
@@ -259,7 +200,7 @@ class DeviceAdaptiveModelInstaller(
 
     /** Only models that can actually be installed count: bundled ones and downloads with a pinned hash. */
     private fun areRequiredModelsInstalled(plan: DeviceModelPlan): Boolean =
-        (plan.selectedVideoModels + listOfNotNull(plan.selectedSpeechModel))
+        plan.selectedVideoModels
             .filter { isInstallable(it) }
             .all { modelManager.isInstalled(it) }
 
@@ -274,7 +215,7 @@ class DeviceAdaptiveModelInstaller(
 
         // AI-SEC-19: never download a model whose SHA-256 is not pinned in the app.
         if (spec.sha256Hash.isBlank()) {
-            AppLogger.i(TAG, "Not downloading $id: no pinned SHA-256; the platform recogniser stays in use")
+            AppLogger.i(TAG, "Not downloading $id: no pinned SHA-256")
             return false
         }
         // Large files only on Wi-Fi or another unmetered network.

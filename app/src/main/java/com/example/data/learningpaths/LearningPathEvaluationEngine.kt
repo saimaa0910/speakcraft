@@ -1,15 +1,19 @@
 package com.example.data.learningpaths
 
-import com.example.data.ai.local.audio.AcousticFeatures
 import com.example.data.ai.local.language.DynamicLocalCoachEngine
 import com.example.data.ai.local.language.LocalLanguageAnalysisEngine
-import com.example.data.evaluation.EvaluationEvidenceValidator
-import com.example.data.evaluation.EvidenceValidationInput
+import com.example.data.evaluation.LabAttemptEvaluator
+import com.example.data.evaluation.LabAttemptRequest
+import com.example.data.evaluation.LabPracticeTarget
+import com.example.data.evaluation.TranscriptUse
+import com.example.speech.analysis.AcousticFeatures
+import com.example.speech.android.RecordedAudioAnalyzer
+import com.example.speech.pipeline.AttemptEvaluationResult
 import com.example.speech.pipeline.InsightSeverity
 import com.example.speech.pipeline.TranscriptAnalyzer
 import com.example.speech.pipeline.TranscriptInsight
 import java.io.File
-import java.util.UUID
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -18,12 +22,37 @@ import kotlin.math.roundToInt
  *
  * Strictly separates objective spoken/written analysis from user self-rated confidence
  * (`confidenceSelfRating`), never fabricating acoustic metrics when audio is absent.
+ *
+ * Speaking feedback on a recorded submission comes from the local intelligence engine
+ * ([com.example.speech.pipeline.LocalIntelligencePipeline], ARC-05) — the same engine as Coach Practice and the
+ * practice labs: the recording is measured on the device, the submission text is used as its transcript when it
+ * can belong to the recording, and the engine's issues, tips and transcript highlights replace the text-only
+ * heuristics for that part. Written (text-only) submissions keep the text analysis.
  */
 object LearningPathEvaluationEngine {
+
+    /** Engine evaluation of a submission's recording; [result] is `null` when the file could not be read. */
+    private data class RecordingEvidence(
+        val features: AcousticFeatures?,
+        val result: AttemptEvaluationResult?,
+        val transcriptUse: TranscriptUse
+    ) {
+        val valid: AttemptEvaluationResult.Valid? get() = result as? AttemptEvaluationResult.Valid
+        val inconclusive: AttemptEvaluationResult.Inconclusive? get() = result as? AttemptEvaluationResult.Inconclusive
+        /** The engine evaluated the submission text as the recording's transcript. */
+        val usedTranscript: Boolean get() = valid != null && transcriptUse == TranscriptUse.USED
+    }
 
     fun evaluateLesson(
         lesson: LearningPathLesson,
         request: LessonSubmissionRequest
+    ): LearningPathFeedback = evaluateLesson(lesson, request, RecordedAudioAnalyzer::analyse)
+
+    /** As [evaluateLesson], with the recording measurement injectable for tests. */
+    internal fun evaluateLesson(
+        lesson: LearningPathLesson,
+        request: LessonSubmissionRequest,
+        recordingAnalyzer: (File) -> AcousticFeatures?
     ): LearningPathFeedback {
         val cleanText = request.spokenOrWrittenText.trim()
         val words = LocalLanguageAnalysisEngine.tokenizeWords(cleanText)
@@ -36,17 +65,16 @@ object LearningPathEvaluationEngine {
         }
         val quizScorePercent = if (totalQuiz == 0) 100 else ((correctQuiz * 100.0) / totalQuiz).roundToInt()
 
-        // Optional real acoustic extraction strictly when an actual non-empty audio file exists
-        val (acoustic, evidenceNote) = inspectOptionalAudio(
-            audioFilePath = request.audioFilePath,
-            audioDurationSeconds = request.audioDurationSeconds,
-            transcript = cleanText
-        )
+        // Speaking evaluation by the local intelligence engine, strictly when an actual non-empty recording exists
+        val recording = evaluateRecording(lesson, request, cleanText, recordingAnalyzer)
+        val evidenceNote = evidenceNoteFor(recording, cleanText, request.audioFilePath)
+        val engine = recording?.valid
 
         val hasMinimalText = wordCount >= 4
-        val hasValidAudio = acoustic != null && acoustic.speechDurationSeconds >= 1.5
+        val hasValidAudio = engine != null
 
         if (!hasMinimalText && !hasValidAudio) {
+            val inconclusive = recording?.inconclusive
             return LearningPathFeedback(
                 overallScore = if (totalQuiz > 0 && correctQuiz > 0) 20 else 5,
                 passed = false,
@@ -57,9 +85,16 @@ object LearningPathEvaluationEngine {
                 whatWentWell = if (correctQuiz > 0) {
                     listOf("Answered $correctQuiz/$totalQuiz knowledge check correctly.")
                 } else emptyList(),
-                mistakesFound = listOf(
-                    "Response is too brief ($wordCount words) and no valid speech recording was attached. Aim for at least ${lesson.targetWordCountMin} words."
-                ),
+                mistakesFound = if (inconclusive != null) {
+                    listOf(
+                        "Your recording could not be evaluated: ${inconclusive.reason.userMessage}",
+                        "Response text is too brief ($wordCount words). Aim for at least ${lesson.targetWordCountMin} words."
+                    )
+                } else {
+                    listOf(
+                        "Response is too brief ($wordCount words) and no valid speech recording was attached. Aim for at least ${lesson.targetWordCountMin} words."
+                    )
+                },
                 correctedExamples = listOf(
                     CorrectedExampleItem(
                         original = cleanText.ifBlank { "(empty response)" },
@@ -68,7 +103,8 @@ object LearningPathEvaluationEngine {
                     )
                 ),
                 explanation = "A full response lets the local analyzer evaluate clarity, phrasing, grammar, and alignment with '${lesson.title}'.",
-                coachTips = listOf(
+                coachTips = listOfNotNull(
+                    inconclusive?.advice?.advice,
                     "Listen to the model example first, then record or write around ${lesson.targetWordCountMin}+ words answering: ${lesson.exercisePrompt}",
                     lesson.exampleContrast.whyItWorks
                 ),
@@ -92,11 +128,21 @@ object LearningPathEvaluationEngine {
             text = analysisText,
             topicHint = lesson.title
         )
-        val insights: List<TranscriptInsight> = TranscriptAnalyzer.analyze(analysisText)
-        val transcriptSummary = if (analysisText.isBlank()) {
-            "Audio captured (${acoustic?.durationSeconds?.roundToInt() ?: request.audioDurationSeconds}s). Add or verify your transcript text to unlock inline word & grammar highlights."
+        // Spoken transcript: the engine's highlights, which agree with the issues it raised (ARC-05 §8.4).
+        // Written text (or a transcript that cannot belong to the recording): text highlights.
+        val spokenTranscript = recording?.usedTranscript == true
+        val insights: List<TranscriptInsight> = if (spokenTranscript) {
+            engine!!.transcriptInsights
         } else {
-            TranscriptAnalyzer.composeSummary(insights)
+            TranscriptAnalyzer.analyze(analysisText)
+        }
+        val recordedSeconds = recording?.features?.durationMs?.let { (it / 1000.0).roundToInt() } ?: request.audioDurationSeconds
+        val transcriptSummary = when {
+            analysisText.isBlank() ->
+                "Audio captured (${recordedSeconds}s). Add or verify your transcript text to unlock inline word & grammar highlights."
+            spokenTranscript ->
+                engine!!.feedback.transcriptInsightSummary ?: TranscriptAnalyzer.composeSummary(insights)
+            else -> TranscriptAnalyzer.composeSummary(insights)
         }
 
         // Quantitative scoring components
@@ -112,7 +158,10 @@ object LearningPathEvaluationEngine {
             (45 + ratio * 55).roundToInt()
         }
 
-        val grammarPenalty = (langResult.grammarIssues.size * 10).coerceAtMost(35)
+        // A spoken transcript is checked only by the engine's qualified grammar rules (SPK-02, SRS-FR-EVAL-006).
+        val engineGrammar = engine?.issues.orEmpty().filter { it.code == com.example.speech.rules.IssueCode.ISSUE_GRAMMAR_POSSIBLE }
+        val grammarIssueCount = if (spokenTranscript) engineGrammar.size else langResult.grammarIssues.size
+        val grammarPenalty = (grammarIssueCount * 10).coerceAtMost(35)
         val fillerHedgeCount = insights.count { it.severity == InsightSeverity.WARNING }
         val fillerPenalty = (fillerHedgeCount * 6).coerceAtMost(24)
 
@@ -122,8 +171,10 @@ object LearningPathEvaluationEngine {
             coachResult.discourse.hasStrongClosing || coachResult.discourse.hasConcreteExample
         ).count { it } * 7 // up to +21
 
-        val baseDeliveryQuality = if (analysisText.isBlank() && acoustic != null) {
-            // Audio-only valid capture: neutral completion baseline + acoustic clarity bonus without fabrication
+        val audioOnlyCredit = analysisText.isBlank() && engine != null
+        val baseDeliveryQuality = if (audioOnlyCredit) {
+            // Audio-only valid recording: the engine measured speech, but there are no words to grade. This is the
+            // learning path's completion credit, not a speaking measurement; the explanation says so.
             72
         } else {
             val diversityPart = (langResult.vocabularyAnalysis.vocabularyDiversityScore * 0.45).roundToInt()
@@ -180,14 +231,18 @@ object LearningPathEvaluationEngine {
             wordCount = wordCount,
             correctQuiz = correctQuiz,
             totalQuiz = totalQuiz,
-            acoustic = acoustic
+            engine = engine
         )
 
         val mistakes = buildMistakes(
             lesson = lesson,
-            langIssues = langResult.grammarIssues.map { "${it.issueType}: '${it.originalText}' -> '${it.correctedText}'" },
-            insights = insights,
-            hedges = coachResult.discourse.hedgesDetected,
+            langIssues = if (spokenTranscript) emptyList() else {
+                langResult.grammarIssues.map { "${it.issueType}: '${it.originalText}' -> '${it.correctedText}'" }
+            },
+            engineIssues = engine?.let { LabAttemptEvaluator.issueLines(it) }.orEmpty(),
+            // A spoken transcript's fillers and hedges are judged by the engine against its target bands.
+            insights = if (spokenTranscript) emptyList() else insights,
+            hedges = if (spokenTranscript) emptyList() else coachResult.discourse.hedgesDetected,
             vague = coachResult.discourse.vaguePhrasesDetected,
             wordCount = wordCount,
             matchedTerms = matchedTerms,
@@ -196,7 +251,8 @@ object LearningPathEvaluationEngine {
         )
 
         val corrections = buildCorrections(
-            langIssues = langResult.grammarIssues,
+            langIssues = if (spokenTranscript) emptyList() else langResult.grammarIssues,
+            engineCorrections = if (spokenTranscript) engineGrammar.mapNotNull { engineCorrection(it) } else emptyList(),
             rewrites = coachResult.rewrites,
             lesson = lesson,
             cleanText = analysisText,
@@ -207,7 +263,7 @@ object LearningPathEvaluationEngine {
             lesson = lesson,
             coachSuggestions = coachResult.suggestions,
             nextMicroDrill = coachResult.nextMicroDrill,
-            acoustic = acoustic,
+            engine = engine,
             wordCount = wordCount,
             passed = passed,
             checklistReady = checklistBoostReady
@@ -221,6 +277,18 @@ object LearningPathEvaluationEngine {
                     "Current score is $combinedScore% (passing target ${lesson.passingScoreThreshold}%). "
                 }
             )
+            if (audioOnlyCredit) {
+                append(
+                    "Your recording was checked on this device (speaking time and pauses); without a transcript there were no words to grade, " +
+                        "so the score reflects completing the task and the knowledge check, not a measurement of your speaking. "
+                )
+            }
+            if (engine != null) {
+                append(engine.feedback.strength.message).append(' ')
+                if (engine.feedback.focus.issueCode != null) {
+                    append("Speaking focus: ${engine.feedback.focus.title.lowercase(Locale.ROOT)}. ")
+                }
+            }
             if (coachResult.narrativeSummary.isNotBlank()) {
                 append(coachResult.narrativeSummary)
             } else {
@@ -351,38 +419,70 @@ object LearningPathEvaluationEngine {
         )
     }
 
-    private fun inspectOptionalAudio(
-        audioFilePath: String?,
-        audioDurationSeconds: Int,
-        transcript: String
-    ): Pair<AcousticFeatures?, String> {
-        val file = audioFilePath?.takeIf { it.isNotBlank() }?.let { File(it) }
-        if (file == null || !file.exists() || file.length() <= 0L) {
-            return if (transcript.isNotBlank()) {
-                null to "Evaluated from written/transcribed response (no audio file attached)."
+    /**
+     * Measures the submission's recording and evaluates it with the local intelligence engine; `null` when there
+     * is no non-empty recording. Lessons are free speaking (`TPL-ANSWER` with the lesson's word target), or a
+     * structure check when the lesson names PREP or STAR.
+     */
+    private fun evaluateRecording(
+        lesson: LearningPathLesson,
+        request: LessonSubmissionRequest,
+        cleanText: String,
+        recordingAnalyzer: (File) -> AcousticFeatures?
+    ): RecordingEvidence? {
+        val file = request.audioFilePath?.takeIf { it.isNotBlank() }?.let { File(it) }
+        if (file == null || !file.exists() || file.length() <= 0L) return null
+        val features = runCatching { recordingAnalyzer(file) }.getOrNull()
+            ?: return RecordingEvidence(features = null, result = null, transcriptUse = TranscriptUse.NONE)
+        val fromPrompt = LabPracticeTarget.fromPrompt(lesson.title, lesson.exercisePrompt)
+        val target = if (fromPrompt.templateId == LabPracticeTarget.TPL_STRUCT) fromPrompt
+        else LabPracticeTarget.answer(targetMinWords = lesson.targetWordCountMin.takeIf { it > 0 })
+        val attempt = LabAttemptEvaluator.runEngine(
+            request = LabAttemptRequest(
+                sessionId = "${lesson.lessonId}_${file.name}",
+                moduleType = "LESSON_PRACTICE",
+                promptTitle = lesson.title,
+                target = target,
+                localMediaPath = file.absolutePath
+            ),
+            features = features,
+            transcript = cleanText
+        )
+        return RecordingEvidence(features, attempt.result, attempt.transcriptUse)
+    }
+
+    private fun evidenceNoteFor(recording: RecordingEvidence?, cleanText: String, audioFilePath: String?): String {
+        if (recording == null) {
+            return if (cleanText.isNotBlank()) {
+                "Evaluated from written/transcribed response (no audio file attached)."
             } else {
-                null to "No audio recording or transcript detected yet."
+                "No audio recording or transcript detected yet."
             }
         }
-
-        val bundle = EvaluationEvidenceValidator.validate(
-            EvidenceValidationInput(
-                sessionId = UUID.randomUUID().toString(),
-                audioRequired = true,
-                audioFile = file,
-                reportedDurationSeconds = audioDurationSeconds,
-                transcriptRequired = false,
-                transcript = transcript
-            )
+        val features = recording.features
+            ?: return "Audio file attached (${audioFilePath?.let { File(it).length() / 1024 } ?: 0} KB) but it could not be read on this device; evaluated from the text only."
+        val measured = String.format(
+            Locale.ROOT, "%.1f s recorded, %.1f s speaking", features.durationMs / 1000.0, features.voicedDurationMs / 1000.0
         )
-
-        val features = bundle.acousticFeatures
-        return if (features != null && bundle.validation.isValidForEvaluation) {
-            val wpmNote = if (features.wordsPerMinute > 0) ", ~${features.wordsPerMinute} WPM" else ""
-            features to "Verified on-device audio (${features.durationSeconds.roundToInt()}s, ${features.pauseCount} pauses$wpmNote)."
-        } else {
-            features to "Audio file attached (${file.length() / 1024} KB); evaluated primarily via transcript/text analysis."
+        return when (val result = recording.result) {
+            is AttemptEvaluationResult.Inconclusive ->
+                "Recording not evaluated ($measured): ${result.reason.userMessage}"
+            is AttemptEvaluationResult.Valid -> {
+                val words = when (recording.transcriptUse) {
+                    TranscriptUse.USED -> "audio + your transcript"
+                    TranscriptUse.NONE -> "audio only (no transcript)"
+                    TranscriptUse.INCOMPLETE -> "audio only (the text did not match the recording's length, so it was graded as written text)"
+                }
+                "Evaluated on this device by the speech engine ${result.evaluationVersion} ($measured; $words)."
+            }
+            null -> "Audio file attached; evaluated from the text only."
         }
+    }
+
+    /** An engine grammar observation as a before/after correction. */
+    private fun engineCorrection(issue: com.example.speech.rules.DetectedIssue): CorrectedExampleItem? {
+        val (before, after, why) = LabAttemptEvaluator.grammarRewrite(issue) ?: return null
+        return CorrectedExampleItem(original = before, improved = after, reason = why.ifBlank { issue.code.title })
     }
 
     private fun buildStrengths(
@@ -392,9 +492,11 @@ object LearningPathEvaluationEngine {
         wordCount: Int,
         correctQuiz: Int,
         totalQuiz: Int,
-        acoustic: AcousticFeatures?
+        engine: AttemptEvaluationResult.Valid?
     ): List<String> {
         val out = mutableListOf<String>()
+        // Speaking strength chosen by the engine from measured metrics (never praise for an unmeasured value).
+        engine?.let { out.add(it.feedback.strength.message) }
         if (totalQuiz > 0 && correctQuiz == totalQuiz) {
             out.add("Knowledge check mastery: answered $correctQuiz/$totalQuiz correctly.")
         }
@@ -403,9 +505,6 @@ object LearningPathEvaluationEngine {
         }
         if (matchedTerms.isNotEmpty()) {
             out.add("Applied lesson focus vocabulary accurately: ${matchedTerms.joinToString(", ") { "'$it'" }}.")
-        }
-        if (acoustic != null && acoustic.pauseCount > 0) {
-            out.add("Measured acoustic pausing detected (${acoustic.pauseCount} controlled breath rests across ${acoustic.durationSeconds.roundToInt()}s).")
         }
         out.addAll(coachStrengths.take(2))
         if (out.isEmpty()) {
@@ -417,6 +516,7 @@ object LearningPathEvaluationEngine {
     private fun buildMistakes(
         lesson: LearningPathLesson,
         langIssues: List<String>,
+        engineIssues: List<String>,
         insights: List<TranscriptInsight>,
         hedges: List<String>,
         vague: List<String>,
@@ -426,6 +526,8 @@ object LearningPathEvaluationEngine {
         quizTotal: Int
     ): List<String> {
         val out = mutableListOf<String>()
+        // Speaking mistakes found by the engine in the recording (and its transcript) come first.
+        out.addAll(engineIssues.take(3))
         out.addAll(langIssues.take(3))
         val fillers = insights.filter { it.issueTitle.contains("Filler", ignoreCase = true) }
             .map { it.highlightedText.lowercase() }.distinct()
@@ -452,12 +554,14 @@ object LearningPathEvaluationEngine {
 
     private fun buildCorrections(
         langIssues: List<com.example.data.ai.local.language.GrammarIssue>,
+        engineCorrections: List<CorrectedExampleItem>,
         rewrites: List<DynamicLocalCoachEngine.SentenceRewrite>,
         lesson: LearningPathLesson,
         cleanText: String,
         matchedTerms: List<String>
     ): List<CorrectedExampleItem> {
         val out = mutableListOf<CorrectedExampleItem>()
+        out.addAll(engineCorrections.take(2))
         langIssues.take(2).forEach { issue ->
             out.add(
                 CorrectedExampleItem(
@@ -492,17 +596,14 @@ object LearningPathEvaluationEngine {
         lesson: LearningPathLesson,
         coachSuggestions: List<String>,
         nextMicroDrill: String,
-        acoustic: AcousticFeatures?,
+        engine: AttemptEvaluationResult.Valid?,
         wordCount: Int,
         passed: Boolean,
         checklistReady: Boolean
     ): List<String> {
         val out = mutableListOf<String>()
-        if (acoustic != null && acoustic.wordsPerMinute > 175) {
-            out.add("Your measured rate (${acoustic.wordsPerMinute} WPM) ran brisk—slow key takeaway sentences closer to 135 WPM.")
-        } else if (acoustic != null && acoustic.wordsPerMinute in 1..95) {
-            out.add("Measured speech pace (${acoustic.wordsPerMinute} WPM) was very deliberate—aim for conversational flow around 125-150 WPM.")
-        }
+        // The engine's focus advice and coach tips for the recording (pace, pauses, fillers … against its bands).
+        engine?.let { out.addAll(LabAttemptEvaluator.tipLines(it).take(2)) }
         out.addAll(coachSuggestions.take(2))
         if (nextMicroDrill.isNotBlank()) out.add(nextMicroDrill)
         if (!checklistReady) {

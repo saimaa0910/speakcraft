@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.evaluation.LabPracticeTarget
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.Lesson
@@ -295,6 +296,7 @@ fun LessonDetailScreen(
     val elapsed by speakingVm.audioManager.elapsedSeconds.collectAsStateWithLifecycle()
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -378,8 +380,7 @@ fun LessonDetailScreen(
                                     speakingVm.submitForAiAnalysis(
                                         moduleType = "LESSON_PRACTICE",
                                         promptTitle = lesson.title,
-                                        previousSession = pastSessions.firstOrNull(),
-                                        extraInstructions = "Evaluate specifically against lesson objective: ${lesson.objective}. Prompt: ${lesson.practicePrompt}"
+                                        practiceTarget = LabPracticeTarget.fromPrompt(lesson.title, lesson.practicePrompt)
                                     )
                                 },
                                 enabled = recordedPath != null,
@@ -400,7 +401,7 @@ fun LessonDetailScreen(
                 when (val st = analysisState) {
                     is UiState.Loading -> ShimmerSkeletonCard(150)
                     is UiState.Error -> ErrorRecoveryCard(st.message)
-                    is UiState.Success -> FeedbackReportCard(st.data, pastSessions.firstOrNull())
+                    is UiState.Success -> FeedbackReportCard(st.data, pastSessions.firstOrNull(), evaluationReport)
                     null -> Unit
                 }
             }
@@ -538,6 +539,7 @@ fun VoiceTrainingLabScreen(
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val recordedPath by speakingVm.audioManager.recordedFilePath.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
+    val evaluationReport by speakingVm.evaluationReport.collectAsStateWithLifecycle()
     val activeModule by speakingVm.activeAnalysisModule.collectAsStateWithLifecycle()
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -594,8 +596,7 @@ fun VoiceTrainingLabScreen(
                             speakingVm.submitForAiAnalysis(
                                 moduleType = "SPEAKING_LAB",
                                 promptTitle = "Voice Training: $activeLever",
-                                previousSession = pastSessions.firstOrNull(),
-                                extraInstructions = "Evaluate vocal contrast against target pace ${targetWpm.roundToInt()} WPM and deliberate pause habits for $activeLever."
+                                practiceTarget = LabPracticeTarget.readAloud(script)
                             )
                         },
                         enabled = !isRecording && recordedPath != null,
@@ -612,7 +613,7 @@ fun VoiceTrainingLabScreen(
                 when (val s = analysisState) {
                     is UiState.Loading -> ShimmerSkeletonCard(140)
                     is UiState.Error -> ErrorRecoveryCard(s.message)
-                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull())
+                    is UiState.Success -> FeedbackReportCard(s.data, pastSessions.firstOrNull(), evaluationReport)
                     null -> Unit
                 }
             }

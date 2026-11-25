@@ -216,7 +216,7 @@ class LiveTranscriptionManager(
         val engineAvailable = backend?.isRecognitionAvailable() == true
         val current = _state.value
 
-        val engineLabel = buildEngineLabel(settings, engineAvailable, offlineOk)
+        val engineLabel = buildEngineLabel(engineAvailable, offlineOk)
 
         val nextStatus = when {
             !settings.liveTranscriptionEnabled -> LiveTranscriptionStatus.DISABLED
@@ -262,7 +262,7 @@ class LiveTranscriptionManager(
             sessionId = sessionId,
             finalizedText = "",
             partialText = "",
-            activeEngineLabel = buildEngineLabel(settings, engineAvailable, offlineOk),
+            activeEngineLabel = buildEngineLabel(engineAvailable, offlineOk),
             offlineVerified = offlineOk,
             hasMicPermission = hasMic,
             languageTag = settings.selectedRecognitionLanguage,
@@ -285,7 +285,7 @@ class LiveTranscriptionManager(
         val engine = backend
         val offlineOk = engine?.isOfflineRecognitionAvailable() == true
         val engineAvailable = engine?.isRecognitionAvailable() == true
-        val engineLabel = buildEngineLabel(settings, engineAvailable, offlineOk)
+        val engineLabel = buildEngineLabel(engineAvailable, offlineOk)
 
         if (!settings.liveTranscriptionEnabled) {
             _state.value = LiveTranscriptionState(
@@ -337,7 +337,9 @@ class LiveTranscriptionManager(
         )
 
         val listenerSessionId = sessionId
-        val preferOffline = settings.selectedRecognitionEngine != RecognitionEnginePreference.AUTO || offlineOk
+        // Platform recogniser only. The retired LOCAL_WHISPER preference behaves as AUTO (FND-AI-03).
+        val preferOffline = RecognitionEnginePreference.fromStored(settings.selectedRecognitionEngine.name) ==
+            RecognitionEnginePreference.ANDROID_OFFLINE || offlineOk
         val startResult = engine.startListening(
             languageTag = settings.selectedRecognitionLanguage,
             preferOffline = preferOffline,
@@ -443,13 +445,11 @@ class LiveTranscriptionManager(
     }
 
     private fun buildEngineLabel(
-        settings: AISettings,
         engineAvailable: Boolean,
         offlineOk: Boolean
     ): String = when {
         !engineAvailable -> "Unavailable"
         offlineOk -> "Android On-Device SpeechRecognizer"
-        settings.selectedRecognitionEngine == RecognitionEnginePreference.LOCAL_WHISPER -> "Local Whisper (Model Check)"
         else -> "Android SpeechRecognizer (Offline Unverified)"
     }
 }

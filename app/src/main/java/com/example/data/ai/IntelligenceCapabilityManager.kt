@@ -8,12 +8,9 @@ import android.speech.SpeechRecognizer
 import androidx.core.content.ContextCompat
 import com.example.data.ai.local.DeviceCapabilityManager
 import com.example.data.ai.local.DeviceProfile
-import com.example.data.ai.local.LocalModelId
 import com.example.data.ai.local.OfflineAIAvailabilityManager
-import com.example.data.ai.local.OnDeviceModelManager
 import com.example.data.preferences.AISettings
 import com.example.data.preferences.AISettingsRepository
-import com.example.data.preferences.RecognitionEnginePreference
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +43,8 @@ data class IntelligenceCapabilityMatrix(
     val hasCameraPermission: Boolean,
     val offlineSpeechAvailable: Boolean,
     val activeRecognitionEngineLabel: String,
-    val whisperModelStatus: String,
+    /** Platform recogniser status; the app ships no speech model of its own (FND-AI-03). */
+    val onDeviceSpeechStatus: String,
     val mediaPipeStatus: String,
     val speechRecognizerInitError: String?,
     val deviceProfile: DeviceProfile = DeviceProfile.STANDARD,
@@ -61,7 +59,6 @@ data class IntelligenceCapabilityMatrix(
  */
 class IntelligenceCapabilityManager(
     private val context: Context? = null,
-    private val modelManager: OnDeviceModelManager? = null,
     private val offlineAvailabilityManager: OfflineAIAvailabilityManager? = null
 ) {
     private val runtimeInitError = MutableStateFlow<String?>(null)
@@ -107,12 +104,11 @@ class IntelligenceCapabilityManager(
     ): IntelligenceCapabilityMatrix {
         val micPerm = hasAudioPermission()
         val camPerm = hasCameraPermission()
-        val whisperInstalled = modelManager?.isInstalled(LocalModelId.WHISPER_TINY_EN) == true
-        val moonshineInstalled = modelManager?.isInstalled(LocalModelId.MOONSHINE_TINY_INT8) == true
-        val localAsrModelInstalled = whisperInstalled || moonshineInstalled
+        // Transcripts come only from the platform recogniser (FND-AI-03: the app-managed Whisper/Moonshine path
+        // was fabricated and is removed); a stored LOCAL_WHISPER preference behaves as AUTO.
         val androidOnDevice = isAndroidOnDeviceSpeechSupported()
         val androidAnyAsr = isAndroidAnySpeechRecognizerAvailable()
-        val offlineSpeechAvailable = localAsrModelInstalled || androidOnDevice
+        val offlineSpeechAvailable = androidOnDevice
 
         val mediaPipeStatusObj = offlineAvailabilityManager?.getStatus()
         val faceModelReady = mediaPipeStatusObj?.canAnalyzeVideo ?: (context != null)
@@ -130,13 +126,7 @@ class IntelligenceCapabilityManager(
         )
 
         val engineLabel = when {
-            whisperInstalled && settings.selectedRecognitionEngine == RecognitionEnginePreference.LOCAL_WHISPER ->
-                "Local Whisper Tiny INT8"
-            moonshineInstalled && settings.selectedRecognitionEngine == RecognitionEnginePreference.LOCAL_WHISPER ->
-                "Local Moonshine Tiny INT8"
             androidOnDevice -> "Android On-Device SpeechRecognizer"
-            whisperInstalled -> "Local Whisper Tiny INT8"
-            moonshineInstalled -> "Local Moonshine Tiny INT8"
             androidAnyAsr -> "Android SpeechRecognizer (device-dependent offline pack)"
             else -> "Unavailable (No speech recognizer ready)"
         }
@@ -164,19 +154,11 @@ class IntelligenceCapabilityManager(
                 detail = effectiveErr,
                 offlineCapable = offlineSpeechAvailable
             )
-            settings.selectedRecognitionEngine == RecognitionEnginePreference.LOCAL_WHISPER && !localAsrModelInstalled ->
-                CapabilityDescriptor(
-                    key = "live_transcription",
-                    title = "Live Transcription",
-                    status = CapabilityStatus.MODEL_REQUIRED,
-                    detail = "Local Whisper/Moonshine model is not installed. Switch engine to Automatic or download the local speech model.",
-                    offlineCapable = false
-                )
-            !androidAnyAsr && !localAsrModelInstalled -> CapabilityDescriptor(
+            !androidAnyAsr -> CapabilityDescriptor(
                 key = "live_transcription",
                 title = "Live Transcription",
                 status = CapabilityStatus.UNAVAILABLE,
-                detail = "No speech recognition engine or offline speech model is available on this device.",
+                detail = "No speech recognition service is available on this device. Practice feedback uses the audio only.",
                 offlineCapable = false
             )
             else -> CapabilityDescriptor(
@@ -192,27 +174,22 @@ class IntelligenceCapabilityManager(
             )
         }
 
-        val localSpeechRecDescriptor = when {
-            !settings.localSpeechRecognitionEnabled -> CapabilityDescriptor(
+        // Platform capability only: the app ships no recogniser of its own.
+        val localSpeechRecDescriptor = if (androidOnDevice) {
+            CapabilityDescriptor(
                 key = "local_speech_recognition",
                 title = "On-Device Speech Recognition",
-                status = CapabilityStatus.DISABLED,
-                detail = "Disabled in AI & Intelligence settings.",
-                offlineCapable = offlineSpeechAvailable
-            )
-            !localAsrModelInstalled && !androidOnDevice -> CapabilityDescriptor(
-                key = "local_speech_recognition",
-                title = "On-Device Speech Recognition",
-                status = CapabilityStatus.MODEL_REQUIRED,
-                detail = "Optional offline ASR model not downloaded and OS on-device recognition unverified. Audio DSP works without it.",
-                offlineCapable = false
-            )
-            else -> CapabilityDescriptor(
-                key = "local_speech_recognition",
-                title = "On-Device Speech Recognition",
-                status = CapabilityStatus.ENABLED,
-                detail = "Offline ASR verified via $engineLabel.",
+                status = CapabilityStatus.AVAILABLE,
+                detail = "This device's speech recogniser can transcribe on the device ($engineLabel).",
                 offlineCapable = true
+            )
+        } else {
+            CapabilityDescriptor(
+                key = "local_speech_recognition",
+                title = "On-Device Speech Recognition",
+                status = CapabilityStatus.UNAVAILABLE,
+                detail = "No verified on-device recogniser on this device. Live transcripts may need the device's online speech service; without a transcript, feedback uses the audio only.",
+                offlineCapable = false
             )
         }
 
@@ -263,11 +240,10 @@ class IntelligenceCapabilityManager(
             )
         }
 
-        val whisperStatusText = when {
-            whisperInstalled -> "Installed (Whisper Tiny EN)"
-            moonshineInstalled -> "Installed (Moonshine Tiny INT8)"
-            androidOnDevice -> "Not downloaded (Using OS On-Device ASR)"
-            else -> "Not installed (Optional ~39 MB pack)"
+        val onDeviceSpeechStatusText = when {
+            androidOnDevice -> "Platform on-device recognition available"
+            androidAnyAsr -> "Platform recogniser only (on-device mode not verified)"
+            else -> "No speech recogniser on this device"
         }
 
         val mediaPipeStatusText = if (faceModelReady) {
@@ -290,7 +266,7 @@ class IntelligenceCapabilityManager(
             hasCameraPermission = camPerm,
             offlineSpeechAvailable = offlineSpeechAvailable,
             activeRecognitionEngineLabel = engineLabel,
-            whisperModelStatus = whisperStatusText,
+            onDeviceSpeechStatus = onDeviceSpeechStatusText,
             mediaPipeStatus = mediaPipeStatusText,
             speechRecognizerInitError = effectiveErr,
             deviceProfile = profile,

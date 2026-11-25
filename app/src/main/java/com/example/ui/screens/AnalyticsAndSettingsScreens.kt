@@ -64,6 +64,7 @@ import com.example.BuildConfig
 import com.example.data.ai.CapabilityStatus
 import com.example.data.ai.IntelligenceCapabilityManager
 import com.example.data.ai.IntelligenceCapabilityMatrix
+import com.example.data.evaluation.LabAttemptEvaluator
 import com.example.data.model.DailyActivity
 import com.example.data.model.SpeakingSession
 import com.example.data.model.StreakAndAnalyticsHelper
@@ -110,15 +111,18 @@ fun AnalyticsScreen(
     val strongest = objectiveSkills.maxByOrNull { it.second }
     val weakest = objectiveSkills.minByOrNull { it.second }
     val avgWpm = remember(filteredSessions) {
-        if (filteredSessions.isEmpty()) 0 else {
-            (filteredSessions.sumOf { it.wordsPerMinute } / filteredSessions.size).toInt()
+        // Only sessions where pace was measured (audio-only attempts have none).
+        val measured = filteredSessions.filter { it.wordsPerMinute > 0L }
+        if (measured.isEmpty()) 0 else {
+            (measured.sumOf { it.wordsPerMinute } / measured.size).toInt()
         }
     }
     val recurringMistakes = remember(filteredSessions) {
         filteredSessions.flatMap { it.mistakes + it.fillerWordsDetected + it.repeatedExpressions }.distinct().take(8)
     }
     val trendScores = remember(filteredSessions, profile) {
-        val list = filteredSessions.take(10).reversed().map {
+        // Engine-evaluated sessions carry no legacy skill scores, so they are not part of this score trend.
+        val list = filteredSessions.filterNot { LabAttemptEvaluator.isEngineEvaluated(it) }.take(10).reversed().map {
             if (it.pronunciationAssessable) {
                 ((it.fluencyScore + it.pronunciationScore + it.articulationScore) / 3).toInt()
             } else {
@@ -409,13 +413,12 @@ fun SettingsScreen(
         localAudioAnalysisEnabled = prefs.localAudioAnalysisEnabled,
         localVideoAnalysisEnabled = prefs.localVideoAnalysisEnabled,
         selectedRecognitionLanguage = prefs.selectedRecognitionLanguage,
-        selectedRecognitionEngine = RecognitionEnginePreference.entries.firstOrNull {
-            it.name == prefs.selectedRecognitionEngine
-        } ?: RecognitionEnginePreference.AUTO
+        selectedRecognitionEngine = RecognitionEnginePreference.fromStored(prefs.selectedRecognitionEngine)
     ),
     capabilityMatrix: IntelligenceCapabilityMatrix = IntelligenceCapabilityManager().computeMatrix(aiSettings),
     onSetLocalAiEnabled: (Boolean) -> Unit = {},
     onSetLiveTranscriptionEnabled: (Boolean) -> Unit = {},
+    /** No longer used: it controlled only the removed local file recogniser (FND-AI-03). Kept for call sites. */
     onSetLocalSpeechRecEnabled: (Boolean) -> Unit = {},
     onSetLocalAudioAnalysisEnabled: (Boolean) -> Unit = {},
     onSetLocalVideoAnalysisEnabled: (Boolean) -> Unit = {},
@@ -644,26 +647,21 @@ fun SettingsScreen(
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    // Status only: transcripts come from the device's own recogniser; the app ships none (FND-AI-03).
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            .testTag("settings_on_device_speech_status")
                     ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("On-Device Speech Recognition", style = MaterialTheme.typography.titleSmall)
-                                CapabilityStatusPill(capabilityMatrix.localSpeechRecognition.status)
-                            }
-                            Text(
-                                capabilityMatrix.localSpeechRecognition.detail,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("On-Device Speech Recognition", style = MaterialTheme.typography.titleSmall)
+                            CapabilityStatusPill(capabilityMatrix.localSpeechRecognition.status)
                         }
-                        Switch(
-                            checked = aiSettings.localSpeechRecognitionEnabled,
-                            onCheckedChange = onSetLocalSpeechRecEnabled,
-                            modifier = Modifier.testTag("settings_local_speech_rec_switch")
+                        Text(
+                            capabilityMatrix.localSpeechRecognition.detail,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -702,7 +700,7 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(SpeakCraftSpacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Recognition Engine", style = MaterialTheme.typography.labelLarge)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.sm)) {
-                        RecognitionEnginePreference.entries.forEach { pref ->
+                        RecognitionEnginePreference.SELECTABLE.forEach { pref ->
                             FilterChip(
                                 selected = aiSettings.selectedRecognitionEngine == pref,
                                 onClick = { onSetRecognitionEngine(pref) },
@@ -791,7 +789,7 @@ fun SettingsScreen(
                                 "Recognition Status: ${capabilityMatrix.liveTranscription.status.label} — ${capabilityMatrix.liveTranscription.detail}",
                                 style = MaterialTheme.typography.bodySmall
                             )
-                            Text("Model Availability: ${capabilityMatrix.whisperModelStatus}", style = MaterialTheme.typography.bodySmall)
+                            Text("On-Device Speech: ${capabilityMatrix.onDeviceSpeechStatus}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }

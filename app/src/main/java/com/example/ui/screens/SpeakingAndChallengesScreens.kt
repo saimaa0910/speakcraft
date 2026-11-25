@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Videocam
@@ -46,7 +45,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.evaluation.CoachEvaluationState
+import com.example.data.evaluation.LabAttemptEvaluator
+import com.example.data.evaluation.LabPracticeTarget
 import com.example.data.media.InAppCameraVideoDialog
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.LearningChallenge
@@ -129,8 +129,6 @@ fun SpeakingLabScreen(
     val aiSettings by speakingVm.aiSettings.collectAsStateWithLifecycle()
     val liveTranscriptionState by speakingVm.liveTranscriptionState.collectAsStateWithLifecycle()
     val liveTranscript by speakingVm.liveTranscript.collectAsStateWithLifecycle()
-    val isTranscribing by speakingVm.isTranscribing.collectAsStateWithLifecycle()
-    val transcriptionError by speakingVm.transcriptionError.collectAsStateWithLifecycle()
 
     val quickTopicPresets = remember {
         listOf(
@@ -457,30 +455,11 @@ fun SpeakingLabScreen(
                             Text(playbackNote.orEmpty(), style = MaterialTheme.typography.bodySmall, color = ext.info)
                         }
 
-                        OutlinedButton(
-                            onClick = { speakingVm.transcribeRecordedMedia(customTopic) },
-                            enabled = !isTranscribing && !isRecording,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                                .testTag("speaking_transcribe_button")
-                        ) {
-                            if (isTranscribing) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Transcribing Audio...")
-                            } else {
-                                Icon(Icons.Default.Subtitles, contentDescription = null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Transcribe Audio")
-                            }
-                        }
-
                         OutlinedTextField(
                             value = liveTranscript,
                             onValueChange = { speakingVm.setLiveTranscript(it) },
-                            label = { Text("Transcript Preview / Spoken Notes (Editable)") },
-                            placeholder = { Text("Tap 'Transcribe Audio' or edit recognized words from your recording...") },
+                            label = { Text("Transcript (correct recognition mistakes if needed)") },
+                            placeholder = { Text("Words recognised while you speak appear here when live transcription is on. Without a transcript you get audio-only feedback.") },
                             minLines = 2,
                             maxLines = 4,
                             shape = MaterialTheme.shapes.medium,
@@ -488,21 +467,13 @@ fun SpeakingLabScreen(
                                 .fillMaxWidth()
                                 .testTag("speaking_transcript_preview")
                         )
-
-                        if (!transcriptionError.isNullOrBlank()) {
-                            ErrorRecoveryCard(
-                                message = transcriptionError.orEmpty(),
-                                onRetry = { speakingVm.transcribeRecordedMedia(customTopic) }
-                            )
-                        }
                     }
 
                     Button(
                         onClick = {
                             speakingVm.submitForAiAnalysis(
                                 moduleType = "SPEAKING_LAB",
-                                promptTitle = customTopic,
-                                previousSession = previousSession
+                                promptTitle = customTopic
                             )
                         },
                         enabled = !isRecording,
@@ -569,12 +540,20 @@ fun SpeakingLabScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val pills = listOf(
-                            "Fluency ${sess.fluencyScore}",
-                            if (sess.pronunciationAssessable) "Pron ${sess.pronunciationScore}" else "Pron N/A",
-                            "Articulation ${sess.articulationScore}",
-                            "${sess.wordsPerMinute} WPM"
-                        )
+                        // Engine-evaluated sessions have no legacy skill scores: show only what was measured.
+                        val pills = if (LabAttemptEvaluator.isEngineEvaluated(sess)) {
+                            listOfNotNull(
+                                "On-device feedback",
+                                if (sess.wordsPerMinute > 0L) "${sess.wordsPerMinute} WPM" else "Audio only".takeIf { sess.transcript.isBlank() }
+                            )
+                        } else {
+                            listOf(
+                                "Fluency ${sess.fluencyScore}",
+                                if (sess.pronunciationAssessable) "Pron ${sess.pronunciationScore}" else "Pron N/A",
+                                "Articulation ${sess.articulationScore}",
+                                "${sess.wordsPerMinute} WPM"
+                            )
+                        }
                         pills.forEach { badge ->
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
@@ -589,7 +568,9 @@ fun SpeakingLabScreen(
                             }
                         }
                     }
-                    if (priorForCompare != null) {
+                    val comparable = priorForCompare != null &&
+                        !LabAttemptEvaluator.isEngineEvaluated(sess) && !LabAttemptEvaluator.isEngineEvaluated(priorForCompare)
+                    if (comparable && priorForCompare != null) {
                         val deltaFlu = sess.fluencyScore - priorForCompare.fluencyScore
                         Surface(
                             color = (if (deltaFlu >= 0) ext.success else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
@@ -680,8 +661,7 @@ fun SpeakingLabScreen(
                                                 onRetry = {
                                                     speakingVm.submitForAiAnalysis(
                                                         moduleType = "SPEAKING_LAB",
-                                                        promptTitle = customTopic,
-                                                        previousSession = previousSession
+                                                        promptTitle = customTopic
                                                     )
                                                 }
                                             )
@@ -750,8 +730,7 @@ fun SpeakingLabScreen(
                                         onRetry = {
                                             speakingVm.submitForAiAnalysis(
                                                 moduleType = "SPEAKING_LAB",
-                                                promptTitle = customTopic,
-                                                previousSession = previousSession
+                                                promptTitle = customTopic
                                             )
                                         }
                                     )
@@ -953,8 +932,11 @@ fun ChallengesScreen(
                                     speakingVm.submitForAiAnalysis(
                                         moduleType = "DAILY_CHALLENGE",
                                         promptTitle = selectedChallenge.title,
-                                        previousSession = pastSessions.firstOrNull(),
-                                        extraInstructions = "Evaluate adherence to: ${selectedChallenge.frameworkHint}"
+                                        practiceTarget = LabPracticeTarget.fromPrompt(
+                                            selectedChallenge.title,
+                                            selectedChallenge.frameworkHint,
+                                            selectedChallenge.sourceReference
+                                        )
                                     )
                                 },
                                 enabled = !isRecording,

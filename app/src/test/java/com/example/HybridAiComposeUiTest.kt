@@ -137,7 +137,6 @@ class HybridAiComposeUiTest {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val vm = SpeakingAndLabsViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
-            localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             audioManager = AudioRecorderManager(ctx)
         )
 

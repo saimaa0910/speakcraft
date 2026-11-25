@@ -46,7 +46,7 @@ class DeviceAdaptiveModelInstallerTest {
     }
 
     @Test
-    fun `standard device profile selects moonshine tiny and face plus pose vision models`() {
+    fun `standard device profile selects face plus pose vision models and the platform recogniser`() {
         val standardReport = DeviceCapabilityReport(
             profile = DeviceProfile.STANDARD,
             apiLevel = 31,
@@ -63,15 +63,15 @@ class DeviceAdaptiveModelInstallerTest {
         val plan = installer.determinePlan(standardReport)
 
         assertEquals(DeviceProfile.STANDARD, plan.profile)
-        assertEquals(LocalModelId.MOONSHINE_TINY_INT8, plan.selectedSpeechModel)
-        assertEquals(RecognitionEnginePreference.LOCAL_WHISPER, plan.recommendedEngine)
+        assertNull("No local ASR model is ever selected (FND-AI-03)", plan.selectedSpeechModel)
+        assertEquals(RecognitionEnginePreference.ANDROID_OFFLINE, plan.recommendedEngine)
         assertTrue(plan.selectedVideoModels.contains(LocalModelId.MEDIAPIPE_FACE))
         assertTrue(plan.selectedVideoModels.contains(LocalModelId.MEDIAPIPE_POSE))
         assertFalse(plan.selectedVideoModels.contains(LocalModelId.MEDIAPIPE_HAND))
     }
 
     @Test
-    fun `advanced device profile selects whisper tiny and complete vision suite`() {
+    fun `advanced device profile selects complete vision suite and never a local speech model`() {
         val advancedReport = DeviceCapabilityReport(
             profile = DeviceProfile.ADVANCED,
             apiLevel = 34,
@@ -88,8 +88,8 @@ class DeviceAdaptiveModelInstallerTest {
         val plan = installer.determinePlan(advancedReport)
 
         assertEquals(DeviceProfile.ADVANCED, plan.profile)
-        assertEquals(LocalModelId.WHISPER_TINY_EN, plan.selectedSpeechModel)
-        assertEquals(RecognitionEnginePreference.LOCAL_WHISPER, plan.recommendedEngine)
+        assertNull("No local ASR model is ever selected (FND-AI-03)", plan.selectedSpeechModel)
+        assertEquals(RecognitionEnginePreference.ANDROID_OFFLINE, plan.recommendedEngine)
         assertTrue(plan.selectedVideoModels.contains(LocalModelId.MEDIAPIPE_FACE))
         assertTrue(plan.selectedVideoModels.contains(LocalModelId.MEDIAPIPE_POSE))
         assertTrue(plan.selectedVideoModels.contains(LocalModelId.MEDIAPIPE_HAND))
@@ -114,6 +114,27 @@ class DeviceAdaptiveModelInstallerTest {
 
         assertNull("Speech model should be omitted when storage is constrained", plan.selectedSpeechModel)
         assertEquals(RecognitionEnginePreference.ANDROID_OFFLINE, plan.recommendedEngine)
+    }
+
+    @Test
+    fun `no profile ever selects a local ASR engine and a stored LOCAL_WHISPER preference behaves as automatic`() {
+        for (profile in DeviceProfile.entries) {
+            for (api in listOf(26, 30, 31, 34)) {
+                val plan = installer.determinePlan(
+                    DeviceCapabilityReport(
+                        profile = profile, apiLevel = api, estimatedRamMb = 8192L, availableStorageMb = 20_000L,
+                        hasNpu = true, thermalStatus = 0, batteryPct = 100, canRunWhisper = true,
+                        canRunMediaPipe = true, canRunConcurrently = true
+                    )
+                )
+                assertNull(plan.selectedSpeechModel)
+                assertTrue(plan.recommendedEngine != RecognitionEnginePreference.LOCAL_WHISPER)
+            }
+        }
+        assertEquals(RecognitionEnginePreference.AUTO, RecognitionEnginePreference.fromStored("LOCAL_WHISPER"))
+        assertEquals(RecognitionEnginePreference.AUTO, RecognitionEnginePreference.fromStored(null))
+        assertEquals(RecognitionEnginePreference.ANDROID_OFFLINE, RecognitionEnginePreference.fromStored("ANDROID_OFFLINE"))
+        assertFalse(RecognitionEnginePreference.LOCAL_WHISPER in RecognitionEnginePreference.SELECTABLE)
     }
 
     @Test

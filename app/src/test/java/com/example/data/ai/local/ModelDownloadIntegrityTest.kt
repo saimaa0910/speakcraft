@@ -3,6 +3,7 @@ package com.example.data.ai.local
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -41,7 +42,7 @@ class ModelDownloadIntegrityTest {
             isUnmeteredNetwork = { true }
         )
         val plan = installer.determinePlan(advanced)
-        assertEquals(LocalModelId.WHISPER_TINY_EN, plan.selectedSpeechModel)
+        assertNull("No local ASR model is ever selected (FND-AI-03)", plan.selectedSpeechModel)
 
         val result = installer.installSuitableModels(plan)
 

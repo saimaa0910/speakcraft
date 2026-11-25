@@ -15,7 +15,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.ai.CapabilityStatus
 import com.example.data.ai.IntelligenceCapabilityManager
 import com.example.data.ai.local.LocalExecutionPolicy
-import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
 import com.example.data.preferences.AISettings
@@ -135,7 +134,6 @@ class CentralizedAiSettingsTest {
 
         val vm = SpeakingAndLabsViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
-            localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             audioManager = AudioRecorderManager(ctx),
             aiSettingsRepo = aiRepo
         )
@@ -198,7 +196,6 @@ class CentralizedAiSettingsTest {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val vm = SpeakingAndLabsViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
-            localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             audioManager = AudioRecorderManager(ctx)
         )
         var openedSettings = false
@@ -223,7 +220,6 @@ class CentralizedAiSettingsTest {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val vm = SpeakingAndLabsViewModel(
             repository = SpeakCraftRepository(ensureFirestore()),
-            localOrchestrator = LocalIntelligenceOrchestrator(ctx),
             audioManager = AudioRecorderManager(ctx)
         )
         composeRule.setContent {

@@ -5,7 +5,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.local.audio.AcousticFeatures
 import com.example.data.ai.local.language.LocalLanguageAnalysisEngine
 import com.example.data.evaluation.CoachEvaluationReport
@@ -18,7 +17,6 @@ import com.example.data.evaluation.EvidenceValidationInput
 import com.example.ui.components.CoachEvaluationStatusCard
 import com.example.ui.components.FeedbackReportCard
 import com.example.ui.theme.SpeakCraftTheme
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -211,29 +209,6 @@ class CoachEvaluationEvidenceTest {
         assertEquals(CoachEvaluationState.ANALYSIS_FAILED, report.evaluationState)
         assertEquals("We couldn't analyze this recording. Your response has not been scored.", report.statusMessage)
         assertNull(report.overallScore)
-    }
-
-    @Test
-    fun `07 audio-only exercise succeeds without video and never requires video dimension`() = runBlocking {
-        val orchestrator = LocalIntelligenceOrchestrator()
-        val speechWav = buildWav(durationSeconds = 4.0, amplitude = 0.45)
-        val report = orchestrator.evaluateSpeechWithReport(
-            sessionId = "s_audio_only",
-            mediaBytes = speechWav,
-            mimeType = "audio/wav",
-            moduleType = "SPEAKING_LAB",
-            promptTitle = "Audio-Only Drill",
-            durationSeconds = 4,
-            previousSession = null,
-            liveTranscript = "Today I want to communicate our roadmap clearly with concrete milestones.",
-            transcriptSessionId = "s_audio_only",
-            videoAssessmentSelected = false
-        )
-        assertEquals(CoachEvaluationState.COMPLETED, report.evaluationState)
-        assertNotNull(report.overallScore)
-        assertFalse("Audio-only exercise should not require video", report.validation.videoRequired)
-        assertFalse("Video presence should not be in audio-only dimensions", report.dimensions.containsKey("video_presence"))
-        assertFalse("Audio + valid transcript should be full evaluation", report.isPartialEvaluation)
     }
 
     @Test
