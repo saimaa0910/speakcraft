@@ -341,14 +341,14 @@ fun SpeakingLabScreen(
 
                         if (activeTaskType == StudioTaskType.DAILY_VIDEO) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                                 modifier = Modifier.fillMaxWidth().testTag("studio_daily_video_banner")
                             ) {
                                 Column(
                                     modifier = Modifier.padding(10.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     Text(
                                         text = "Task 1: Daily Video Recording — Speak Whatever You Want",
@@ -360,31 +360,9 @@ fun SpeakingLabScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    OutlinedTextField(
-                                        value = dailyFreeNote,
-                                        onValueChange = { dailyFreeNote = it },
-                                        label = { Text("Optional focus note (or leave blank to speak freely)") },
-                                        singleLine = true,
-                                        shape = MaterialTheme.shapes.medium,
-                                        modifier = Modifier.fillMaxWidth().testTag("studio_daily_free_note_input")
-                                    )
                                 }
                             }
                         }
-
-                        Text(
-                            text = if (activeTaskType == StudioTaskType.SELECT_TOPIC) {
-                                "Task 2 Active: Pick a Preset Topic or Enter Custom Prompt"
-                            } else {
-                                "Or switch to Task 2: Select a Practice Topic"
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (activeTaskType == StudioTaskType.SELECT_TOPIC) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
 
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
@@ -407,12 +385,24 @@ fun SpeakingLabScreen(
                         }
 
                         OutlinedTextField(
-                            value = customTopic,
-                            onValueChange = {
-                                activeTaskType = StudioTaskType.SELECT_TOPIC
-                                customTopic = it
+                            value = if (activeTaskType == StudioTaskType.DAILY_VIDEO) dailyFreeNote else customTopic,
+                            onValueChange = { text ->
+                                if (activeTaskType == StudioTaskType.DAILY_VIDEO) {
+                                    dailyFreeNote = text
+                                } else {
+                                    customTopic = text
+                                }
                             },
-                            label = { Text("Task 2 Speaking Prompt or Topic") },
+                            label = {
+                                Text(
+                                    if (activeTaskType == StudioTaskType.DAILY_VIDEO) {
+                                        "Task 1 Daily Video Note (Optional — leave blank to speak freely)"
+                                    } else {
+                                        "Task 2 Speaking Prompt or Topic"
+                                    }
+                                )
+                            },
+                            singleLine = activeTaskType == StudioTaskType.DAILY_VIDEO,
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth().testTag("speaking_prompt_input")
                         )

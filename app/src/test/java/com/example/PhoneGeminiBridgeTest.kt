@@ -336,7 +336,7 @@ class PhoneGeminiBridgeTest {
             composeRule.onNodeWithTag("studio_gemini_feedback_input")
                 .assertIsDisplayed()
                 .assertTextContains("Gemini Feedback: Clear posture and strong opening hook.")
-            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_saved_gemini_feedback_list"))
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("studio_saved_feedback_text_0"))
             composeRule.onNodeWithTag("studio_saved_feedback_text_0")
                 .assertIsDisplayed()
                 .assertTextContains("Gemini Feedback: Clear posture and strong opening hook.")
