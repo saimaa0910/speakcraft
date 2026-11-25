@@ -381,7 +381,7 @@ object PhoneGeminiBridge {
 
     private fun isPackageInstalled(pm: PackageManager, packageName: String): Boolean = runCatching {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0L))
         } else {
             @Suppress("DEPRECATION")
             pm.getPackageInfo(packageName, 0)

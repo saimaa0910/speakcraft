@@ -200,9 +200,9 @@ fun VocabularyScreen(
     var errorTargetKey by remember { mutableStateOf<String?>(null) }
     var isCaptureActive by remember { mutableStateOf(false) }
 
-    val helperListening by (ttsHelper?.isListening?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(false) })
-    val helperPartial by (ttsHelper?.partialTranscript?.collectAsStateWithLifecycle() ?: remember { mutableStateOf("") })
-    val helperRms by (ttsHelper?.rmsDb?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0f) })
+    val helperListening = ttsHelper?.isListening?.collectAsStateWithLifecycle()?.value ?: false
+    val helperPartial = ttsHelper?.partialTranscript?.collectAsStateWithLifecycle()?.value.orEmpty()
+    val helperRms = ttsHelper?.rmsDb?.collectAsStateWithLifecycle()?.value ?: 0f
     val isCurrentlyListening = isCaptureActive || helperListening
 
     DisposableEffect(ttsHelper) {

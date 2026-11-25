@@ -1937,7 +1937,7 @@ class LearningProgressManager(
             previousDaysCount = snapshot.vocabularyActiveDateKeys.size
         )
         val updatedActiveDays = (snapshot.vocabularyActiveDateKeys + todayKey).distinct().takeLast(90)
-        val firstEpoch = snapshot.firstVocabularyEpochDay.takeIf { it > 0L } ?: todayEpoch
+        val firstEpoch = snapshot.firstVocabularyEpochDay.takeIf { it > 0L } ?: todayEpochDay
         return snapshot.copy(
             dailyVocabulary = assignment,
             shownVocabularyWordIds = updatedShown,
