@@ -274,12 +274,9 @@ class VocabularyMasteryAndQuizTest {
         composeRule.onNodeWithTag("ai_quiz_list")
             .performScrollToNode(hasTestTag("vocab_quiz_speak_panel"))
         composeRule.onNodeWithTag("vocab_quiz_speak_panel").assertIsDisplayed()
-        composeRule.onNodeWithTag("vocab_quiz_speak_button").assertIsDisplayed()
-
-        nextSimulatedTranscript = "Executives ${advancedWords[0].word.lowercase()} complex data into clear takeaways."
         composeRule.onNodeWithTag("ai_quiz_list")
             .performScrollToNode(hasTestTag("vocab_quiz_speak_button"))
-        composeRule.onNodeWithTag("vocab_quiz_speak_button").performClick()
+        composeRule.onNodeWithTag("vocab_quiz_speak_button").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
         assertEquals(nextSimulatedTranscript, quizEvaluatedSentence)
         composeRule.onNodeWithTag("ai_quiz_list")
@@ -290,8 +287,12 @@ class VocabularyMasteryAndQuizTest {
         composeRule.onNodeWithTag("ai_quiz_list")
             .performScrollToNode(hasTestTag("weekly_assessment_unlocked_card"))
         composeRule.onNodeWithTag("weekly_assessment_unlocked_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("ai_quiz_list")
+            .performScrollToNode(hasTestTag("start_7day_assessment_button"))
         composeRule.onNodeWithTag("start_7day_assessment_button").performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("ai_quiz_list")
+            .performScrollToNode(hasTestTag("weekly_question_card"))
         composeRule.onNodeWithTag("weekly_question_card").assertIsDisplayed()
 
         // Answer all 3 questions via speak button (sentence containing all 3 target words satisfies both recall & usage)
@@ -307,6 +308,8 @@ class VocabularyMasteryAndQuizTest {
             composeRule.waitForIdle()
         }
 
+        composeRule.onNodeWithTag("ai_quiz_list")
+            .performScrollToNode(hasTestTag("weekly_assessment_summary_card"))
         composeRule.onNodeWithTag("weekly_assessment_summary_card").assertIsDisplayed()
         assertTrue(weeklyCompleted)
     }
@@ -343,11 +346,15 @@ class VocabularyMasteryAndQuizTest {
         composeRule.waitForIdle()
 
         // Beginner filter chip is shown & selected
+        composeRule.onNodeWithTag("vocabulary_words_list")
+            .performScrollToNode(hasTestTag("vocab_level_chip_beginner"))
         composeRule.onNodeWithTag("vocab_level_chip_beginner").assertIsDisplayed()
 
         // Switch to AI Quiz -> Countdown shown before 7 days
         composeRule.onNodeWithText("AI Quiz").performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("ai_quiz_list")
+            .performScrollToNode(hasTestTag("weekly_assessment_countdown_card"))
         composeRule.onNodeWithTag("weekly_assessment_countdown_card").assertIsDisplayed()
         composeRule.onNodeWithTag("start_7day_assessment_button").assertDoesNotExist()
         composeRule.onNodeWithTag("vocab_quiz_input").assertDoesNotExist()

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -167,8 +168,11 @@ class PhoneGeminiBridgeTest {
             }
         }
 
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("mentor_open_gemini_button").assertIsDisplayed()
-        composeRule.onNodeWithText("Coach me on speaking calmly").assertIsDisplayed()
+        composeRule.onNodeWithTag("mentor_question_input")
+            .assertIsDisplayed()
+            .assertTextContains("Coach me on speaking calmly")
         assertTrue(consumed)
     }
 
