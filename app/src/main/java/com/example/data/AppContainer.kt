@@ -98,7 +98,6 @@ class AppContainer(context: Context) {
     val intelligenceCapabilityManager: IntelligenceCapabilityManager by lazy {
         IntelligenceCapabilityManager(
             context = appContext,
-            modelManager = onDeviceModelManager,
             offlineAvailabilityManager = offlineAIAvailabilityManager
         )
     }
@@ -114,8 +113,6 @@ class AppContainer(context: Context) {
         HybridAiCoachCoordinator(
             localOrchestrator = localIntelligenceOrchestrator,
             prefsRepo = preferencesRepository,
-            appContext = appContext,
-            modelManager = onDeviceModelManager,
             aiSettingsRepo = aiSettingsRepository
         )
     }

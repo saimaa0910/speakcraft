@@ -338,12 +338,11 @@ private fun AuthenticatedAppShell(
                 checkNotNull(this[APPLICATION_KEY])
                 SpeakingAndLabsViewModel(
                     repository = container.repository,
-                    localOrchestrator = container.localIntelligenceOrchestrator,
                     audioManager = container.audioRecorderManager,
-                    hybridCoordinator = container.hybridAiCoordinator,
                     aiSettingsRepo = container.aiSettingsRepository,
                     liveTranscriptionManager = container.liveTranscriptionManager,
-                    capabilityManager = container.intelligenceCapabilityManager
+                    capabilityManager = container.intelligenceCapabilityManager,
+                    tipCatalog = { container.tipCatalog }
                 )
             }
         }

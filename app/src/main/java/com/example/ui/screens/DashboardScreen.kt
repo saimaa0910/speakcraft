@@ -877,7 +877,11 @@ private fun LatestRecordingSummaryCard(
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Text(
-                            "${latest.wordsPerMinute} WPM • Fluency ${latest.fluencyScore}",
+                            if (com.example.data.evaluation.LabAttemptEvaluator.isEngineEvaluated(latest)) {
+                                if (latest.wordsPerMinute > 0L) "${latest.wordsPerMinute} WPM • On-device feedback" else "On-device feedback"
+                            } else {
+                                "${latest.wordsPerMinute} WPM • Fluency ${latest.fluencyScore}"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.ai.local.LocalIntelligenceOrchestrator
 import com.example.data.ai.RecommendationEngine
 import com.example.data.firebase.SpeakCraftRepository
 import com.example.data.media.AudioRecorderManager
@@ -176,7 +175,6 @@ class SpeakCraftTabletLayoutTest {
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
             SpeakCraftRepository(db),
-            LocalIntelligenceOrchestrator(ctx),
             AudioRecorderManager(ctx)
         )
         val fakeVideo = File(ctx.cacheDir, "tablet_clip.mp4").apply { writeBytes(ByteArray(128) { 2 }) }
