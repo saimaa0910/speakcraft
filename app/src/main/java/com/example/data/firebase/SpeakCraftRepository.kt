@@ -413,24 +413,103 @@ class SpeakCraftRepository(
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
                 ).await()
+            } else {
+                docRef.update(
+                    mapOf(
+                        "active" to true,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
             }
         }
 
     suspend fun toggleProgramDay(programId: String, dayNumber: Long, totalDays: Int): Result<Unit> =
         runMutation(OperationType.UPDATE, "enrollments/$programId") { uid ->
             val safeId = sanitizeId(programId, 100)
+            val safeTotal = totalDays.toLong().coerceIn(1L, 180L)
+            val safeDay = dayNumber.coerceIn(1L, safeTotal)
             val docRef = db.collection("users").document(uid).collection("enrollments").document(safeId)
             val snap = docRef.get().await()
-            val currentList = (snap.get("completedDays") as? List<*>)?.mapNotNull { (it as? Number)?.toLong() } ?: emptyList()
-            val updatedList = if (currentList.contains(dayNumber)) currentList - dayNumber else (currentList + dayNumber).distinct().sorted()
-            val nextDay = ((updatedList.maxOrNull() ?: 0L) + 1L).coerceIn(1L, totalDays.toLong().coerceAtLeast(1L))
-            docRef.update(
-                mapOf(
-                    "completedDays" to updatedList,
-                    "currentDay" to nextDay,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            if (!snap.exists()) {
+                val initialList = listOf(safeDay)
+                val nextDay = (safeDay + 1L).coerceIn(1L, safeTotal)
+                docRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "programId" to safeId,
+                        "programTitle" to safeId,
+                        "currentDay" to nextDay,
+                        "completedDays" to initialList,
+                        "active" to true,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                val currentList = (snap.get("completedDays") as? List<*>)?.mapNotNull { (it as? Number)?.toLong() } ?: emptyList()
+                val updatedList = if (currentList.contains(safeDay)) currentList - safeDay else (currentList + safeDay).distinct().sorted().take(180)
+                val nextDay = ((1L..safeTotal).firstOrNull { !updatedList.contains(it) } ?: safeTotal)
+                docRef.update(
+                    mapOf(
+                        "completedDays" to updatedList,
+                        "currentDay" to nextDay,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+        }
+
+    suspend fun syncProgramEnrollment(
+        programId: String,
+        programTitle: String,
+        currentDay: Long,
+        completedDays: List<Long>,
+        active: Boolean
+    ): Result<Unit> =
+        runMutation(OperationType.WRITE, "enrollments/$programId") { uid ->
+            val safeId = sanitizeId(programId, 100)
+            val safeCurrentDay = currentDay.coerceIn(1L, 180L)
+            val safeCompleted = completedDays.filter { it in 1L..180L }.distinct().sorted().take(180)
+            val docRef = db.collection("users").document(uid).collection("enrollments").document(safeId)
+            val snap = docRef.get().await()
+            if (!snap.exists()) {
+                docRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "programId" to safeId,
+                        "programTitle" to programTitle.take(200),
+                        "currentDay" to safeCurrentDay,
+                        "completedDays" to safeCompleted,
+                        "active" to active,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                docRef.update(
+                    mapOf(
+                        "currentDay" to safeCurrentDay,
+                        "completedDays" to safeCompleted,
+                        "active" to active,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+        }
+
+    suspend fun setProgramActive(programId: String, active: Boolean): Result<Unit> =
+        runMutation(OperationType.UPDATE, "enrollments/$programId") { uid ->
+            val safeId = sanitizeId(programId, 100)
+            val docRef = db.collection("users").document(uid).collection("enrollments").document(safeId)
+            val snap = docRef.get().await()
+            if (snap.exists()) {
+                docRef.update(
+                    mapOf(
+                        "active" to active,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
         }
 
     suspend fun saveDailyActivity(

@@ -137,7 +137,11 @@ import com.example.ui.screens.ConversationSimulatorScreen
 import com.example.ui.screens.DailyPracticeScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.GrammarSpeakingScreen
-import com.example.ui.screens.LearningPathsScreen
+import com.example.data.learningpaths.LearningPathCurriculumRegistry
+import com.example.ui.screens.LearningPathAssessmentScreen
+import com.example.ui.screens.LearningPathDetailScreen
+import com.example.ui.screens.LearningPathLessonScreen
+import com.example.ui.screens.LearningPathsOverviewScreen
 import com.example.ui.screens.LessonDetailScreen
 import com.example.ui.screens.ListeningShadowingScreen
 import com.example.ui.screens.ModuleLessonsScreen
@@ -154,6 +158,7 @@ import com.example.ui.theme.SpeakCraftTheme
 import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.ActivityEngineViewModel
 import com.example.ui.viewmodel.InteractiveCoachViewModel
+import com.example.ui.viewmodel.LearningPathsViewModel
 import com.example.ui.viewmodel.MainCoachViewModel
 import com.example.ui.viewmodel.SpeakingAndLabsViewModel
 import com.example.ui.viewmodel.UpdateAndAdminViewModel
@@ -382,6 +387,27 @@ private fun AuthenticatedAppShell(
         }
     )
 
+    val learningPathsVm: LearningPathsViewModel = viewModel(
+        key = "learning_paths_$userId",
+        factory = viewModelFactory {
+            initializer {
+                checkNotNull(this[APPLICATION_KEY])
+                LearningPathsViewModel(
+                    persistenceRepository = container.learningPathPersistenceRepository,
+                    speakCraftRepository = container.repository,
+                    activityRepository = container.activityRepository,
+                    learningProgressManager = container.learningProgressManager,
+                    audioManager = container.audioRecorderManager,
+                    liveTranscriptionManager = container.liveTranscriptionManager,
+                    ttsHelper = ttsHelper,
+                    aiSettingsRepository = container.aiSettingsRepository,
+                    dateKeyProvider = container.dateKeys
+                )
+            }
+        }
+    )
+    val learningPathsUiState by learningPathsVm.uiState.collectAsStateWithLifecycle()
+
     val profileState by mainVm.userProfile.collectAsStateWithLifecycle()
     val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
     val feedbackState by mainVm.speechFeedback.collectAsStateWithLifecycle()
@@ -478,6 +504,9 @@ private fun AuthenticatedAppShell(
                 val currentSlugArg = backStack?.arguments?.getString("slug")
                 val currentLessonIdArg = backStack?.arguments?.getString("lessonId")
                 val currentActivityIdArg = backStack?.arguments?.getString("activityId")
+                val currentProgramIdArg = backStack?.arguments?.getString("programId")
+                val currentDayNumArg = backStack?.arguments?.getInt("dayNumber") ?: 0
+                val currentPathModArg = backStack?.arguments?.getString("moduleId")
                 val isPrimaryRoute = primaryNavItems.any { it.route == currentRoute }
 
                 val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
@@ -495,6 +524,15 @@ private fun AuthenticatedAppShell(
                         CurriculumCatalog.lessons.firstOrNull { it.id == currentLessonIdArg }?.title
                             ?: sharedLessons.firstOrNull { it.id == currentLessonIdArg }?.title
                             ?: "Lesson Detail"
+                    currentRoute.startsWith("learning_path_detail") && !currentProgramIdArg.isNullOrBlank() ->
+                        LearningPathCurriculumRegistry.getProgram(currentProgramIdArg)?.title ?: "Program Syllabus"
+                    currentRoute.startsWith("learning_path_lesson") && !currentProgramIdArg.isNullOrBlank() && currentDayNumArg > 0 ->
+                        LearningPathCurriculumRegistry.getLesson(currentProgramIdArg, currentDayNumArg)?.let {
+                            "Day ${it.dayNumber}: ${it.title}"
+                        } ?: "Daily Lesson"
+                    currentRoute.startsWith("learning_path_assessment") && !currentProgramIdArg.isNullOrBlank() && !currentPathModArg.isNullOrBlank() ->
+                        LearningPathCurriculumRegistry.getModule(currentProgramIdArg, currentPathModArg)?.assessment?.title
+                            ?: "Module Assessment"
                     currentRoute.startsWith("activity_library") -> "Activity Engine (150)"
                     currentRoute.startsWith("activity/") && !currentActivityIdArg.isNullOrBlank() ->
                         ActivityCatalogue.getActivityById(currentActivityIdArg)?.title ?: "Activity Studio"
@@ -506,6 +544,14 @@ private fun AuthenticatedAppShell(
                 var manualTourSteps by remember { mutableStateOf<List<TutorialOverlayStep>?>(null) }
                 var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
                 var baselineSessionCount by remember(userId) { mutableStateOf<Int?>(null) }
+
+                LaunchedEffect(userId, profile, enrollments) {
+                    learningPathsVm.syncAccountAndEnrollments(
+                        userId = userId,
+                        profile = profile,
+                        remoteEnrollments = enrollments
+                    )
+                }
 
                 LaunchedEffect(userId, profile, sessions.size) {
                     learningProgressManager.loadForUser(
@@ -882,10 +928,93 @@ private fun AuthenticatedAppShell(
                                     )
                                 }
                                 composable("learning_paths") {
-                                    LearningPathsScreen(
-                                        enrollments = enrollments,
-                                        onEnroll = { id, title -> mainVm.enrollProgram(id, title) },
-                                        onToggleDay = { id, day, total -> mainVm.toggleProgramDay(id, day, total) }
+                                    LearningPathsOverviewScreen(
+                                        uiState = learningPathsUiState,
+                                        onSearchChange = { learningPathsVm.setSearchQuery(it) },
+                                        onCategoryFilterChange = { learningPathsVm.setCategoryFilter(it) },
+                                        onPreviewProgram = { learningPathsVm.openPreview(it) },
+                                        onEnrollProgram = { learningPathsVm.enrollInProgram(it) },
+                                        onTogglePauseProgram = { learningPathsVm.togglePauseProgram(it) },
+                                        onUnenrollProgram = { learningPathsVm.unenrollProgram(it) },
+                                        onOpenProgramDetail = { pid -> navigateTo("learning_path_detail/$pid") },
+                                        onOpenLesson = { pid, day -> navigateTo("learning_path_lesson/$pid/$day") },
+                                        onDismissBanner = { learningPathsVm.dismissBanner() }
+                                    )
+                                }
+                                composable(
+                                    route = "learning_path_detail/{programId}",
+                                    arguments = listOf(navArgument("programId") { type = NavType.StringType })
+                                ) { entry ->
+                                    val programId = entry.arguments?.getString("programId").orEmpty()
+                                    LearningPathDetailScreen(
+                                        programId = programId,
+                                        uiState = learningPathsUiState,
+                                        onBack = { navController.popBackStack() },
+                                        onEnroll = { learningPathsVm.enrollInProgram(it) },
+                                        onTogglePause = { learningPathsVm.togglePauseProgram(it) },
+                                        onOpenLesson = { pid, day -> navigateTo("learning_path_lesson/$pid/$day") },
+                                        onToggleDayCompleteQuick = { pid, day -> learningPathsVm.toggleDayCompletionQuick(pid, day) },
+                                        onOpenAssessment = { pid, modId -> navigateTo("learning_path_assessment/$pid/$modId") },
+                                        onOpenProgram = { targetPid -> navigateTo("learning_path_detail/$targetPid") }
+                                    )
+                                }
+                                composable(
+                                    route = "learning_path_lesson/{programId}/{dayNumber}",
+                                    arguments = listOf(
+                                        navArgument("programId") { type = NavType.StringType },
+                                        navArgument("dayNumber") { type = NavType.IntType }
+                                    )
+                                ) { entry ->
+                                    val programId = entry.arguments?.getString("programId").orEmpty()
+                                    val dayNumber = entry.arguments?.getInt("dayNumber") ?: 1
+                                    LearningPathLessonScreen(
+                                        programId = programId,
+                                        dayNumber = dayNumber,
+                                        uiState = learningPathsUiState,
+                                        onPrepareLesson = { pid, day -> learningPathsVm.prepareLessonSession(pid, day) },
+                                        onBackToSyllabus = { navController.popBackStack() },
+                                        onNavigateDay = { targetDay ->
+                                            navController.navigate("learning_path_lesson/$programId/$targetDay") {
+                                                popUpTo("learning_path_lesson/{programId}/{dayNumber}") { inclusive = true }
+                                            }
+                                        },
+                                        onOpenAssessment = { pid, modId -> navigateTo("learning_path_assessment/$pid/$modId") },
+                                        onOpenActivityStudio = { activityId -> navigateTo("activity/$activityId") },
+                                        onOpenLabRoute = { labRoute -> navigateTo(labRoute) },
+                                        onUpdateDraftText = { learningPathsVm.updateDraftResponseText(it) },
+                                        onSelectQuizOption = { qId, opt -> learningPathsVm.selectQuizOption(qId, opt) },
+                                        onToggleChecklistItem = { learningPathsVm.toggleChecklistItem(it) },
+                                        onSetConfidence = { learningPathsVm.setConfidenceRating(it) },
+                                        onUpdateReflectionNote = { learningPathsVm.updateReflectionNote(it) },
+                                        onSaveReflectionNote = { learningPathsVm.saveReflectionNoteNow(programId, dayNumber) },
+                                        onPlayModelTts = { learningPathsVm.playModelScript(it) },
+                                        onStopModelTts = { learningPathsVm.stopModelAudio() },
+                                        onStartOrResumeRecording = { learningPathsVm.startOrResumeLessonRecording() },
+                                        onPauseRecording = { learningPathsVm.pauseLessonRecording() },
+                                        onStopRecording = { learningPathsVm.stopLessonRecording() },
+                                        onTogglePlayback = { learningPathsVm.toggleRecordedPlayback() },
+                                        onSubmitForEvaluation = { learningPathsVm.submitAndEvaluateLesson(programId, dayNumber) }
+                                    )
+                                }
+                                composable(
+                                    route = "learning_path_assessment/{programId}/{moduleId}",
+                                    arguments = listOf(
+                                        navArgument("programId") { type = NavType.StringType },
+                                        navArgument("moduleId") { type = NavType.StringType }
+                                    )
+                                ) { entry ->
+                                    val programId = entry.arguments?.getString("programId").orEmpty()
+                                    val moduleId = entry.arguments?.getString("moduleId").orEmpty()
+                                    LearningPathAssessmentScreen(
+                                        programId = programId,
+                                        moduleId = moduleId,
+                                        uiState = learningPathsUiState,
+                                        onPrepareAssessment = { pid, mId -> learningPathsVm.prepareModuleAssessment(pid, mId) },
+                                        onSelectScenarioOption = { qId, idx -> learningPathsVm.selectAssessmentOption(qId, idx) },
+                                        onUpdatePracticalText = { learningPathsVm.updateAssessmentPracticalText(it) },
+                                        onSetConfidence = { learningPathsVm.setAssessmentConfidence(it) },
+                                        onSubmitAssessment = { learningPathsVm.submitModuleAssessment(programId, moduleId) },
+                                        onBackToSyllabus = { navController.popBackStack() }
                                     )
                                 }
                                 composable("vocabulary") {
