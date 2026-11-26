@@ -645,9 +645,18 @@ class MainCoachViewModel(
     }
 
     fun deleteSpeakingSession(session: SpeakingSession) {
-        if (session.id.isBlank()) return
         viewModelScope.launch {
-            val res = repository.deleteSpeakingSession(session.id, session.feedbackId, session.localMediaPath)
+            val res = if (session.id.isNotBlank()) {
+                repository.deleteSpeakingSession(session.id, session.feedbackId, session.localMediaPath)
+            } else {
+                Result.success(Unit)
+            }
+            if (session.id.isNotBlank()) {
+                learningProgressManager?.deleteSpeakingRecording(session.id)
+            }
+            if (session.localMediaPath.isNotBlank()) {
+                learningProgressManager?.deleteSpeakingRecording(session.localMediaPath)
+            }
             _actionMessage.value = if (res.isSuccess) {
                 "Recording deleted."
             } else {
@@ -659,6 +668,7 @@ class MainCoachViewModel(
     fun clearSpeakingHistory() {
         viewModelScope.launch {
             val res = repository.clearSpeakingHistory()
+            learningProgressManager?.clearSpeakingRecordings()
             _actionMessage.value = if (res.isSuccess) "Speaking recordings history cleared." else res.exceptionOrNull()?.localizedMessage
         }
     }

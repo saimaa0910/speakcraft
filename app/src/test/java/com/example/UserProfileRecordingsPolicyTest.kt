@@ -17,11 +17,13 @@ import com.example.data.activity.ActivityAttemptRecord
 import com.example.data.activity.ActivityCatalogue
 import com.example.data.ai.RecommendationEngine
 import com.example.data.firebase.SpeakCraftRepository
+import com.example.data.learning.DeviceRecordingsScanner
 import com.example.data.learning.LearningProgressManager
 import com.example.data.learning.LocalActivityAttempt
 import com.example.data.learning.PersistedLearningSnapshot
 import com.example.data.learning.PracticeCompletion
 import com.example.data.learning.SavedPracticeRecording
+import com.example.data.learning.SavedSpeakingRecording
 import com.example.data.learning.UnifiedRecordedSession
 import com.example.data.learning.UnifiedRecordingsCatalog
 import com.example.data.learningpaths.DayLessonProgressRecord
@@ -361,5 +363,218 @@ class UserProfileRecordingsPolicyTest {
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun deviceScannerAndSpeakingArchive_recoverStrippedPathsAndSurfaceOfflineOrPreexistingClips() {
+        val tempRoot = File.createTempFile("dev_rec_scan", "").apply {
+            delete()
+            mkdirs()
+        }
+        try {
+            val lpmDir = File(tempRoot, "lpm").apply { mkdirs() }
+            val recordingsDir = File(tempRoot, "recordings").apply { mkdirs() }
+            val practiceDir = File(tempRoot, "practice").apply { mkdirs() }
+
+            // Pre-existing or offline recordings saved on device storage
+            val offlineStudioAudio = File(recordingsDir, "rec_1001.m4a").apply { writeBytes(ByteArray(256) { 1 }) }
+            val legacyUnindexedVideo = File(recordingsDir, "speakcraft_vid_1002.mp4").apply { writeBytes(ByteArray(512) { 2 }) }
+            val practiceAttemptDir = File(practiceDir, "cp_legacy_9").apply { mkdirs() }
+            File(practiceAttemptDir, "audio.m4a").apply { writeBytes(ByteArray(128) { 3 }) }
+            val claimedPracticeReplay = File(File(practiceDir, "cp_claimed_1").apply { mkdirs() }, "replay.mp4").apply {
+                writeBytes(ByteArray(256) { 4 })
+            }
+
+            val scanned = DeviceRecordingsScanner.scanDirectories(recordingsDir, practiceDir)
+            assertEquals(4, scanned.size)
+
+            val manager = LearningProgressManager(storageDir = lpmDir)
+            manager.loadForUser("u_offline", UserProfile(userId = "u_offline", displayName = "Aria"), emptyList())
+            manager.recordSpeakingRecording(
+                SavedSpeakingRecording(
+                    id = "cloud_doc_stripped",
+                    moduleType = "SPEAKING_LAB",
+                    promptTitle = "Daily Video Recording",
+                    timestampMs = 1_700_000_000_000L,
+                    durationSeconds = 22,
+                    localMediaPath = offlineStudioAudio.absolutePath,
+                    mediaType = "audio/mp4",
+                    transcript = "My local preserved transcript",
+                    overallAssessment = "Measured delivery with steady pace.",
+                    evaluated = true,
+                    fluencyScore = 84
+                )
+            )
+            manager.recordSpeakingRecording(
+                SavedSpeakingRecording(
+                    id = "offline_only_take",
+                    moduleType = "PUBLIC_SPEAKING",
+                    promptTitle = "Un-analyzed Keynote Take",
+                    timestampMs = 1_700_000_100_000L,
+                    durationSeconds = 15,
+                    localMediaPath = "/tmp/offline_keynote.m4a",
+                    mediaType = "audio/mp4",
+                    evaluated = false
+                )
+            )
+            manager.recordPracticeCompletion(
+                PracticeCompletion(
+                    attemptId = "cp_claimed_1",
+                    activityId = "qp_2",
+                    title = "Clarity Drill",
+                    techniqueIds = listOf("tech_1"),
+                    templateId = "TPL-CLARITY",
+                    timestampMs = 1_700_000_200_000L,
+                    evaluationVersion = "1.0",
+                    valid = true,
+                    score = 88,
+                    passed = true,
+                    localMediaPath = claimedPracticeReplay.absolutePath,
+                    hasVideo = true,
+                    durationSeconds = 19
+                )
+            )
+
+            // Firestore emits session WITHOUT localMediaPath or transcript (stripped by T-04.2.1 security policy)
+            val strippedFirestoreSession = SpeakingSession(
+                id = "cloud_doc_stripped",
+                moduleType = "SPEAKING_LAB",
+                promptTitle = "Daily Video Recording",
+                durationSeconds = 22L,
+                localMediaPath = "",
+                transcript = "",
+                overallAssessment = "Measured delivery with steady pace."
+            )
+
+            val all = UnifiedRecordingsCatalog.collectAll(
+                speakingSessions = listOf(strippedFirestoreSession),
+                learningSnapshot = manager.state.value,
+                learningPathsState = null,
+                deviceMediaFiles = scanned
+            )
+
+            // Expected:
+            // 1) strippedFirestoreSession paired with offlineStudioAudio (recovering path + transcript)
+            // 2) offline_only_take (local-only SavedSpeakingRecording)
+            // 3) cp_claimed_1 (Coach Practice claimed replay)
+            // 4) legacyUnindexedVideo (discovered unclaimed video file)
+            // 5) cp_legacy_9/audio.m4a (discovered unclaimed Coach Practice file)
+            assertEquals(5, all.size)
+
+            val paired = all.first { it.backedSpeakingSession?.id == "cloud_doc_stripped" }
+            assertEquals(offlineStudioAudio.absolutePath, paired.localMediaPath)
+            assertEquals("My local preserved transcript", paired.transcript)
+            assertEquals("cloud_doc_stripped", paired.backedSpeakingRecordingId)
+
+            assertTrue(all.any { it.title == "Un-analyzed Keynote Take" && it.backedSpeakingRecordingId == "offline_only_take" })
+            assertTrue(all.any { it.localMediaPath == legacyUnindexedVideo.absolutePath && it.isVideo && it.backedDeviceFilePath == legacyUnindexedVideo.absolutePath })
+            assertTrue(all.any { it.backedDeviceFilePath?.contains("cp_legacy_9") == true })
+
+            // Overview shortcut opens Recordings tab & renders the offline + discovered recordings
+            composeRule.setContent {
+                SpeakCraftTheme {
+                    UserProfileScreen(
+                        profile = UserProfile(userId = "u_offline", displayName = "Aria"),
+                        userEmail = "aria@example.com",
+                        sessions = listOf(strippedFirestoreSession),
+                        vocabulary = emptyList(),
+                        learningSnapshot = manager.state.value,
+                        onSaveProfile = { _, _, _, _ -> },
+                        onOpenNotifications = {},
+                        onNavigate = {},
+                        onSignOut = {},
+                        deviceMediaFiles = scanned
+                    )
+                }
+            }
+            composeRule.waitForIdle()
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("profile_overview_recordings_link"))
+            composeRule.onNodeWithTag("profile_overview_recordings_link").performClick()
+            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("profile_recordings_tab_content").assertIsDisplayed()
+            composeRule.onNodeWithTag("profile_recordings_tab_content")
+                .performScrollToNode(hasText("Un-analyzed Keynote Take"))
+            composeRule.onNodeWithText("Un-analyzed Keynote Take").assertIsDisplayed()
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun speakingAndLabsViewModel_archivesVideoCaptureIntoLearningProgressManager() {
+        val tempRoot = File.createTempFile("vm_arch", "").apply {
+            delete()
+            mkdirs()
+        }
+        try {
+            val ctx = ApplicationProvider.getApplicationContext<Context>()
+            val db = ensureFirestore()
+            val repo = SpeakCraftRepository(db)
+            val audioMgr = AudioRecorderManager(ctx)
+            val lpm = LearningProgressManager(storageDir = File(tempRoot, "lpm").apply { mkdirs() })
+            lpm.loadForUser("u_vm", UserProfile(userId = "u_vm", displayName = "Sam"), emptyList())
+
+            val vm = SpeakingAndLabsViewModel(
+                repository = repo,
+                audioManager = audioMgr,
+                learningProgressManager = lpm
+            )
+            vm.setRecordingContext("SPEAKING_LAB", "Daily Video Recording (Open Speak)")
+            val videoFile = File(tempRoot, "speakcraft_vid_999.mp4").apply {
+                writeBytes(ByteArray(1024) { 7 })
+            }
+            vm.attachRecordedVideoFile(videoFile, 28)
+
+            // Allow viewModelScope coroutine on main looper to complete
+            composeRule.waitForIdle()
+
+            val archived = lpm.state.value.speakingRecordings
+            assertEquals(1, archived.size)
+            assertEquals("Daily Video Recording (Open Speak)", archived.first().promptTitle)
+            assertEquals(videoFile.absolutePath, archived.first().localMediaPath)
+            assertEquals("video/mp4", archived.first().mediaType)
+            assertEquals(28, archived.first().durationSeconds)
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun userProfileScreen_overviewQuickLinkOpensRecordingsTab() {
+        composeRule.setContent {
+            SpeakCraftTheme {
+                UserProfileScreen(
+                    profile = UserProfile(userId = "u_ov", displayName = "Noah"),
+                    userEmail = "noah@example.com",
+                    sessions = listOf(
+                        SpeakingSession(
+                            id = "s_ov_1",
+                            moduleType = "SPEAKING_LAB",
+                            promptTitle = "Morning Check-In Recording",
+                            durationSeconds = 18L,
+                            localMediaPath = "/tmp/morning.m4a",
+                            overallAssessment = "Steady tone."
+                        )
+                    ),
+                    vocabulary = emptyList(),
+                    learningSnapshot = PersistedLearningSnapshot(userId = "u_ov"),
+                    onSaveProfile = { _, _, _, _ -> },
+                    onOpenNotifications = {},
+                    onNavigate = {},
+                    onSignOut = {},
+                    initialTab = 0
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        // Recordings session list must NOT appear on Overview tab
+        composeRule.onNodeWithText("Morning Check-In Recording").assertDoesNotExist()
+        // Tap Quick Link in Overview -> opens Recordings tab and reveals session
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("profile_overview_recordings_link"))
+        composeRule.onNodeWithTag("profile_overview_recordings_link").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("profile_recordings_tab_content").assertIsDisplayed()
+        composeRule.onNodeWithTag("profile_recordings_tab_content")
+            .performScrollToNode(hasText("Morning Check-In Recording"))
     }
 }

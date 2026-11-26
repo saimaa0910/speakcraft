@@ -85,6 +85,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -116,8 +117,12 @@ import com.example.data.activity.ActivityCatalogue
 import com.example.data.ai.InboundGeminiLink
 import com.example.data.firebase.authStateFlow
 import com.example.data.firebase.signOut
+import com.example.data.learning.DeviceMediaFile
+import com.example.data.learning.DeviceRecordingsScanner
 import com.example.data.learning.LearningLevel
 import com.example.data.learning.LearningProgressManager
+import com.example.data.learning.RecordingSourceCategory
+import com.example.data.learning.UnifiedRecordingsCatalog
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.FeatureTutorialRegistry
@@ -509,7 +514,8 @@ private fun AuthenticatedAppShell(
                     aiSettingsRepo = container.aiSettingsRepository,
                     liveTranscriptionManager = container.liveTranscriptionManager,
                     capabilityManager = container.intelligenceCapabilityManager,
-                    tipCatalog = { container.tipCatalog }
+                    tipCatalog = { container.tipCatalog },
+                    learningProgressManager = container.learningProgressManager
                 )
             }
         }
@@ -1106,15 +1112,39 @@ private fun AuthenticatedAppShell(
                                         val dailyList = (dailyState as? UiState.Success)?.data.orEmpty()
                                         val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
                                         val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
-                                        val lpRecordingsCount by remember(learningPathsVm) {
+                                        val dashContext = LocalContext.current
+                                        val lpUserState by remember(learningPathsVm) {
                                             learningPathsVm.uiState
-                                                .map { state ->
-                                                    state.userState.enrollments.values.sumOf { enr ->
-                                                        enr.dayRecords.values.count { !it.lastAudioPath.isNullOrBlank() }
-                                                    }
-                                                }
+                                                .map { it.userState }
                                                 .distinctUntilChanged()
-                                        }.collectAsStateWithLifecycle(initialValue = 0)
+                                        }.collectAsStateWithLifecycle(initialValue = com.example.data.learningpaths.LearningPathsUserState())
+                                        var dashDeviceFiles by remember { mutableStateOf<List<DeviceMediaFile>>(emptyList()) }
+                                        LaunchedEffect(
+                                            userId,
+                                            sessions.size,
+                                            learningSnapshot.speakingRecordings.size,
+                                            learningSnapshot.practiceRecordings.size,
+                                            learningSnapshot.activityAttempts.size,
+                                            lpUserState.enrollments.size
+                                        ) {
+                                            dashDeviceFiles = DeviceRecordingsScanner.scan(dashContext)
+                                        }
+                                        val unifiedRecordingsCount = remember(
+                                            sessions,
+                                            learningSnapshot,
+                                            lpUserState,
+                                            dashDeviceFiles
+                                        ) {
+                                            UnifiedRecordingsCatalog.collectAll(
+                                                speakingSessions = sessions,
+                                                learningSnapshot = learningSnapshot,
+                                                learningPathsState = lpUserState,
+                                                deviceMediaFiles = dashDeviceFiles
+                                            ).size
+                                        }
+                                        val baseCount = sessions.size +
+                                            learningSnapshot.practiceRecordings.size +
+                                            learningSnapshot.activityAttempts.count { it.recordedMediaPath.isNotBlank() }
 
                                         DashboardScreen(
                                             profile = profile,
@@ -1143,7 +1173,7 @@ private fun AuthenticatedAppShell(
                                                 navigateTo("ai_mentor")
                                             },
                                             activePathSummary = activePathBanner,
-                                            extraRecordingsCount = lpRecordingsCount
+                                            extraRecordingsCount = (unifiedRecordingsCount - baseCount).coerceAtLeast(0)
                                         )
                                     }
                                 }
@@ -1724,6 +1754,19 @@ private fun ProfileRouteHost(
 
     val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
     val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
+    val context = LocalContext.current
+    var scanRefreshNonce by remember { mutableIntStateOf(0) }
+    var deviceMediaFiles by remember { mutableStateOf<List<DeviceMediaFile>>(emptyList()) }
+    LaunchedEffect(
+        sessions.size,
+        learningSnapshot.speakingRecordings.size,
+        learningSnapshot.practiceRecordings.size,
+        learningSnapshot.activityAttempts.size,
+        learningPathsState,
+        scanRefreshNonce
+    ) {
+        deviceMediaFiles = DeviceRecordingsScanner.scan(context)
+    }
 
     UserProfileScreen(
         profile = profile,
@@ -1737,6 +1780,7 @@ private fun ProfileRouteHost(
         onSignOut = onSignOut,
         initialTab = initialTab,
         learningPathsState = learningPathsState,
+        deviceMediaFiles = deviceMediaFiles,
         playingMediaPath = if (isPlaying) playingPath else null,
         onTogglePlayMedia = { path ->
             if (isPlaying && playingPath == path) {
@@ -1747,21 +1791,28 @@ private fun ProfileRouteHost(
         },
         onStopPlayback = { audioManager.stopPlayback() },
         onDeleteRecordedSession = { rec ->
-            when {
-                rec.backedSpeakingSession != null -> mainVm.deleteSpeakingSession(rec.backedSpeakingSession)
-                rec.backedPracticeRecordingId != null -> {
-                    learningProgressManager.deletePracticeRecording(rec.backedPracticeRecordingId)
-                    audioManager.deleteFile(rec.localMediaPath)
-                }
-                rec.backedLearningPathKey != null -> {
-                    val (progId, day) = rec.backedLearningPathKey
-                    learningPathsVm.clearDayAudioRecording(progId, day)
-                }
-                rec.backedActivityAttemptId != null -> {
-                    learningProgressManager.deleteActivityAttemptMedia(rec.backedActivityAttemptId)
-                    audioManager.deleteFile(rec.localMediaPath)
+            rec.backedSpeakingSession?.let { mainVm.deleteSpeakingSession(it) }
+            rec.backedSpeakingRecordingId?.let { learningProgressManager.deleteSpeakingRecording(it) }
+            rec.backedPracticeRecordingId?.let { learningProgressManager.deletePracticeRecording(it) }
+            rec.backedLearningPathKey?.let { (progId, day) ->
+                learningPathsVm.clearDayAudioRecording(progId, day)
+            }
+            rec.backedActivityAttemptId?.let { learningProgressManager.deleteActivityAttemptMedia(it) }
+            val mediaPath = rec.backedDeviceFilePath ?: rec.localMediaPath
+            if (mediaPath.isNotBlank()) {
+                learningProgressManager.deleteSpeakingRecording(mediaPath)
+                if (rec.sourceCategory == RecordingSourceCategory.COACH_PRACTICE) {
+                    val f = java.io.File(mediaPath)
+                    if (f.parentFile?.parentFile?.name == "practice") {
+                        runCatching { f.parentFile?.deleteRecursively() }
+                    } else {
+                        audioManager.deleteFile(mediaPath)
+                    }
+                } else {
+                    audioManager.deleteFile(mediaPath)
                 }
             }
+            scanRefreshNonce++
         }
     )
 }

@@ -29,6 +29,7 @@ import java.util.UUID
 private const val TAG = "LearningProgressMgr"
 private const val MAX_TASK_HISTORY = 200
 private const val MAX_ACTIVITY_ATTEMPTS = 300
+private const val MAX_SPEAKING_RECORDINGS = 120
 
 /**
  * Granular clear options for Settings -> Data & Privacy.
@@ -715,6 +716,66 @@ class LearningProgressManager(
         }
         if (changed) {
             commitState(current.copy(activityAttempts = updated, lastUpdatedAtMs = clockMs()))
+        }
+    }
+
+    /**
+     * Archives or updates a Studio / Speaking Lab audio or video recording locally so it is always
+     * playable under Profile -> Recordings, even offline or before/without AI analysis.
+     */
+    fun recordSpeakingRecording(recording: SavedSpeakingRecording): Boolean {
+        if (recording.id.isBlank() && recording.localMediaPath.isBlank()) return false
+        val current = _state.value
+        val now = recording.timestampMs.takeIf { it > 0L } ?: clockMs()
+        val existing = current.speakingRecordings.firstOrNull { item ->
+            (recording.id.isNotBlank() && item.id == recording.id) ||
+                (recording.localMediaPath.isNotBlank() && item.localMediaPath == recording.localMediaPath)
+        }
+        val merged = SavedSpeakingRecording(
+            id = recording.id.ifBlank { existing?.id ?: "speak_${now}" },
+            moduleType = recording.moduleType.ifBlank { existing?.moduleType ?: "SPEAKING_LAB" },
+            promptTitle = recording.promptTitle.ifBlank { existing?.promptTitle.orEmpty() },
+            timestampMs = existing?.timestampMs?.takeIf { it > 0L && recording.timestampMs <= 0L } ?: now,
+            durationSeconds = maxOf(recording.durationSeconds, existing?.durationSeconds ?: 0),
+            localMediaPath = recording.localMediaPath.ifBlank { existing?.localMediaPath.orEmpty() },
+            mediaType = recording.mediaType.ifBlank { existing?.mediaType ?: "audio/mp4" },
+            transcript = recording.transcript.ifBlank { existing?.transcript.orEmpty() },
+            overallAssessment = recording.overallAssessment.ifBlank { existing?.overallAssessment.orEmpty() },
+            evaluated = recording.evaluated || (existing?.evaluated == true),
+            fluencyScore = if (recording.evaluated) recording.fluencyScore else maxOf(recording.fluencyScore, existing?.fluencyScore ?: 0),
+            pronunciationScore = if (recording.evaluated) recording.pronunciationScore else maxOf(recording.pronunciationScore, existing?.pronunciationScore ?: 0),
+            pronunciationAssessable = if (recording.evaluated) recording.pronunciationAssessable else (existing?.pronunciationAssessable == true),
+            articulationScore = if (recording.evaluated) recording.articulationScore else maxOf(recording.articulationScore, existing?.articulationScore ?: 0),
+            wordsPerMinute = if (recording.evaluated) recording.wordsPerMinute else maxOf(recording.wordsPerMinute, existing?.wordsPerMinute ?: 0)
+        )
+        val remaining = current.speakingRecordings.filterNot { item ->
+            (merged.id.isNotBlank() && item.id == merged.id) ||
+                (merged.localMediaPath.isNotBlank() && item.localMediaPath == merged.localMediaPath)
+        }
+        val updatedList = (listOf(merged) + remaining)
+            .sortedByDescending { it.timestampMs }
+            .take(MAX_SPEAKING_RECORDINGS)
+        commitState(current.copy(speakingRecordings = updatedList, lastUpdatedAtMs = now))
+        return true
+    }
+
+    /** Removes a Studio / Speaking Lab recording entry matching [idOrPath] from local state. */
+    fun deleteSpeakingRecording(idOrPath: String): Boolean {
+        if (idOrPath.isBlank()) return false
+        val current = _state.value
+        val updated = current.speakingRecordings.filterNot { item ->
+            item.id == idOrPath || (item.localMediaPath.isNotBlank() && item.localMediaPath == idOrPath)
+        }
+        if (updated.size == current.speakingRecordings.size) return false
+        commitState(current.copy(speakingRecordings = updated, lastUpdatedAtMs = clockMs()))
+        return true
+    }
+
+    /** Clears locally archived Studio / Speaking Lab recordings. */
+    fun clearSpeakingRecordings() {
+        val current = _state.value
+        if (current.speakingRecordings.isNotEmpty()) {
+            commitState(current.copy(speakingRecordings = emptyList(), lastUpdatedAtMs = clockMs()))
         }
     }
 
@@ -1599,7 +1660,15 @@ class LearningProgressManager(
                     .distinctBy { it.wordId },
                 weeklyAssessments = (local.weeklyAssessments + remote.weeklyAssessments)
                     .distinctBy { it.id }
-                    .sortedByDescending { it.completedAtMs }
+                    .sortedByDescending { it.completedAtMs },
+                practiceRecordings = (local.practiceRecordings + remote.practiceRecordings)
+                    .sortedByDescending { it.timestampMs }
+                    .distinctBy { it.id }
+                    .take(100),
+                speakingRecordings = (local.speakingRecordings + remote.speakingRecordings)
+                    .sortedByDescending { it.timestampMs }
+                    .distinctBy { it.id }
+                    .take(MAX_SPEAKING_RECORDINGS)
             )
         }
     }

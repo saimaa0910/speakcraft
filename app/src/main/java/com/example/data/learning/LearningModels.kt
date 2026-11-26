@@ -433,6 +433,25 @@ data class WeeklyAssessmentEligibility(
     val latestAssessment: WeeklyVocabularyAssessmentRecord? = null
 )
 
+@Serializable
+data class SavedSpeakingRecording(
+    val id: String,
+    val moduleType: String = "SPEAKING_LAB",
+    val promptTitle: String = "",
+    val timestampMs: Long = 0L,
+    val durationSeconds: Int = 0,
+    val localMediaPath: String = "",
+    val mediaType: String = "audio/mp4",
+    val transcript: String = "",
+    val overallAssessment: String = "",
+    val evaluated: Boolean = false,
+    val fluencyScore: Int = 0,
+    val pronunciationScore: Int = 0,
+    val pronunciationAssessable: Boolean = false,
+    val articulationScore: Int = 0,
+    val wordsPerMinute: Int = 0
+)
+
 // ---------------------------------------------------------------------------
 // Unified Persisted Learning Snapshot (Offline-First Local Store + Sync)
 // ---------------------------------------------------------------------------
@@ -488,5 +507,7 @@ data class PersistedLearningSnapshot(
     /** Vocabulary Builder: completed 7-day cumulative AI Quiz assessments. */
     val weeklyAssessments: List<WeeklyVocabularyAssessmentRecord> = emptyList(),
     /** Coach Practice recordings archived locally for User Profile -> Recordings tab. */
-    val practiceRecordings: List<SavedPracticeRecording> = emptyList()
+    val practiceRecordings: List<SavedPracticeRecording> = emptyList(),
+    /** Studio & Lab audio/video recordings archived locally so clips & transcripts survive offline or Firestore stripping. */
+    val speakingRecordings: List<SavedSpeakingRecording> = emptyList()
 )

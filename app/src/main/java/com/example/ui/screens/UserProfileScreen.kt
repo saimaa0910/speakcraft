@@ -88,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.ai.PhoneGeminiBridge
 import com.example.data.ai.StudioTaskType
+import com.example.data.learning.DeviceMediaFile
 import com.example.data.learning.PersistedLearningSnapshot
 import com.example.data.learning.RecordingSourceCategory
 import com.example.data.learning.UnifiedRecordedSession
@@ -142,6 +143,7 @@ fun UserProfileScreen(
     onSignOut: () -> Unit,
     initialTab: Int = 0,
     learningPathsState: LearningPathsUserState? = null,
+    deviceMediaFiles: List<DeviceMediaFile> = emptyList(),
     playingMediaPath: String? = null,
     onTogglePlayMedia: ((String) -> Unit)? = null,
     onStopPlayback: () -> Unit = {},
@@ -163,11 +165,12 @@ fun UserProfileScreen(
     }
     var showSignOutConfirm by remember { mutableStateOf(false) }
 
-    val allRecordings = remember(sessions, learningSnapshot, learningPathsState) {
+    val allRecordings = remember(sessions, learningSnapshot, learningPathsState, deviceMediaFiles) {
         UnifiedRecordingsCatalog.collectAll(
             speakingSessions = sessions,
             learningSnapshot = learningSnapshot,
-            learningPathsState = learningPathsState
+            learningPathsState = learningPathsState,
+            deviceMediaFiles = deviceMediaFiles
         )
     }
 
@@ -646,7 +649,11 @@ fun UserProfileScreen(
                                         }
                                     }
 
-                                    if (rec.backedSpeakingSession != null && (rec.localMediaPath.isNotBlank() || rec.title.isNotBlank())) {
+                                    val supportsGeminiExport = rec.backedSpeakingSession != null ||
+                                        rec.backedSpeakingRecordingId != null ||
+                                        rec.sourceCategory == RecordingSourceCategory.SPEAKING_STUDIO ||
+                                        rec.sourceCategory == RecordingSourceCategory.SPEAKING_LABS
+                                    if (supportsGeminiExport && (rec.localMediaPath.isNotBlank() || rec.title.isNotBlank())) {
                                         OutlinedButton(
                                             onClick = {
                                                 val file = rec.localMediaPath.takeIf { it.isNotBlank() }?.let(::File)
@@ -1004,6 +1011,14 @@ fun UserProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(vertical = 6.dp)) {
                         ProfileShortcutRow(
+                            icon = Icons.Default.Mic,
+                            title = "Saved Recordings (${allRecordings.size})",
+                            subtitle = "View & play all audio and video clips across the app",
+                            onClick = { selectedTab = 1 },
+                            modifier = Modifier.testTag("profile_overview_recordings_link")
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        ProfileShortcutRow(
                             icon = Icons.Default.BarChart,
                             title = "Progress Analytics",
                             subtitle = "Detailed trends, scores & milestones",
@@ -1091,10 +1106,11 @@ private fun ProfileShortcutRow(
     title: String,
     subtitle: String,
     tint: Color = MaterialTheme.colorScheme.primary,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .clickable(onClick = onClick)

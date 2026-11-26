@@ -17,6 +17,8 @@ import com.example.data.evaluation.LabAttemptEvaluator
 import com.example.data.evaluation.LabAttemptRequest
 import com.example.data.evaluation.LabPracticeTarget
 import com.example.data.firebase.SpeakCraftRepository
+import com.example.data.learning.LearningProgressManager
+import com.example.data.learning.SavedSpeakingRecording
 import com.example.data.media.AudioRecorderManager
 import com.example.data.model.SpeakingSession
 import com.example.data.model.UiState
@@ -63,7 +65,8 @@ class SpeakingAndLabsViewModel(
     private val tipCatalog: () -> List<TipDefinition> = { TipSelector.CATALOG },
     /** Measures a finished recording; `null` when its audio cannot be read. */
     private val recordingAnalyzer: (File) -> AcousticFeatures? = RecordedAudioAnalyzer::analyse,
-    private val evaluationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val evaluationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val learningProgressManager: LearningProgressManager? = null
 ) : ViewModel() {
 
     val aiSettings: StateFlow<AISettings> =
@@ -144,6 +147,62 @@ class SpeakingAndLabsViewModel(
     private var uploadedMimeType: String = "audio/mp4"
     private var uploadedMediaPath: String = ""
     private var countdownJob: Job? = null
+    private var recordingContextModule: String? = null
+    private var recordingContextTitle: String? = null
+
+    fun setRecordingContext(moduleType: String, promptTitle: String) {
+        if (moduleType.isNotBlank()) recordingContextModule = moduleType.trim()
+        if (promptTitle.isNotBlank()) recordingContextTitle = promptTitle.trim()
+    }
+
+    private fun defaultTitleForModule(moduleType: String, isVideo: Boolean): String = when (moduleType.uppercase()) {
+        "SPEAKING_LAB" -> if (isVideo) "Studio Video Recording" else "Studio Audio Recording"
+        "CHALLENGES" -> "Speaking Challenge Take"
+        "PRONUNCIATION" -> "Pronunciation Lab Take"
+        "ARTICULATION" -> "Articulation Lab Take"
+        "SHADOWING", "LISTENING_LAB" -> "Shadowing Lab Take"
+        "GRAMMAR_SPEAKING" -> "Grammar Speaking Take"
+        "PUBLIC_SPEAKING" -> "Public Speaking Take"
+        "VOICE_TRAINING" -> "Voice Training Take"
+        "LESSON_DETAIL", "LESSON_PRACTICE" -> "Lesson Practice Take"
+        else -> if (isVideo) "Recorded Video Clip" else "Recorded Audio Clip"
+    }
+
+    private fun archiveLocalClip(
+        sessionId: String,
+        filePath: String,
+        mediaType: String,
+        durationSeconds: Int,
+        transcript: String,
+        moduleType: String? = null,
+        promptTitle: String? = null,
+        overallAssessment: String = ""
+    ) {
+        val mgr = learningProgressManager ?: return
+        if (filePath.isBlank()) return
+        val resolvedModule = moduleType?.takeIf { it.isNotBlank() }
+            ?: recordingContextModule
+            ?: _activeAnalysisModule.value
+            ?: "SPEAKING_LAB"
+        val isVideo = mediaType.contains("video", ignoreCase = true) || filePath.endsWith(".mp4", ignoreCase = true)
+        val resolvedTitle = promptTitle?.takeIf { it.isNotBlank() }
+            ?: recordingContextTitle?.takeIf { it.isNotBlank() }
+            ?: defaultTitleForModule(resolvedModule, isVideo)
+        mgr.recordSpeakingRecording(
+            SavedSpeakingRecording(
+                id = sessionId,
+                moduleType = resolvedModule,
+                promptTitle = resolvedTitle,
+                timestampMs = System.currentTimeMillis(),
+                durationSeconds = durationSeconds.coerceAtLeast(0),
+                localMediaPath = filePath,
+                mediaType = mediaType.ifBlank { if (isVideo) "video/mp4" else "audio/mp4" },
+                transcript = transcript,
+                overallAssessment = overallAssessment,
+                evaluated = false
+            )
+        )
+    }
 
     fun startRecording(challengeSeconds: Int? = null) {
         val newSessionId = UUID.randomUUID().toString()
@@ -239,6 +298,19 @@ class SpeakingAndLabsViewModel(
         if (recordedFile != null) {
             _activeMediaPath.value = recordedFile.absolutePath
             _activeMediaIsVideo.value = false
+            if (recordedFile.exists() && recordedFile.length() > 0L) {
+                val inspectedDur = runCatching {
+                    audioManager.inspectMediaDurationSeconds(Uri.fromFile(recordedFile))
+                }.getOrDefault(0)
+                val durSec = maxOf(audioManager.elapsedSeconds.value, inspectedDur)
+                archiveLocalClip(
+                    sessionId = _currentSessionId.value,
+                    filePath = recordedFile.absolutePath,
+                    mediaType = "audio/mp4",
+                    durationSeconds = durSec,
+                    transcript = _liveTranscript.value.trim()
+                )
+            }
         }
         if (_evaluationState.value == CoachEvaluationState.RECORDING) {
             _evaluationState.value = CoachEvaluationState.NOT_STARTED
@@ -318,6 +390,13 @@ class SpeakingAndLabsViewModel(
                 _activeMediaIsVideo.value = media.mime.contains("video", ignoreCase = true) || media.path.endsWith(".mp4", ignoreCase = true)
                 val durNote = if (media.durationSeconds > 0) " • ${media.durationSeconds}s" else ""
                 _uploadedMediaLabel.value = "Attached clip (${media.sizeBytes / 1024} KB$durNote • ${media.mime})"
+                archiveLocalClip(
+                    sessionId = _currentSessionId.value,
+                    filePath = media.path,
+                    mediaType = media.mime,
+                    durationSeconds = media.durationSeconds,
+                    transcript = _liveTranscript.value.trim()
+                )
             }
         }
     }
@@ -338,6 +417,13 @@ class SpeakingAndLabsViewModel(
             _activeMediaPath.value = file.absolutePath
             _activeMediaIsVideo.value = true
             _uploadedMediaLabel.value = "CameraX Video (${file.length() / 1024} KB • ${durationSeconds.coerceAtLeast(0)}s)"
+            archiveLocalClip(
+                sessionId = _currentSessionId.value,
+                filePath = file.absolutePath,
+                mediaType = "video/mp4",
+                durationSeconds = durationSeconds,
+                transcript = _liveTranscript.value.trim()
+            )
         }
     }
 
@@ -402,6 +488,7 @@ class SpeakingAndLabsViewModel(
             val localFile = localPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.exists() && it.length() > 0L }
 
             _activeAnalysisModule.value = moduleType
+            setRecordingContext(moduleType, promptTitle)
             // Never evaluate without a recording: a typed or live transcript alone is not speech evidence.
             if (localFile == null) {
                 val missing = EvaluationEvidenceValidator.validate(
@@ -456,6 +543,26 @@ class SpeakingAndLabsViewModel(
             val evaluatedSession = report.session
             if (report.evaluationState == CoachEvaluationState.COMPLETED && evaluatedSession != null) {
                 val saveRes = repository.saveSpeakingSession(evaluatedSession)
+                val savedId = saveRes.getOrNull()?.takeIf { it.isNotBlank() } ?: evaluatedSession.id.ifBlank { sessionId }
+                learningProgressManager?.recordSpeakingRecording(
+                    SavedSpeakingRecording(
+                        id = savedId,
+                        moduleType = evaluatedSession.moduleType,
+                        promptTitle = evaluatedSession.promptTitle,
+                        timestampMs = System.currentTimeMillis(),
+                        durationSeconds = evaluatedSession.durationSeconds.toInt().coerceAtLeast(0),
+                        localMediaPath = localPath,
+                        mediaType = evaluatedSession.mediaType.ifBlank { mime },
+                        transcript = effectiveTranscript.ifBlank { evaluatedSession.transcript },
+                        overallAssessment = evaluatedSession.overallAssessment,
+                        evaluated = true,
+                        fluencyScore = evaluatedSession.fluencyScore.toInt(),
+                        pronunciationScore = evaluatedSession.pronunciationScore.toInt(),
+                        pronunciationAssessable = evaluatedSession.pronunciationAssessable,
+                        articulationScore = evaluatedSession.articulationScore.toInt(),
+                        wordsPerMinute = evaluatedSession.wordsPerMinute.toInt()
+                    )
+                )
                 if (saveRes.isSuccess) {
                     _cloudSyncError.value = null
                     pendingUnsavedSession = null
@@ -465,12 +572,24 @@ class SpeakingAndLabsViewModel(
                 } else {
                     pendingUnsavedSession = evaluatedSession
                     val errDetail = saveRes.exceptionOrNull()?.localizedMessage ?: "Firestore unreachable"
-                    _cloudSyncError.value = "Coaching feedback generated, but cloud sync failed ($errDetail). Tap Retry Cloud Sync so your progress is saved."
+                    _cloudSyncError.value = "Coaching feedback generated, but cloud sync failed ($errDetail). Saved locally on device; tap Retry Cloud Sync to upload."
                     _analysisState.value = UiState.Success(evaluatedSession)
                     onSessionCompleted?.invoke(evaluatedSession)
                 }
             } else {
-                // Inconclusive / unreadable: never save a session or notify completion.
+                // Inconclusive / unreadable: never score or notify completion, yet still keep the recorded clip playable on device.
+                archiveLocalClip(
+                    sessionId = sessionId,
+                    filePath = localPath,
+                    mediaType = mime,
+                    durationSeconds = runCatching {
+                        audioManager.inspectMediaDurationSeconds(Uri.fromFile(localFile))
+                    }.getOrDefault(audioManager.elapsedSeconds.value),
+                    transcript = effectiveTranscript,
+                    moduleType = moduleType,
+                    promptTitle = promptTitle,
+                    overallAssessment = report.statusHeadline.ifBlank { "Saved recording clip" }
+                )
                 _analysisState.value = UiState.Error(
                     "${report.statusHeadline} ${report.statusMessage}".trim()
                 )
@@ -499,7 +618,27 @@ class SpeakingAndLabsViewModel(
             res.onSuccess { savedId ->
                 pendingUnsavedSession = null
                 _cloudSyncError.value = null
-                _analysisState.value = UiState.Success(pending.copy(id = savedId))
+                val updatedSession = pending.copy(id = savedId)
+                _analysisState.value = UiState.Success(updatedSession)
+                learningProgressManager?.recordSpeakingRecording(
+                    SavedSpeakingRecording(
+                        id = savedId.ifBlank { pending.id },
+                        moduleType = pending.moduleType,
+                        promptTitle = pending.promptTitle,
+                        timestampMs = System.currentTimeMillis(),
+                        durationSeconds = pending.durationSeconds.toInt().coerceAtLeast(0),
+                        localMediaPath = pending.localMediaPath,
+                        mediaType = pending.mediaType.ifBlank { "audio/mp4" },
+                        transcript = pending.transcript,
+                        overallAssessment = pending.overallAssessment,
+                        evaluated = true,
+                        fluencyScore = pending.fluencyScore.toInt(),
+                        pronunciationScore = pending.pronunciationScore.toInt(),
+                        pronunciationAssessable = pending.pronunciationAssessable,
+                        articulationScore = pending.articulationScore.toInt(),
+                        wordsPerMinute = pending.wordsPerMinute.toInt()
+                    )
+                )
             }.onFailure { err ->
                 _cloudSyncError.value = "Retry failed (${err.localizedMessage ?: "network error"}). Check connection and try again."
             }
@@ -507,10 +646,15 @@ class SpeakingAndLabsViewModel(
     }
 
     fun deleteSavedSession(session: SpeakingSession) {
-        if (session.id.isBlank()) return
         viewModelScope.launch {
-            repository.deleteSpeakingSession(session.id, session.feedbackId, session.localMediaPath)
-            audioManager.deleteFile(session.localMediaPath)
+            if (session.id.isNotBlank()) {
+                repository.deleteSpeakingSession(session.id, session.feedbackId, session.localMediaPath)
+            }
+            learningProgressManager?.deleteSpeakingRecording(session.id.ifBlank { session.localMediaPath })
+            if (session.localMediaPath.isNotBlank()) {
+                learningProgressManager?.deleteSpeakingRecording(session.localMediaPath)
+                audioManager.deleteFile(session.localMediaPath)
+            }
         }
     }
 
@@ -539,7 +683,16 @@ class SpeakingAndLabsViewModel(
         liveTranscriptionManager?.stopTranscription()
         audioManager.stopPlayback()
         if (audioManager.isRecording.value) {
-            audioManager.stopRecording()
+            val stopped = audioManager.stopRecording()
+            if (stopped != null && stopped.exists() && stopped.length() > 0L) {
+                archiveLocalClip(
+                    sessionId = _currentSessionId.value,
+                    filePath = stopped.absolutePath,
+                    mediaType = "audio/mp4",
+                    durationSeconds = audioManager.elapsedSeconds.value,
+                    transcript = _liveTranscript.value.trim()
+                )
+            }
         }
     }
 

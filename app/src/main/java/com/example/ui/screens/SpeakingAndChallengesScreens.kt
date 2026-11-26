@@ -192,6 +192,10 @@ fun SpeakingLabScreen(
         customTopic.trim().ifBlank { "Selected Topic Practice" }
     }
 
+    LaunchedEffect(activePromptTitle) {
+        speakingVm.setRecordingContext("SPEAKING_LAB", activePromptTitle)
+    }
+
     fun persistGeminiFeedback(feedbackText: String, source: String) {
         val clean = feedbackText.trim()
         if (clean.isBlank()) return
