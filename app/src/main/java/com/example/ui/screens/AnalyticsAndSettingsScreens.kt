@@ -51,11 +51,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.data.ai.GeminiAppConnectionStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -97,7 +102,7 @@ fun AnalyticsScreen(
     onNavigateToMentor: () -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
-    var period by remember { mutableStateOf("Weekly") }
+    var period by rememberSaveable { mutableStateOf("Weekly") }
 
     val filteredSessions = remember(sessions, period) {
         StreakAndAnalyticsHelper.filterSessionsByPeriod(sessions, period)
@@ -862,17 +867,26 @@ fun SettingsScreen(
 
         val integrationsCard: @Composable () -> Unit = {
             val context = LocalContext.current
-            var geminiStatus by remember(context) {
-                mutableStateOf(PhoneGeminiBridge.inspectConnectionStatus(context))
-            }
+            var geminiStatus by remember(context) { mutableStateOf(GeminiAppConnectionStatus()) }
             var geminiActionMessage by remember { mutableStateOf<String?>(null) }
             var studioPromptDraft by remember(context) {
-                mutableStateOf(PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(context))
+                mutableStateOf(PhoneGeminiBridge.DEFAULT_STUDIO_GEMINI_PROMPT)
             }
-            var isCustomStudioPrompt by remember(context) {
-                mutableStateOf(PhoneGeminiBridge.hasCustomStudioGeminiPrompt(context))
-            }
+            var isCustomStudioPrompt by remember(context) { mutableStateOf(false) }
             var studioPromptStatus by remember { mutableStateOf<String?>(null) }
+
+            LaunchedEffect(context) {
+                val (status, prompt, custom) = withContext(Dispatchers.IO) {
+                    Triple(
+                        PhoneGeminiBridge.inspectConnectionStatus(context),
+                        PhoneGeminiBridge.getEffectiveStudioGeminiPrompt(context),
+                        PhoneGeminiBridge.hasCustomStudioGeminiPrompt(context)
+                    )
+                }
+                geminiStatus = status
+                studioPromptDraft = prompt
+                isCustomStudioPrompt = custom
+            }
 
             Card(
                 shape = MaterialTheme.shapes.large,

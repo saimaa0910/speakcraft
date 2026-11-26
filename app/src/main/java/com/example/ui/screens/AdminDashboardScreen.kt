@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,11 +66,11 @@ fun AdminDashboardScreen(
         return
     }
 
-    var lessonTitle by remember { mutableStateOf("") }
-    var lessonObj by remember { mutableStateOf("") }
-    var lessonSlug by remember { mutableStateOf(CurriculumCatalog.contentModules.first().slug) }
-    var chalTitle by remember { mutableStateOf("") }
-    var chalPrompt by remember { mutableStateOf("") }
+    var lessonTitle by rememberSaveable { mutableStateOf("") }
+    var lessonObj by rememberSaveable { mutableStateOf("") }
+    var lessonSlug by rememberSaveable { mutableStateOf(CurriculumCatalog.contentModules.first().slug) }
+    var chalTitle by rememberSaveable { mutableStateOf("") }
+    var chalPrompt by rememberSaveable { mutableStateOf("") }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val tier = SpeakCraftSpacing.tierForWidth(maxWidth)

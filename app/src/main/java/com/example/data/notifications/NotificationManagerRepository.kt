@@ -6,10 +6,15 @@ import com.example.data.learning.AdminAnnouncement
 import com.example.data.learning.NotificationCategory
 import com.example.data.learning.UserNotification
 import com.example.data.model.UserProfile
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -29,7 +34,9 @@ import java.util.UUID
  */
 class NotificationManagerRepository(
     context: Context? = null,
-    private val customStorageDir: File? = null
+    private val customStorageDir: File? = null,
+    private val persistScope: CoroutineScope? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     private val storageDir: File? = customStorageDir
         ?: context?.applicationContext?.filesDir?.let { File(it, "notification_store") }
@@ -43,7 +50,12 @@ class NotificationManagerRepository(
     val state: StateFlow<NotificationStoreState> = _state.asStateFlow()
 
     private val lock = Any()
+    private val diskWriteLock = Any()
     private var loadedUserId: String? = null
+    @Volatile
+    private var pendingPersistSnapshot: NotificationStoreState? = null
+    @Volatile
+    private var lastAsyncSyncSignature: String? = null
 
     /**
      * Loads persisted alerts for [userId] and ensures contextual daily/welcome alerts exist
@@ -58,70 +70,144 @@ class NotificationManagerRepository(
     ) {
         val safeUid = userId.ifBlank { "local_guest" }
         synchronized(lock) {
-            var current = if (loadedUserId == safeUid && _state.value.userId == safeUid) {
-                _state.value
-            } else {
-                val restored = readFromDisk(safeUid)?.let { sanitizeSnapshot(it) }
-                loadedUserId = safeUid
-                restored ?: NotificationStoreState(userId = safeUid, lastSyncedAtMs = nowMs)
-            }
-
-            val dayKey = dateKey(nowMs)
-            val displayName = profile?.displayName?.trim().orEmpty().ifBlank { "Speaker" }
-            val dailyTargetMins = (profile?.dailyGoalMinutes ?: 15L).coerceIn(5L, 90L)
-
-            if (current.alerts.isEmpty()) {
-                current = appendAlertLocked(
-                    snapshot = current,
-                    title = "Welcome to SpeakCraft Alerts, $displayName",
-                    message = "Your practice reminders, coaching highlights, vocabulary reviews, and streak alerts appear here.",
-                    category = AppAlertCategory.ACCOUNT,
-                    severity = AlertSeverity.INFO,
-                    actionLabel = "View Profile",
-                    actionRoute = "profile",
-                    dedupKey = "welcome_alerts_$safeUid",
-                    isPinned = false,
-                    sourceTag = "onboarding",
-                    nowMs = nowMs
-                )
-            }
-
-            current = appendAlertLocked(
-                snapshot = current,
-                title = "Today's $dailyTargetMins-min speaking plan is ready",
-                message = if (sessionsCount == 0) {
-                    "Complete your first quick speaking drill to establish your personal voice baseline."
-                } else {
-                    "Keep building momentum with a focused drill matched to your goals."
-                },
-                category = AppAlertCategory.DAILY_REMINDER,
-                severity = AlertSeverity.REMINDER,
-                actionLabel = "Start Practice",
-                actionRoute = "daily_practice",
-                dedupKey = "daily_plan_$dayKey",
-                isPinned = false,
-                sourceTag = "scheduler",
+            val refreshed = buildRefreshedStoreLocked(
+                safeUid = safeUid,
+                profile = profile,
+                sessionsCount = sessionsCount,
+                streakDays = streakDays,
                 nowMs = nowMs
             )
-
-            if (streakDays >= 2) {
-                current = appendAlertLocked(
-                    snapshot = current,
-                    title = "Protect your $streakDays-day streak",
-                    message = "Log one short speaking or vocabulary session today to keep your streak alive.",
-                    category = AppAlertCategory.STREAK,
-                    severity = AlertSeverity.WARNING,
-                    actionLabel = "Quick Drill",
-                    actionRoute = "speaking_lab",
-                    dedupKey = "streak_protect_${dayKey}_$streakDays",
-                    isPinned = false,
-                    sourceTag = "streak_engine",
-                    nowMs = nowMs
-                )
-            }
-
-            commitLocked(current.copy(userId = safeUid, lastSyncedAtMs = nowMs))
+            lastAsyncSyncSignature = buildSyncSignature(safeUid, profile, sessionsCount, streakDays, nowMs)
+            commitLocked(refreshed)
         }
+    }
+
+    /**
+     * Background/IO-safe counterpart of [loadForUser] for UI shell synchronization.
+     * Deduplicates repeated unchanged invocations and performs JSON/file IO on [ioDispatcher].
+     */
+    suspend fun loadForUserAsync(
+        userId: String,
+        profile: UserProfile? = null,
+        sessionsCount: Int = 0,
+        streakDays: Int = 0,
+        nowMs: Long = System.currentTimeMillis()
+    ) {
+        val safeUid = userId.ifBlank { "local_guest" }
+        val signature = buildSyncSignature(safeUid, profile, sessionsCount, streakDays, nowMs)
+        if (lastAsyncSyncSignature == signature &&
+            loadedUserId == safeUid &&
+            _state.value.userId == safeUid
+        ) {
+            return
+        }
+
+        withContext(ioDispatcher) {
+            synchronized(lock) {
+                buildRefreshedStoreLocked(
+                    safeUid = safeUid,
+                    profile = profile,
+                    sessionsCount = sessionsCount,
+                    streakDays = streakDays,
+                    nowMs = nowMs
+                ).also {
+                    _state.update { _ -> it }
+                    pendingPersistSnapshot = it
+                    lastAsyncSyncSignature = signature
+                }
+            }
+            val toWrite = pendingPersistSnapshot
+            if (toWrite != null) {
+                synchronized(diskWriteLock) { writeToDisk(toWrite) }
+            }
+        }
+    }
+
+    private fun buildSyncSignature(
+        safeUid: String,
+        profile: UserProfile?,
+        sessionsCount: Int,
+        streakDays: Int,
+        nowMs: Long
+    ): String = listOf(
+        safeUid,
+        dateKey(nowMs),
+        profile?.displayName?.trim().orEmpty(),
+        (profile?.dailyGoalMinutes ?: 15L).coerceIn(5L, 90L),
+        sessionsCount,
+        streakDays
+    ).joinToString("|")
+
+    private fun buildRefreshedStoreLocked(
+        safeUid: String,
+        profile: UserProfile?,
+        sessionsCount: Int,
+        streakDays: Int,
+        nowMs: Long
+    ): NotificationStoreState {
+        var current = if (loadedUserId == safeUid && _state.value.userId == safeUid) {
+            _state.value
+        } else {
+            val restored = readFromDisk(safeUid)?.let { sanitizeSnapshot(it) }
+            loadedUserId = safeUid
+            restored ?: NotificationStoreState(userId = safeUid, lastSyncedAtMs = nowMs)
+        }
+
+        val dayKey = dateKey(nowMs)
+        val displayName = profile?.displayName?.trim().orEmpty().ifBlank { "Speaker" }
+        val dailyTargetMins = (profile?.dailyGoalMinutes ?: 15L).coerceIn(5L, 90L)
+
+        if (current.alerts.isEmpty()) {
+            current = appendAlertLocked(
+                snapshot = current,
+                title = "Welcome to SpeakCraft Alerts, $displayName",
+                message = "Your practice reminders, coaching highlights, vocabulary reviews, and streak alerts appear here.",
+                category = AppAlertCategory.ACCOUNT,
+                severity = AlertSeverity.INFO,
+                actionLabel = "View Profile",
+                actionRoute = "profile",
+                dedupKey = "welcome_alerts_$safeUid",
+                isPinned = false,
+                sourceTag = "onboarding",
+                nowMs = nowMs
+            )
+        }
+
+        current = appendAlertLocked(
+            snapshot = current,
+            title = "Today's $dailyTargetMins-min speaking plan is ready",
+            message = if (sessionsCount == 0) {
+                "Complete your first quick speaking drill to establish your personal voice baseline."
+            } else {
+                "Keep building momentum with a focused drill matched to your goals."
+            },
+            category = AppAlertCategory.DAILY_REMINDER,
+            severity = AlertSeverity.REMINDER,
+            actionLabel = "Start Practice",
+            actionRoute = "daily_practice",
+            dedupKey = "daily_plan_$dayKey",
+            isPinned = false,
+            sourceTag = "scheduler",
+            nowMs = nowMs
+        )
+
+        if (streakDays >= 2) {
+            current = appendAlertLocked(
+                snapshot = current,
+                title = "Protect your $streakDays-day streak",
+                message = "Log one short speaking or vocabulary session today to keep your streak alive.",
+                category = AppAlertCategory.STREAK,
+                severity = AlertSeverity.WARNING,
+                actionLabel = "Quick Drill",
+                actionRoute = "speaking_lab",
+                dedupKey = "streak_protect_${dayKey}_$streakDays",
+                isPinned = false,
+                sourceTag = "streak_engine",
+                nowMs = nowMs
+            )
+        }
+
+        return current.copy(userId = safeUid, lastSyncedAtMs = nowMs)
     }
 
     /**
@@ -432,7 +518,16 @@ class NotificationManagerRepository(
 
     private fun commitLocked(snapshot: NotificationStoreState) {
         _state.update { snapshot }
-        writeToDisk(snapshot)
+        val scope = persistScope
+        if (scope != null) {
+            pendingPersistSnapshot = snapshot
+            scope.launch(ioDispatcher) {
+                val latest = pendingPersistSnapshot ?: snapshot
+                synchronized(diskWriteLock) { writeToDisk(latest) }
+            }
+        } else {
+            synchronized(diskWriteLock) { writeToDisk(snapshot) }
+        }
     }
 
     private fun fileForUser(uid: String): File? {

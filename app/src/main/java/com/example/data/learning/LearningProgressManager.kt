@@ -12,10 +12,15 @@ import com.example.data.model.SpeakingSession
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabSeed
 import com.example.data.model.VocabularyEntry
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -57,11 +62,29 @@ class LearningProgressManager(
     private val storageDir: File? = null,
     private val clockMs: () -> Long = { System.currentTimeMillis() },
     private val todayKeyProvider: () -> String = { StreakAndCompletionEngine.todayKey() },
-    private val todayEpochDayProvider: () -> Long = { clockMs() / 86_400_000L }
+    private val todayEpochDayProvider: () -> Long = { clockMs() / 86_400_000L },
+    private val persistScope: CoroutineScope? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     constructor(context: Context) : this(
         storageDir = File(context.applicationContext.filesDir, "learning_state").apply { mkdirs() }
     )
+
+    constructor(
+        context: Context,
+        persistScope: CoroutineScope?,
+        ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    ) : this(
+        storageDir = File(context.applicationContext.filesDir, "learning_state").apply { mkdirs() },
+        persistScope = persistScope,
+        ioDispatcher = ioDispatcher
+    )
+
+    private val ioLock = Any()
+    @Volatile
+    private var pendingPersistSnapshot: PersistedLearningSnapshot? = null
+    @Volatile
+    private var lastAsyncSyncSignature: String? = null
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -96,7 +119,81 @@ class LearningProgressManager(
             activeUserId = cleanUid
             readFromDisk(cleanUid) ?: PersistedLearningSnapshot(userId = cleanUid)
         }
+        val updated = buildRefreshedUserSnapshot(
+            loaded = loaded,
+            cleanUid = cleanUid,
+            profile = profile,
+            recentSessions = recentSessions
+        )
+        lastAsyncSyncSignature = buildSyncSignature(cleanUid, profile, recentSessions)
+        commitState(updated)
+    }
 
+    /**
+     * Background/IO-safe counterpart of [loadForUser] for Compose / UI callers.
+     * Deduplicates repeated unchanged invocations so tab switches and profile updates
+     * do not re-read or re-serialize JSON on the main thread.
+     */
+    suspend fun loadForUserAsync(
+        userId: String,
+        profile: UserProfile? = null,
+        recentSessions: List<SpeakingSession> = emptyList()
+    ) {
+        val cleanUid = userId.trim().ifBlank { "local_guest" }
+        val signature = buildSyncSignature(cleanUid, profile, recentSessions)
+        if (lastAsyncSyncSignature == signature &&
+            activeUserId == cleanUid &&
+            _state.value.userId == cleanUid
+        ) {
+            return
+        }
+
+        val updated = withContext(ioDispatcher) {
+            val loaded = synchronized(ioLock) {
+                if (activeUserId == cleanUid && _state.value.userId == cleanUid) {
+                    _state.value
+                } else {
+                    activeUserId = cleanUid
+                    readFromDisk(cleanUid) ?: PersistedLearningSnapshot(userId = cleanUid)
+                }
+            }
+            buildRefreshedUserSnapshot(
+                loaded = loaded,
+                cleanUid = cleanUid,
+                profile = profile,
+                recentSessions = recentSessions
+            )
+        }
+        lastAsyncSyncSignature = signature
+        commitState(updated, flushAsyncToDisk = true)
+    }
+
+    private fun buildSyncSignature(
+        cleanUid: String,
+        profile: UserProfile?,
+        recentSessions: List<SpeakingSession>
+    ): String {
+        val recentMistakeHash = recentSessions.take(5).flatMap { it.mistakes }.distinct().take(6).hashCode()
+        return listOf(
+            cleanUid,
+            todayKeyProvider(),
+            profile?.communicationLevel.orEmpty(),
+            profile?.dailyGoalMinutes ?: -1L,
+            profile?.primaryGoal.orEmpty(),
+            profile?.fluencyScore?.toInt() ?: -1,
+            profile?.pronunciationScore?.toInt() ?: -1,
+            profile?.vocabularyScore?.toInt() ?: -1,
+            recentSessions.size,
+            recentMistakeHash
+        ).joinToString("|")
+    }
+
+    private fun buildRefreshedUserSnapshot(
+        loaded: PersistedLearningSnapshot,
+        cleanUid: String,
+        profile: UserProfile?,
+        recentSessions: List<SpeakingSession>
+    ): PersistedLearningSnapshot {
         val todayKey = todayKeyProvider()
         val now = clockMs()
         val level = profile?.communicationLevel?.takeIf { it.isNotBlank() }
@@ -188,8 +285,7 @@ class LearningProgressManager(
                 nowMs = now
             )
         }
-
-        commitState(updated)
+        return updated
     }
 
     /**
@@ -1958,10 +2054,33 @@ class LearningProgressManager(
         )
     }
 
+    private suspend fun commitState(snapshot: PersistedLearningSnapshot, flushAsyncToDisk: Boolean) {
+        _state.update { snapshot }
+        refreshDailyPackage(snapshot)
+        if (flushAsyncToDisk) {
+            pendingPersistSnapshot = snapshot
+            withContext(ioDispatcher) {
+                val latest = pendingPersistSnapshot ?: snapshot
+                synchronized(ioLock) { writeToDisk(latest) }
+            }
+        } else {
+            commitState(snapshot)
+        }
+    }
+
     private fun commitState(snapshot: PersistedLearningSnapshot) {
         _state.update { snapshot }
         refreshDailyPackage(snapshot)
-        writeToDisk(snapshot)
+        val scope = persistScope
+        if (scope != null) {
+            pendingPersistSnapshot = snapshot
+            scope.launch(ioDispatcher) {
+                val latest = pendingPersistSnapshot ?: snapshot
+                synchronized(ioLock) { writeToDisk(latest) }
+            }
+        } else {
+            synchronized(ioLock) { writeToDisk(snapshot) }
+        }
     }
 
     /** Rebuilds [dailyPackage] only when the current set changed. */
@@ -1987,7 +2106,7 @@ class LearningProgressManager(
         return File(dir, "learning_snapshot_$safe.json")
     }
 
-    private fun readFromDisk(uid: String): PersistedLearningSnapshot? {
+    private fun readFromDisk(uid: String): PersistedLearningSnapshot? = synchronized(ioLock) {
         val file = fileForUser(uid) ?: return null
         if (!file.exists()) return null
         return try {
@@ -2002,10 +2121,11 @@ class LearningProgressManager(
         val file = fileForUser(snapshot.userId) ?: return
         runCatching {
             file.parentFile?.mkdirs()
+            val encoded = json.encodeToString(snapshot)
             val temp = File(file.parentFile, "${file.name}.tmp")
-            temp.writeText(json.encodeToString(snapshot))
+            temp.writeText(encoded)
             if (!temp.renameTo(file)) {
-                file.writeText(json.encodeToString(snapshot))
+                file.writeText(encoded)
                 temp.delete()
             }
         }.onFailure { err ->

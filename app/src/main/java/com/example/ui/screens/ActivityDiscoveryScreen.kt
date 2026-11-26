@@ -54,8 +54,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,12 +102,14 @@ fun ActivityDiscoveryScreen(
             vm.updateModuleFilter(initialModuleId)
         }
     }
+    LaunchedEffect(profile) {
+        vm.updateProfileContext(profile)
+    }
 
-    var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
+    var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
     val filter by vm.searchFilter.collectAsStateWithLifecycle()
     val currentPage by vm.currentPage.collectAsStateWithLifecycle()
     val progressList by vm.progressList.collectAsStateWithLifecycle()
-    val attempts by vm.attemptHistory.collectAsStateWithLifecycle()
     val savedList by vm.savedActivities.collectAsStateWithLifecycle()
     val selectedMinutes by vm.selectedDailyMinutes.collectAsStateWithLifecycle()
     val analytics by vm.analyticsSnapshot.collectAsStateWithLifecycle()
@@ -113,16 +117,12 @@ fun ActivityDiscoveryScreen(
 
     val progressById = remember(progressList) { progressList.associateBy { it.activityId } }
     val savedIds = remember(savedList) { savedList.map { it.activityId }.toSet() }
-    val matchedActivities = remember(filter) { ActivityCatalogue.searchAndFilter(filter) }
+    val matchedActivities by vm.searchResultsState.collectAsStateWithLifecycle()
     val paginatedActivities = remember(matchedActivities, currentPage) {
         ActivityCatalogue.paginate(matchedActivities, currentPage, pageSize = 20)
     }
-    val dailyPlan = remember(selectedMinutes, profile, progressList, attempts) {
-        vm.buildEffectiveDailyPlan(profile)
-    }
-    val recommended = remember(profile, progressList, attempts) {
-        vm.recommendedActivities(profile)
-    }
+    val dailyPlan by vm.dailyPlanState.collectAsStateWithLifecycle()
+    val recommended by vm.recommendedActivitiesState.collectAsStateWithLifecycle()
 
     val ext = MaterialTheme.speakCraftColors
 
@@ -647,8 +647,8 @@ fun ComprehensiveLearningPathCard(
     onOpenActivity: (String) -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
-    var isExpanded by remember { mutableStateOf(false) }
-    var selectedPillarTab by remember { mutableStateOf(0) } // 0: Activities, 1: Exercises, 2: Techniques, 3: Tasks
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedPillarTab by rememberSaveable { mutableIntStateOf(0) } // 0: Activities, 1: Exercises, 2: Techniques, 3: Tasks
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

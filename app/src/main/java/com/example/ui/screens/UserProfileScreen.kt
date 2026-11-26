@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,15 +107,15 @@ fun UserProfileScreen(
     onSignOut: () -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
-    var isEditing by remember { mutableStateOf(false) }
-    var nameDraft by remember(profile.displayName) { mutableStateOf(profile.displayName) }
-    var levelDraft by remember(profile.communicationLevel) {
+    var isEditing by rememberSaveable { mutableStateOf(false) }
+    var nameDraft by rememberSaveable(profile.displayName) { mutableStateOf(profile.displayName) }
+    var levelDraft by rememberSaveable(profile.communicationLevel) {
         mutableStateOf(profile.communicationLevel.ifBlank { "Intermediate" })
     }
-    var goalDraft by remember(profile.primaryGoal) {
+    var goalDraft by rememberSaveable(profile.primaryGoal) {
         mutableStateOf(profile.primaryGoal.ifBlank { "Daily English Fluency" })
     }
-    var minutesDraft by remember(profile.dailyGoalMinutes) {
+    var minutesDraft by rememberSaveable(profile.dailyGoalMinutes) {
         mutableLongStateOf(profile.dailyGoalMinutes.coerceIn(5L, 60L))
     }
     var showSignOutConfirm by remember { mutableStateOf(false) }

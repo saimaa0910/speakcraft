@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -288,7 +289,7 @@ fun LessonDetailScreen(
 
     val progressRecord = learningProgress.firstOrNull { it.lessonId == lesson.id }
     val isCompleted = progressRecord?.completed == true
-    var notesDraft by remember(progressRecord?.notes) { mutableStateOf(progressRecord?.notes.orEmpty()) }
+    var notesDraft by rememberSaveable(lessonId, progressRecord?.notes) { mutableStateOf(progressRecord?.notes.orEmpty()) }
 
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val isPaused by speakingVm.audioManager.isPaused.collectAsStateWithLifecycle()
@@ -521,9 +522,9 @@ fun VoiceTrainingLabScreen(
     pastSessions: List<SpeakingSession>
 ) {
     val context = LocalContext.current
-    var targetWpm by remember { mutableFloatStateOf(130f) }
-    var pauseBeats by remember { mutableFloatStateOf(2f) }
-    var activeLever by remember { mutableStateOf("Rate & Intentional Pauses") }
+    var targetWpm by rememberSaveable { mutableFloatStateOf(130f) }
+    var pauseBeats by rememberSaveable { mutableFloatStateOf(2f) }
+    var activeLever by rememberSaveable { mutableStateOf("Rate & Intentional Pauses") }
 
     val leverScripts = remember {
         mapOf(

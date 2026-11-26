@@ -65,6 +65,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -150,9 +151,9 @@ fun VocabularyScreen(
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var levelFilter by remember(userLevel) { mutableStateOf(userLevel.label) }
-    var searchQuery by remember { mutableStateOf("") }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var levelFilter by rememberSaveable(userLevel) { mutableStateOf(userLevel.label) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     val bank = CurriculumCatalog.vocabularyBank
     val effectiveDailyWords = remember(dailyVocabWords, userLevel, todayEpochDay, bank) {
@@ -184,10 +185,10 @@ fun VocabularyScreen(
     }
 
     // AI Quiz states (speak-only)
-    var spokenQuizSentence by remember { mutableStateOf("") }
-    var activeWeeklyQuizMode by remember { mutableStateOf(false) }
+    var spokenQuizSentence by rememberSaveable { mutableStateOf("") }
+    var activeWeeklyQuizMode by rememberSaveable { mutableStateOf(false) }
     var weeklyQuestions by remember { mutableStateOf<List<WeeklySpokenQuestion>>(emptyList()) }
-    var weeklyQuestionIdx by remember { mutableIntStateOf(0) }
+    var weeklyQuestionIdx by rememberSaveable { mutableIntStateOf(0) }
     var weeklyAnswersByQId by remember { mutableStateOf<Map<String, WeeklySpokenAnswerResult>>(emptyMap()) }
     var weeklyAssessmentCompleted by remember { mutableStateOf(false) }
     var weeklyAssessmentRecord by remember { mutableStateOf<WeeklyVocabularyAssessmentRecord?>(null) }
@@ -525,8 +526,8 @@ fun VocabularyScreen(
                         }
 
                         1 -> {
-                            var cardIndex by remember { mutableIntStateOf(0) }
-                            var flipped by remember { mutableStateOf(false) }
+                            var cardIndex by rememberSaveable { mutableIntStateOf(0) }
+                            var flipped by rememberSaveable { mutableStateOf(false) }
                             val dueCards = remember(entries, todayEpochDay, userLevel) {
                                 val levelFirst = bank.sortedByDescending { it.level.equals(userLevel.label, ignoreCase = true) }
                                 levelFirst.filter { seed ->
@@ -609,7 +610,7 @@ fun VocabularyScreen(
                         }
 
                         2 -> {
-                            var targetIdx by remember(userLevel) { mutableIntStateOf(0) }
+                            var targetIdx by rememberSaveable(userLevel) { mutableIntStateOf(0) }
                             val target = levelQuizPool[targetIdx % levelQuizPool.size]
                             val existing = entries.firstOrNull { it.word.equals(target.word, ignoreCase = true) }
 
@@ -934,10 +935,10 @@ fun VocabularyScreen(
                         }
 
                         else -> {
-                            var customWord by remember { mutableStateOf("") }
-                            var customMeaning by remember { mutableStateOf("") }
-                            var customExample by remember { mutableStateOf("") }
-                            var customNote by remember { mutableStateOf("") }
+                            var customWord by rememberSaveable { mutableStateOf("") }
+                            var customMeaning by rememberSaveable { mutableStateOf("") }
+                            var customExample by rememberSaveable { mutableStateOf("") }
+                            var customNote by rememberSaveable { mutableStateOf("") }
 
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),

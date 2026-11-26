@@ -535,8 +535,12 @@ class SpeakingAndLabsViewModel(
     override fun onCleared() {
         super.onCleared()
         countdownJob?.cancel()
-        liveTranscriptionManager?.release()
-        audioManager.release()
+        // Only stop active playback/transcription; never permanently destroy AppContainer-shared singletons.
+        liveTranscriptionManager?.stopTranscription()
+        audioManager.stopPlayback()
+        if (audioManager.isRecording.value) {
+            audioManager.stopRecording()
+        }
     }
 
     private data class AttachedMedia(val mime: String, val sizeBytes: Long, val durationSeconds: Int, val path: String)

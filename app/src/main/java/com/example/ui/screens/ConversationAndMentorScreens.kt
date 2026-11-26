@@ -64,6 +64,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,10 +117,10 @@ fun ConversationSimulatorScreen(
     val voiceAutoSpeak by coachVm.voiceAutoSpeak.collectAsStateWithLifecycle()
     val isDictating by ttsHelper.isListening.collectAsStateWithLifecycle()
 
-    var messageInput by remember { mutableStateOf("") }
+    var messageInput by rememberSaveable { mutableStateOf("") }
     var voiceStatus by remember { mutableStateOf<String?>(null) }
     var geminiBridgeFeedback by remember { mutableStateOf<String?>(null) }
-    var voiceModeEnabled by remember { mutableStateOf(false) }
+    var voiceModeEnabled by rememberSaveable { mutableStateOf(false) }
     var pendingScenarioSwitch by remember { mutableStateOf<String?>(null) }
 
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -639,7 +640,7 @@ fun AiMentorScreen(
     val mentorError by coachVm.mentorError.collectAsStateWithLifecycle()
     val selectedRole by coachVm.selectedMentorRole.collectAsStateWithLifecycle()
 
-    var question by remember { mutableStateOf("") }
+    var question by rememberSaveable { mutableStateOf("") }
     var voiceNoteError by remember { mutableStateOf<String?>(null) }
     var geminiBridgeFeedback by remember { mutableStateOf<String?>(null) }
     var showClearConfirm by remember { mutableStateOf(false) }

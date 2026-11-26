@@ -2,6 +2,8 @@ package com.example.ui
 
 import com.example.appContainer
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
@@ -99,23 +101,29 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navigation
 import com.example.data.AppContainer
 import com.example.data.activity.ActivityCatalogue
 import com.example.data.ai.InboundGeminiLink
 import com.example.data.firebase.authStateFlow
 import com.example.data.firebase.signOut
 import com.example.data.learning.LearningLevel
+import com.example.data.learning.LearningProgressManager
 import com.example.data.media.TtsAndSpeechHelper
 import com.example.data.model.CurriculumCatalog
 import com.example.data.model.FeatureTutorialRegistry
 import com.example.data.model.UiState
+import com.example.data.model.UserProfile
+import com.example.data.notifications.NotificationManagerRepository
 import com.example.data.preferences.AISettings
 import com.example.data.preferences.AppPreferences
 import com.example.data.preferences.AppPreferencesRepository
@@ -141,6 +149,7 @@ import com.example.ui.screens.DailyPracticeScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.GrammarSpeakingScreen
 import com.example.data.learningpaths.LearningPathCurriculumRegistry
+import com.example.ui.components.ActiveLearningPathBannerUi
 import com.example.ui.screens.LearningPathAssessmentScreen
 import com.example.ui.screens.LearningPathDetailScreen
 import com.example.ui.screens.LearningPathLessonScreen
@@ -171,8 +180,158 @@ import com.example.ui.viewmodel.UpdateAndAdminViewModel
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+internal object TabGraphRoutes {
+    const val DASHBOARD = "tab_dashboard"
+    const val DAILY_PRACTICE = "tab_daily_practice"
+    const val LEARNING_PATHS = "tab_learning_paths"
+    const val ACTIVITIES = "tab_activities"
+    const val COACH_PRACTICE = "tab_coach_practice"
+    const val SPEAKING_LAB = "tab_speaking_lab"
+    const val VOCABULARY = "tab_vocabulary"
+    const val AI_MENTOR = "tab_ai_mentor"
+    const val ANALYTICS = "tab_analytics"
+    const val PROFILE = "tab_profile"
+    const val SETTINGS = "tab_settings"
+}
+
+internal fun tabGraphForRoute(route: String): String {
+    val clean = route.substringBefore('?').trim()
+    return when {
+        clean == "dashboard" -> TabGraphRoutes.DASHBOARD
+        clean == "daily_practice" -> TabGraphRoutes.DAILY_PRACTICE
+        clean == "learning_paths" ||
+            clean.startsWith("learning_path_detail") ||
+            clean.startsWith("learning_path_lesson") ||
+            clean.startsWith("learning_path_assessment") ||
+            clean.startsWith("module_lessons") ||
+            clean.startsWith("lesson_detail") -> TabGraphRoutes.LEARNING_PATHS
+        clean == "activity_library" ||
+            clean.startsWith("activity_library/") ||
+            clean.startsWith("activity/") -> TabGraphRoutes.ACTIVITIES
+        clean == "coach_practice" -> TabGraphRoutes.COACH_PRACTICE
+        clean == "speaking_lab" ||
+            clean == "challenges" ||
+            clean == "articulation_lab" ||
+            clean == "pronunciation" ||
+            clean == "voice_training" ||
+            clean == "conversation" ||
+            clean == "listening_lab" ||
+            clean == "grammar_speaking" ||
+            clean == "public_speaking" ||
+            clean == "real_world_tasks" -> TabGraphRoutes.SPEAKING_LAB
+        clean == "vocabulary" -> TabGraphRoutes.VOCABULARY
+        clean == "ai_mentor" -> TabGraphRoutes.AI_MENTOR
+        clean == "analytics" -> TabGraphRoutes.ANALYTICS
+        clean == "profile" -> TabGraphRoutes.PROFILE
+        clean == "settings" || clean == "admin_console" -> TabGraphRoutes.SETTINGS
+        else -> TabGraphRoutes.DASHBOARD
+    }
+}
+
+internal fun tabStartRouteForGraph(tabGraph: String): String = when (tabGraph) {
+    TabGraphRoutes.DASHBOARD -> "dashboard"
+    TabGraphRoutes.DAILY_PRACTICE -> "daily_practice"
+    TabGraphRoutes.LEARNING_PATHS -> "learning_paths"
+    TabGraphRoutes.ACTIVITIES -> "activity_library"
+    TabGraphRoutes.COACH_PRACTICE -> "coach_practice"
+    TabGraphRoutes.SPEAKING_LAB -> "speaking_lab"
+    TabGraphRoutes.VOCABULARY -> "vocabulary"
+    TabGraphRoutes.AI_MENTOR -> "ai_mentor"
+    TabGraphRoutes.ANALYTICS -> "analytics"
+    TabGraphRoutes.PROFILE -> "profile"
+    TabGraphRoutes.SETTINGS -> "settings"
+    else -> "dashboard"
+}
+
+/**
+ * Unified multi-back-stack router for all SpeakCraft tabs and drill-downs:
+ * - Switching to another tab graph saves the current tab's back stack & UI state and restores the target tab's saved stack.
+ * - Re-tapping an already active tab pops cleanly to that tab's start destination (no-op if already at root).
+ * - Pushing a child route inside the same tab adds normally onto that tab's preserved stack.
+ */
+internal fun navigateAcrossTabs(navController: NavHostController, route: String) {
+    val cleanRoute = route.trim()
+    if (cleanRoute.isBlank()) return
+    val targetGraph = tabGraphForRoute(cleanRoute)
+    val targetStartRoute = tabStartRouteForGraph(targetGraph)
+    val currentDest = navController.currentBackStackEntry?.destination
+    val currentGraph = currentDest?.hierarchy
+        ?.firstOrNull { it.route?.startsWith("tab_") == true }
+        ?.route
+    val currentRoutePattern = currentDest?.route
+
+    if (currentGraph == targetGraph) {
+        if (cleanRoute == targetStartRoute) {
+            if (currentRoutePattern != targetStartRoute) {
+                navController.popBackStack(targetStartRoute, inclusive = false)
+            }
+            return
+        }
+        navController.navigate(cleanRoute) {
+            launchSingleTop = true
+        }
+        return
+    }
+
+    navController.navigate(targetGraph) {
+        popUpTo(navController.graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+
+    if (cleanRoute != targetStartRoute) {
+        val restoredRouteNow = navController.currentBackStackEntry?.destination?.route
+        val restoredArgsNow = navController.currentBackStackEntry?.arguments
+        val alreadyAtExactTarget = when {
+            cleanRoute.startsWith("learning_path_detail/") ->
+                restoredRouteNow == "learning_path_detail/{programId}" &&
+                    restoredArgsNow?.getString("programId") == cleanRoute.removePrefix("learning_path_detail/")
+            cleanRoute.startsWith("learning_path_lesson/") -> {
+                val parts = cleanRoute.removePrefix("learning_path_lesson/").split("/")
+                restoredRouteNow == "learning_path_lesson/{programId}/{dayNumber}" &&
+                    parts.size == 2 &&
+                    restoredArgsNow?.getString("programId") == parts[0] &&
+                    restoredArgsNow?.getInt("dayNumber")?.toString() == parts[1]
+            }
+            cleanRoute.startsWith("activity/") ->
+                restoredRouteNow == "activity/{activityId}" &&
+                    restoredArgsNow?.getString("activityId") == cleanRoute.removePrefix("activity/")
+            else -> restoredRouteNow == cleanRoute
+        }
+        if (!alreadyAtExactTarget) {
+            navController.navigate(cleanRoute) {
+                launchSingleTop = true
+            }
+        }
+    }
+}
+
+private val compactPrimaryRoutes = setOf(
+    "dashboard",
+    "daily_practice",
+    "coach_practice",
+    "speaking_lab",
+    "ai_mentor"
+)
+
+private val sidebarPrimaryRoutes = setOf(
+    "dashboard",
+    "activity_library",
+    "daily_practice",
+    "ai_mentor",
+    "learning_paths",
+    "coach_practice",
+    "speaking_lab",
+    "vocabulary",
+    "analytics",
+    "settings"
+)
 
 private data class PrimaryNavItem(
     val route: String,
@@ -421,37 +580,44 @@ private fun AuthenticatedAppShell(
             }
         }
     )
-    val learningPathsUiState by learningPathsVm.uiState.collectAsStateWithLifecycle()
+    val coachPracticeVm: CoachPracticeViewModel = viewModel(
+        key = "coach_practice_$userId",
+        factory = viewModelFactory {
+            initializer {
+                val consentStore = container.onlineTranscriptionConsent
+                CoachPracticeViewModel(
+                    loadCatalog = { container.practiceCatalog },
+                    engine = container.phonePracticeEngine,
+                    consent = object : OnlineConsent {
+                        override val granted: Boolean get() = consentStore.hasConsented
+                        override fun set(granted: Boolean) {
+                            if (granted) consentStore.grant() else consentStore.revoke()
+                        }
+                    },
+                    // Each finished attempt -> daily record + techniques pillar + technique daily task
+                    onAttemptCompleted = { completion ->
+                        container.learningProgressManager.recordPracticeCompletion(completion)
+                    }
+                )
+            }
+        }
+    )
 
     val profileState by mainVm.userProfile.collectAsStateWithLifecycle()
-    val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
-    val feedbackState by mainVm.speechFeedback.collectAsStateWithLifecycle()
-    val vocabState by mainVm.vocabularyEntries.collectAsStateWithLifecycle()
-    val dailyState by mainVm.dailyActivities.collectAsStateWithLifecycle()
-    val learningProgressState by mainVm.learningProgress.collectAsStateWithLifecycle()
-    val enrollState by mainVm.enrollments.collectAsStateWithLifecycle()
-    val tasksState by mainVm.realWorldTasks.collectAsStateWithLifecycle()
-    val sharedLessons by mainVm.publishedSharedLessons.collectAsStateWithLifecycle()
-    val sharedChallenges by mainVm.sharedChallenges.collectAsStateWithLifecycle()
     val isAdmin by mainVm.isAdmin.collectAsStateWithLifecycle()
-    val recommendedNextAction by mainVm.recommendedNextAction.collectAsStateWithLifecycle()
     val actionMessage by mainVm.actionMessage.collectAsStateWithLifecycle()
-    val vocabEvalState by mainVm.vocabEvalState.collectAsStateWithLifecycle()
-
     val updateStatusMessage by updateAdminVm.statusMessage.collectAsStateWithLifecycle()
     val activityStatusBanner by activityVm.statusBanner.collectAsStateWithLifecycle()
-    val activeAnnouncements by mainVm.activeAnnouncements.collectAsStateWithLifecycle()
+
     val learningProgressManager = container.learningProgressManager
-    val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
     val notificationManager = container.notificationManager
-    val notificationStoreState by notificationManager.state.collectAsStateWithLifecycle()
-    val unreadNotificationsCount = notificationStoreState.unreadCount
+    val unreadNotificationsCount by remember(notificationManager) {
+        notificationManager.state.map { it.unreadCount }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = 0)
+
     val aiSettingsRepo = container.aiSettingsRepository
     val capabilityManager = container.intelligenceCapabilityManager
-    val aiSettings by aiSettingsRepo.aiSettingsFlow.collectAsStateWithLifecycle(initialValue = AISettings())
-    val capabilityMatrix by remember(capabilityManager, aiSettingsRepo) {
-        capabilityManager.observeMatrix(aiSettingsRepo)
-    }.collectAsStateWithLifecycle(initialValue = capabilityManager.computeMatrix(AISettings()))
+    val reducedMotion = rememberReducedMotionEnabled()
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(actionMessage) {
@@ -515,29 +681,30 @@ private fun AuthenticatedAppShell(
             } else {
                 val navController = rememberNavController()
                 val backStack by navController.currentBackStackEntryAsState()
-                val currentRoute = backStack?.destination?.route ?: "dashboard"
+                val currentDest = backStack?.destination
+                val currentRoute = currentDest?.route ?: "dashboard"
+                val currentTabGraph = currentDest?.hierarchy
+                    ?.firstOrNull { it.route?.startsWith("tab_") == true }
+                    ?.route
+                    ?: tabGraphForRoute(currentRoute)
                 val currentSlugArg = backStack?.arguments?.getString("slug")
                 val currentLessonIdArg = backStack?.arguments?.getString("lessonId")
                 val currentActivityIdArg = backStack?.arguments?.getString("activityId")
                 val currentProgramIdArg = backStack?.arguments?.getString("programId")
                 val currentDayNumArg = backStack?.arguments?.getInt("dayNumber") ?: 0
                 val currentPathModArg = backStack?.arguments?.getString("moduleId")
-                val isPrimaryRoute = primaryNavItems.any { it.route == currentRoute }
 
-                val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
-                val feedbackList = (feedbackState as? UiState.Success)?.data.orEmpty()
-                val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
-                val dailyList = (dailyState as? UiState.Success)?.data.orEmpty()
-                val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
-                val enrollments = (enrollState as? UiState.Success)?.data.orEmpty()
-                val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
-
+                val topBarSharedLessons = if (currentRoute.startsWith("lesson_detail")) {
+                    mainVm.publishedSharedLessons.collectAsStateWithLifecycle().value
+                } else {
+                    emptyList()
+                }
                 val topBarTitle = when {
                     currentRoute.startsWith("module_lessons") && !currentSlugArg.isNullOrBlank() ->
                         CurriculumCatalog.contentModules.firstOrNull { it.slug == currentSlugArg }?.title ?: "Module Lessons"
                     currentRoute.startsWith("lesson_detail") && !currentLessonIdArg.isNullOrBlank() ->
                         CurriculumCatalog.lessons.firstOrNull { it.id == currentLessonIdArg }?.title
-                            ?: sharedLessons.firstOrNull { it.id == currentLessonIdArg }?.title
+                            ?: topBarSharedLessons.firstOrNull { it.id == currentLessonIdArg }?.title
                             ?: "Lesson Detail"
                     currentRoute.startsWith("learning_path_detail") && !currentProgramIdArg.isNullOrBlank() ->
                         LearningPathCurriculumRegistry.getProgram(currentProgramIdArg)?.title ?: "Program Syllabus"
@@ -558,75 +725,20 @@ private fun AuthenticatedAppShell(
                 var showNotificationDrawer by remember { mutableStateOf(false) }
                 var manualTourSteps by remember { mutableStateOf<List<TutorialOverlayStep>?>(null) }
                 var manualTourTitle by remember { mutableStateOf("Core Features Guided Tour") }
-                var baselineSessionCount by remember(userId) { mutableStateOf<Int?>(null) }
                 var pendingGeminiDraft by remember { mutableStateOf<String?>(null) }
                 var pendingStudioGeminiFeedback by remember { mutableStateOf<String?>(null) }
 
-                LaunchedEffect(userId, profile, enrollments) {
-                    learningPathsVm.syncAccountAndEnrollments(
-                        userId = userId,
-                        profile = profile,
-                        remoteEnrollments = enrollments
-                    )
-                }
+                SyncEffectsHost(
+                    userId = userId,
+                    profile = profile,
+                    mainVm = mainVm,
+                    learningPathsVm = learningPathsVm,
+                    learningProgressManager = learningProgressManager,
+                    notificationManager = notificationManager
+                )
 
-                LaunchedEffect(userId, profile, sessions.size) {
-                    learningProgressManager.loadForUser(
-                        userId = userId,
-                        profile = profile,
-                        recentSessions = sessions
-                    )
-                    notificationManager.loadForUser(
-                        userId = userId,
-                        profile = profile,
-                        sessionsCount = sessions.size,
-                        streakDays = maxOf(
-                            profile.streakDays.toInt(),
-                            learningSnapshot.streak.currentStreakDays
-                        )
-                    )
-                    val priorCount = baselineSessionCount
-                    if (priorCount != null && sessions.size > priorCount) {
-                        val newest = sessions.firstOrNull()
-                        if (newest != null && newest.evaluationStatus == "COMPLETED") {
-                            val dimValues = buildList {
-                                val keys = newest.evaluatedDimensionKeys
-                                if (keys.isEmpty() || "fluency" in keys) add(newest.fluencyScore)
-                                if (keys.isEmpty() || "pronunciation" in keys) add(newest.pronunciationScore)
-                                if (keys.isEmpty() || "vocabulary" in keys) add(newest.vocabularyScore)
-                                if (keys.isEmpty() || "grammar" in keys) add(newest.grammarScore)
-                                if ("delivery" in keys || "articulation" in keys) add(newest.articulationScore)
-                            }
-                            if (dimValues.isNotEmpty()) {
-                                val avg = (dimValues.sum() / dimValues.size).toInt()
-                                notificationManager.recordSessionCompletedAlert(
-                                    sessionId = newest.id.ifBlank { "${newest.promptTitle}_${sessions.size}" },
-                                    promptTitle = newest.promptTitle,
-                                    overallScore = avg
-                                )
-                            }
-                        }
-                    }
-                    baselineSessionCount = sessions.size
-                }
-                LaunchedEffect(learningSnapshot.notifications) {
-                    notificationManager.syncFromLearningNotifications(learningSnapshot.notifications)
-                }
-                LaunchedEffect(activeAnnouncements) {
-                    activeAnnouncements.forEach { ann ->
-                        learningProgressManager.ingestAdminAnnouncement(ann)
-                        notificationManager.ingestAnnouncement(ann)
-                    }
-                }
-
-                val navigateTo: (String) -> Unit = { route ->
-                    navController.navigate(route) {
-                        if (primaryNavItems.any { it.route == route }) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
+                val navigateTo: (String) -> Unit = remember(navController) {
+                    { route -> navigateAcrossTabs(navController, route) }
                 }
 
                 LaunchedEffect(inboundGeminiLink) {
@@ -687,13 +799,18 @@ private fun AuthenticatedAppShell(
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val useSidebar = maxWidth >= 840.dp
                     val useRail = maxWidth >= 600.dp && !useSidebar
+                    val isChromeRoot = if (useSidebar) {
+                        currentRoute in sidebarPrimaryRoutes
+                    } else {
+                        currentRoute in compactPrimaryRoutes
+                    }
                     val userInitial = profile.displayName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "S"
                     val ext = MaterialTheme.speakCraftColors
 
                     Row(modifier = Modifier.fillMaxSize()) {
                         if (useSidebar) {
                             SpeakCraftIndigoSidebar(
-                                currentRoute = currentRoute,
+                                currentTabGraph = currentTabGraph,
                                 onNavigate = navigateTo
                             )
                         }
@@ -752,8 +869,14 @@ private fun AuthenticatedAppShell(
                                             }
                                         },
                                         navigationIcon = {
-                                            if (!isPrimaryRoute) {
-                                                IconButton(onClick = { navController.navigateUp() }) {
+                                            if (!isChromeRoot) {
+                                                IconButton(
+                                                    onClick = {
+                                                        if (!navController.navigateUp()) {
+                                                            navigateTo("dashboard")
+                                                        }
+                                                    }
+                                                ) {
                                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                                 }
                                             }
@@ -843,7 +966,8 @@ private fun AuthenticatedAppShell(
                                             windowInsets = WindowInsets.navigationBars
                                         ) {
                                             primaryNavItems.forEach { item ->
-                                                val isSelected = currentRoute == item.route
+                                                val itemGraph = tabGraphForRoute(item.route)
+                                                val isSelected = currentTabGraph == itemGraph
                                                 NavigationBarItem(
                                                     selected = isSelected,
                                                     onClick = { navigateTo(item.route) },
@@ -890,7 +1014,8 @@ private fun AuthenticatedAppShell(
                                         }
                                     ) {
                                         primaryNavItems.forEach { item ->
-                                            val isSelected = currentRoute == item.route
+                                            val itemGraph = tabGraphForRoute(item.route)
+                                            val isSelected = currentTabGraph == itemGraph
                                             NavigationRailItem(
                                                 selected = isSelected,
                                                 onClick = { navigateTo(item.route) },
@@ -914,442 +1039,565 @@ private fun AuthenticatedAppShell(
                                 }
                             NavHost(
                                 navController = navController,
-                                startDestination = "dashboard",
-                                enterTransition = { fadeIn(tween(180)) },
-                                exitTransition = { fadeOut(tween(140)) },
-                                popEnterTransition = { fadeIn(tween(180)) },
-                                popExitTransition = { fadeOut(tween(140)) },
+                                startDestination = TabGraphRoutes.DASHBOARD,
+                                enterTransition = {
+                                    if (initialState.destination.parent?.route != targetState.destination.parent?.route || reducedMotion) {
+                                        EnterTransition.None
+                                    } else {
+                                        fadeIn(tween(110))
+                                    }
+                                },
+                                exitTransition = {
+                                    if (initialState.destination.parent?.route != targetState.destination.parent?.route || reducedMotion) {
+                                        ExitTransition.None
+                                    } else {
+                                        fadeOut(tween(90))
+                                    }
+                                },
+                                popEnterTransition = {
+                                    if (initialState.destination.parent?.route != targetState.destination.parent?.route || reducedMotion) {
+                                        EnterTransition.None
+                                    } else {
+                                        fadeIn(tween(110))
+                                    }
+                                },
+                                popExitTransition = {
+                                    if (initialState.destination.parent?.route != targetState.destination.parent?.route || reducedMotion) {
+                                        ExitTransition.None
+                                    } else {
+                                        fadeOut(tween(90))
+                                    }
+                                },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                composable("dashboard") {
-                                    DashboardScreen(
-                                        profile = profile,
-                                        sessions = sessions,
-                                        vocabulary = vocabEntries,
-                                        dailyActivities = dailyList,
-                                        learningProgress = learningProgress,
-                                        realWorldTasks = realWorldList,
-                                        recommendedNextAction = recommendedNextAction,
-                                        isAdmin = isAdmin,
-                                        todayDateKey = mainVm.todayDateKey,
-                                        onNavigate = navigateTo,
-                                        learningSnapshot = learningSnapshot,
-                                        onCompleteDailyTask = { taskId ->
-                                            learningProgressManager.completeDailyTask(taskId)
-                                        },
-                                        onOpenProfile = { navigateTo("profile") },
-                                        onQuickAskMentor = { promptText ->
-                                            coachVm.askMentor(
-                                                profile = profile,
-                                                sessions = sessions,
-                                                feedbackList = feedbackList,
-                                                question = promptText
-                                            )
-                                            navigateTo("ai_mentor")
-                                        }
-                                    )
-                                }
-                                composable("daily_practice") {
-                                    val todayActivity = dailyList.firstOrNull { it.dateKey == mainVm.todayDateKey }
-                                    val dailyPackage by mainVm.dailyCurriculumPackage.collectAsStateWithLifecycle()
-                                    val userLevel = remember(profile.communicationLevel) {
-                                        LearningLevel.fromLabel(profile.communicationLevel)
-                                    }
-                                    DailyPracticeScreen(
-                                        todayDateKey = mainVm.todayDateKey,
-                                        todayActivity = todayActivity,
-                                        todaysWords = if (dailyPackage.dailyWords.isNotEmpty()) dailyPackage.dailyWords else mainVm.dailyVocabularyBatch,
-                                        userLevel = userLevel,
-                                        dailyPackage = dailyPackage,
-                                        onStartActivity = { activityId -> navigateTo("activity/$activityId") },
-                                        onSpeakText = { text -> ttsHelper.speak(text, prefs.ttsRate) },
-                                        onToggleStep = { id, refl, conf -> mainVm.toggleDailyStep(id, todayActivity, refl, conf) },
-                                        onSaveReflection = { refl, conf -> mainVm.saveDailyReflection(todayActivity, refl, conf) },
-                                        onNavigate = navigateTo,
-                                        // Current set (completion-driven) and the persisted daily record
-                                        dailyTasks = learningSnapshot.dailyPlan
-                                            ?.takeIf { it.dateKey == dailyPackage.dateKey }
-                                            ?.tasks,
-                                        setNumberToday = learningSnapshot.dailyRotation
-                                            .takeIf { it.dateKey == dailyPackage.dateKey }
-                                            ?.let { it.setIndexToday + 1 } ?: 1,
-                                        dailyRecords = learningSnapshot.dailyRecords,
-                                        onCompleteTask = { taskId -> learningProgressManager.completeDailyTask(taskId) }
-                                    )
-                                }
-                                composable("learning_paths") {
-                                    LearningPathsOverviewScreen(
-                                        uiState = learningPathsUiState,
-                                        onSearchChange = { learningPathsVm.setSearchQuery(it) },
-                                        onCategoryFilterChange = { learningPathsVm.setCategoryFilter(it) },
-                                        onPreviewProgram = { learningPathsVm.openPreview(it) },
-                                        onEnrollProgram = { learningPathsVm.enrollInProgram(it) },
-                                        onTogglePauseProgram = { learningPathsVm.togglePauseProgram(it) },
-                                        onUnenrollProgram = { learningPathsVm.unenrollProgram(it) },
-                                        onOpenProgramDetail = { pid -> navigateTo("learning_path_detail/$pid") },
-                                        onOpenLesson = { pid, day -> navigateTo("learning_path_lesson/$pid/$day") },
-                                        onDismissBanner = { learningPathsVm.dismissBanner() }
-                                    )
-                                }
-                                composable(
-                                    route = "learning_path_detail/{programId}",
-                                    arguments = listOf(navArgument("programId") { type = NavType.StringType })
-                                ) { entry ->
-                                    val programId = entry.arguments?.getString("programId").orEmpty()
-                                    LearningPathDetailScreen(
-                                        programId = programId,
-                                        uiState = learningPathsUiState,
-                                        onBack = { navController.popBackStack() },
-                                        onEnroll = { learningPathsVm.enrollInProgram(it) },
-                                        onTogglePause = { learningPathsVm.togglePauseProgram(it) },
-                                        onOpenLesson = { pid, day -> navigateTo("learning_path_lesson/$pid/$day") },
-                                        onToggleDayCompleteQuick = { pid, day -> learningPathsVm.toggleDayCompletionQuick(pid, day) },
-                                        onOpenAssessment = { pid, modId -> navigateTo("learning_path_assessment/$pid/$modId") },
-                                        onOpenProgram = { targetPid -> navigateTo("learning_path_detail/$targetPid") }
-                                    )
-                                }
-                                composable(
-                                    route = "learning_path_lesson/{programId}/{dayNumber}",
-                                    arguments = listOf(
-                                        navArgument("programId") { type = NavType.StringType },
-                                        navArgument("dayNumber") { type = NavType.IntType }
-                                    )
-                                ) { entry ->
-                                    val programId = entry.arguments?.getString("programId").orEmpty()
-                                    val dayNumber = entry.arguments?.getInt("dayNumber") ?: 1
-                                    LearningPathLessonScreen(
-                                        programId = programId,
-                                        dayNumber = dayNumber,
-                                        uiState = learningPathsUiState,
-                                        onPrepareLesson = { pid, day -> learningPathsVm.prepareLessonSession(pid, day) },
-                                        onBackToSyllabus = { navController.popBackStack() },
-                                        onNavigateDay = { targetDay ->
-                                            navController.navigate("learning_path_lesson/$programId/$targetDay") {
-                                                popUpTo("learning_path_lesson/{programId}/{dayNumber}") { inclusive = true }
-                                            }
-                                        },
-                                        onOpenAssessment = { pid, modId -> navigateTo("learning_path_assessment/$pid/$modId") },
-                                        onOpenActivityStudio = { activityId -> navigateTo("activity/$activityId") },
-                                        onOpenLabRoute = { labRoute -> navigateTo(labRoute) },
-                                        onUpdateDraftText = { learningPathsVm.updateDraftResponseText(it) },
-                                        onSelectQuizOption = { qId, opt -> learningPathsVm.selectQuizOption(qId, opt) },
-                                        onToggleChecklistItem = { learningPathsVm.toggleChecklistItem(it) },
-                                        onSetConfidence = { learningPathsVm.setConfidenceRating(it) },
-                                        onUpdateReflectionNote = { learningPathsVm.updateReflectionNote(it) },
-                                        onSaveReflectionNote = { learningPathsVm.saveReflectionNoteNow(programId, dayNumber) },
-                                        onPlayModelTts = { learningPathsVm.playModelScript(it) },
-                                        onStopModelTts = { learningPathsVm.stopModelAudio() },
-                                        onStartOrResumeRecording = { learningPathsVm.startOrResumeLessonRecording() },
-                                        onPauseRecording = { learningPathsVm.pauseLessonRecording() },
-                                        onStopRecording = { learningPathsVm.stopLessonRecording() },
-                                        onTogglePlayback = { learningPathsVm.toggleRecordedPlayback() },
-                                        onSubmitForEvaluation = { learningPathsVm.submitAndEvaluateLesson(programId, dayNumber) }
-                                    )
-                                }
-                                composable(
-                                    route = "learning_path_assessment/{programId}/{moduleId}",
-                                    arguments = listOf(
-                                        navArgument("programId") { type = NavType.StringType },
-                                        navArgument("moduleId") { type = NavType.StringType }
-                                    )
-                                ) { entry ->
-                                    val programId = entry.arguments?.getString("programId").orEmpty()
-                                    val moduleId = entry.arguments?.getString("moduleId").orEmpty()
-                                    LearningPathAssessmentScreen(
-                                        programId = programId,
-                                        moduleId = moduleId,
-                                        uiState = learningPathsUiState,
-                                        onPrepareAssessment = { pid, mId -> learningPathsVm.prepareModuleAssessment(pid, mId) },
-                                        onSelectScenarioOption = { qId, idx -> learningPathsVm.selectAssessmentOption(qId, idx) },
-                                        onUpdatePracticalText = { learningPathsVm.updateAssessmentPracticalText(it) },
-                                        onSetConfidence = { learningPathsVm.setAssessmentConfidence(it) },
-                                        onSubmitAssessment = { learningPathsVm.submitModuleAssessment(programId, moduleId) },
-                                        onBackToSyllabus = { navController.popBackStack() }
-                                    )
-                                }
-                                composable("vocabulary") {
-                                    val vocabBuilderState by mainVm.vocabBuilderState.collectAsStateWithLifecycle()
-                                    val entriesById = remember(vocabEntries) { vocabEntries.associateBy { it.id } }
-                                    VocabularyScreen(
-                                        entries = vocabEntries,
-                                        todayEpochDay = mainVm.todayEpochDay,
-                                        vocabEvalState = vocabEvalState,
-                                        onSpeakWord = { txt -> ttsHelper.speak(txt, prefs.ttsRate) },
-                                        onReviewCard = { seed, existing, ok -> mainVm.reviewVocabularyCard(seed, existing, ok) },
-                                        onEvaluateUsage = { seed, existing, sent -> mainVm.evaluateVocabUsage(seed, existing, sent) },
-                                        onSaveCustomWord = { w, m, l, e, n -> mainVm.saveCustomVocabularyWord(w, m, l, e, n) },
-                                        onClearEval = { mainVm.clearVocabEval() },
-                                        userLevel = vocabBuilderState.userLevel,
-                                        dailyVocabWords = vocabBuilderState.dailyWords,
-                                        completedDailyWordIds = vocabBuilderState.completedWordIds,
-                                        dailyWordScores = vocabBuilderState.wordScores,
-                                        learnedWordIds = vocabBuilderState.learnedWordIds,
-                                        weeklyEligibility = vocabBuilderState.weeklyEligibility,
-                                        learnedWordsForAssessment = vocabBuilderState.learnedWordsForAssessment,
-                                        ttsHelper = ttsHelper,
-                                        onAssessSpokenWord = { seed, existing, transcript, alts, conf ->
-                                            mainVm.assessDailyWordSpeaking(seed, existing, transcript, alts, conf)
-                                        },
-                                        onCompleteWeeklyAssessment = { record, perWordPassed ->
-                                            mainVm.submitWeeklyVocabAssessment(record, perWordPassed, entriesById)
-                                        }
-                                    )
-                                }
-                                composable("speaking_lab") {
-                                    SpeakingLabScreen(
-                                        speakingVm = speakingVm,
-                                        pastSessions = sessions,
-                                        onDeleteSession = { sess -> mainVm.deleteSpeakingSession(sess) },
-                                        onOpenAiSettings = { navigateTo("settings") },
-                                        incomingGeminiFeedback = pendingStudioGeminiFeedback,
-                                        onConsumeIncomingGeminiFeedback = { pendingStudioGeminiFeedback = null }
-                                    )
-                                }
-                                composable("coach_practice") {
-                                    // Practice with on-device feedback from the local intelligence engine (EP-08).
-                                    val coachPracticeVm: CoachPracticeViewModel = viewModel(
-                                        factory = viewModelFactory {
-                                            initializer {
-                                                val consentStore = container.onlineTranscriptionConsent
-                                                CoachPracticeViewModel(
-                                                    loadCatalog = { container.practiceCatalog },
-                                                    engine = container.phonePracticeEngine,
-                                                    consent = object : OnlineConsent {
-                                                        override val granted: Boolean get() = consentStore.hasConsented
-                                                        override fun set(granted: Boolean) {
-                                                            if (granted) consentStore.grant() else consentStore.revoke()
-                                                        }
-                                                    },
-                                                    // Each finished attempt -> daily record + techniques pillar + technique daily task
-                                                    onAttemptCompleted = { completion ->
-                                                        container.learningProgressManager.recordPracticeCompletion(completion)
+                                navigation(startDestination = "dashboard", route = TabGraphRoutes.DASHBOARD) {
+                                    composable("dashboard") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val vocabState by mainVm.vocabularyEntries.collectAsStateWithLifecycle()
+                                        val dailyState by mainVm.dailyActivities.collectAsStateWithLifecycle()
+                                        val learningProgressState by mainVm.learningProgress.collectAsStateWithLifecycle()
+                                        val tasksState by mainVm.realWorldTasks.collectAsStateWithLifecycle()
+                                        val recommendedNextAction by mainVm.recommendedNextAction.collectAsStateWithLifecycle()
+                                        val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
+                                        val activePathBanner by remember(learningPathsVm) {
+                                            learningPathsVm.uiState
+                                                .map { state ->
+                                                    state.programs.firstNotNullOfOrNull { prog ->
+                                                        val st = state.programStats[prog.programId]
+                                                        if (st != null && st.enrolled && !st.paused && !st.programCompleted) {
+                                                            ActiveLearningPathBannerUi(
+                                                                programId = prog.programId,
+                                                                programTitle = prog.title,
+                                                                completedDaysCount = st.completedDaysCount,
+                                                                totalDays = st.totalDays,
+                                                                nextDayNumber = st.nextDayNumber,
+                                                                nextLessonTitle = st.nextLesson?.title ?: "Continue Module",
+                                                                completionFraction = st.completionFraction
+                                                            )
+                                                        } else null
                                                     }
+                                                }
+                                                .distinctUntilChanged()
+                                        }.collectAsStateWithLifecycle(initialValue = null)
+
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
+                                        val dailyList = (dailyState as? UiState.Success)?.data.orEmpty()
+                                        val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
+                                        val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
+
+                                        DashboardScreen(
+                                            profile = profile,
+                                            sessions = sessions,
+                                            vocabulary = vocabEntries,
+                                            dailyActivities = dailyList,
+                                            learningProgress = learningProgress,
+                                            realWorldTasks = realWorldList,
+                                            recommendedNextAction = recommendedNextAction,
+                                            isAdmin = isAdmin,
+                                            todayDateKey = mainVm.todayDateKey,
+                                            onNavigate = navigateTo,
+                                            learningSnapshot = learningSnapshot,
+                                            onCompleteDailyTask = { taskId ->
+                                                learningProgressManager.completeDailyTask(taskId)
+                                            },
+                                            onOpenProfile = { navigateTo("profile") },
+                                            onQuickAskMentor = { promptText ->
+                                                val feedbackList = (mainVm.speechFeedback.value as? UiState.Success)?.data.orEmpty()
+                                                coachVm.askMentor(
+                                                    profile = profile,
+                                                    sessions = sessions,
+                                                    feedbackList = feedbackList,
+                                                    question = promptText
                                                 )
-                                            }
+                                                navigateTo("ai_mentor")
+                                            },
+                                            activePathSummary = activePathBanner
+                                        )
+                                    }
+                                }
+
+                                navigation(startDestination = "daily_practice", route = TabGraphRoutes.DAILY_PRACTICE) {
+                                    composable("daily_practice") {
+                                        val dailyState by mainVm.dailyActivities.collectAsStateWithLifecycle()
+                                        val dailyPackage by mainVm.dailyCurriculumPackage.collectAsStateWithLifecycle()
+                                        val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
+                                        val dailyList = (dailyState as? UiState.Success)?.data.orEmpty()
+                                        val todayActivity = dailyList.firstOrNull { it.dateKey == mainVm.todayDateKey }
+                                        val userLevel = remember(profile.communicationLevel) {
+                                            LearningLevel.fromLabel(profile.communicationLevel)
                                         }
-                                    )
-                                    CoachPracticeRoute(
-                                        vm = coachPracticeVm,
-                                        cameraHost = container.phonePracticeEngine,
-                                        onSpeak = { txt -> ttsHelper.speak(txt, prefs.ttsRate) }
-                                    )
+                                        DailyPracticeScreen(
+                                            todayDateKey = mainVm.todayDateKey,
+                                            todayActivity = todayActivity,
+                                            todaysWords = if (dailyPackage.dailyWords.isNotEmpty()) dailyPackage.dailyWords else mainVm.dailyVocabularyBatch,
+                                            userLevel = userLevel,
+                                            dailyPackage = dailyPackage,
+                                            onStartActivity = { activityId -> navigateTo("activity/$activityId") },
+                                            onSpeakText = { text -> ttsHelper.speak(text, prefs.ttsRate) },
+                                            onToggleStep = { id, refl, conf -> mainVm.toggleDailyStep(id, todayActivity, refl, conf) },
+                                            onSaveReflection = { refl, conf -> mainVm.saveDailyReflection(todayActivity, refl, conf) },
+                                            onNavigate = navigateTo,
+                                            dailyTasks = learningSnapshot.dailyPlan
+                                                ?.takeIf { it.dateKey == dailyPackage.dateKey }
+                                                ?.tasks,
+                                            setNumberToday = learningSnapshot.dailyRotation
+                                                .takeIf { it.dateKey == dailyPackage.dateKey }
+                                                ?.let { it.setIndexToday + 1 } ?: 1,
+                                            dailyRecords = learningSnapshot.dailyRecords,
+                                            onCompleteTask = { taskId -> learningProgressManager.completeDailyTask(taskId) }
+                                        )
+                                    }
                                 }
-                                composable("challenges") {
-                                    ChallengesScreen(
-                                        speakingVm = speakingVm,
-                                        sharedChallenges = sharedChallenges,
-                                        pastSessions = sessions,
-                                        onOpenAiSettings = { navigateTo("settings") }
-                                    )
+
+                                navigation(startDestination = "learning_paths", route = TabGraphRoutes.LEARNING_PATHS) {
+                                    composable("learning_paths") {
+                                        val learningPathsUiState by learningPathsVm.uiState.collectAsStateWithLifecycle()
+                                        LearningPathsOverviewScreen(
+                                            uiState = learningPathsUiState,
+                                            onSearchChange = { learningPathsVm.setSearchQuery(it) },
+                                            onCategoryFilterChange = { learningPathsVm.setCategoryFilter(it) },
+                                            onPreviewProgram = { learningPathsVm.openPreview(it) },
+                                            onEnrollProgram = { learningPathsVm.enrollInProgram(it) },
+                                            onTogglePauseProgram = { learningPathsVm.togglePauseProgram(it) },
+                                            onUnenrollProgram = { learningPathsVm.unenrollProgram(it) },
+                                            onOpenProgramDetail = { pid -> navigateTo("learning_path_detail/$pid") },
+                                            onOpenLesson = { pid, day -> navigateTo("learning_path_lesson/$pid/$day") },
+                                            onDismissBanner = { learningPathsVm.dismissBanner() }
+                                        )
+                                    }
+                                    composable(
+                                        route = "learning_path_detail/{programId}",
+                                        arguments = listOf(navArgument("programId") { type = NavType.StringType })
+                                    ) { entry ->
+                                        val programId = entry.arguments?.getString("programId").orEmpty()
+                                        val learningPathsUiState by learningPathsVm.uiState.collectAsStateWithLifecycle()
+                                        LearningPathDetailScreen(
+                                            programId = programId,
+                                            uiState = learningPathsUiState,
+                                            onBack = { navController.popBackStack() },
+                                            onEnroll = { learningPathsVm.enrollInProgram(it) },
+                                            onTogglePause = { learningPathsVm.togglePauseProgram(it) },
+                                            onOpenLesson = { pid, day -> navigateTo("learning_path_lesson/$pid/$day") },
+                                            onToggleDayCompleteQuick = { pid, day -> learningPathsVm.toggleDayCompletionQuick(pid, day) },
+                                            onOpenAssessment = { pid, modId -> navigateTo("learning_path_assessment/$pid/$modId") },
+                                            onOpenProgram = { targetPid -> navigateTo("learning_path_detail/$targetPid") }
+                                        )
+                                    }
+                                    composable(
+                                        route = "learning_path_lesson/{programId}/{dayNumber}",
+                                        arguments = listOf(
+                                            navArgument("programId") { type = NavType.StringType },
+                                            navArgument("dayNumber") { type = NavType.IntType }
+                                        )
+                                    ) { entry ->
+                                        val programId = entry.arguments?.getString("programId").orEmpty()
+                                        val dayNumber = entry.arguments?.getInt("dayNumber") ?: 1
+                                        val learningPathsUiState by learningPathsVm.uiState.collectAsStateWithLifecycle()
+                                        LearningPathLessonScreen(
+                                            programId = programId,
+                                            dayNumber = dayNumber,
+                                            uiState = learningPathsUiState,
+                                            onPrepareLesson = { pid, day -> learningPathsVm.prepareLessonSession(pid, day) },
+                                            onBackToSyllabus = { navController.popBackStack() },
+                                            onNavigateDay = { targetDay ->
+                                                navController.navigate("learning_path_lesson/$programId/$targetDay") {
+                                                    popUpTo("learning_path_lesson/{programId}/{dayNumber}") { inclusive = true }
+                                                }
+                                            },
+                                            onOpenAssessment = { pid, modId -> navigateTo("learning_path_assessment/$pid/$modId") },
+                                            onOpenActivityStudio = { activityId -> navigateTo("activity/$activityId") },
+                                            onOpenLabRoute = { labRoute -> navigateTo(labRoute) },
+                                            onUpdateDraftText = { learningPathsVm.updateDraftResponseText(it) },
+                                            onSelectQuizOption = { qId, opt -> learningPathsVm.selectQuizOption(qId, opt) },
+                                            onToggleChecklistItem = { learningPathsVm.toggleChecklistItem(it) },
+                                            onSetConfidence = { learningPathsVm.setConfidenceRating(it) },
+                                            onUpdateReflectionNote = { learningPathsVm.updateReflectionNote(it) },
+                                            onSaveReflectionNote = { learningPathsVm.saveReflectionNoteNow(programId, dayNumber) },
+                                            onPlayModelTts = { learningPathsVm.playModelScript(it) },
+                                            onStopModelTts = { learningPathsVm.stopModelAudio() },
+                                            onStartOrResumeRecording = { learningPathsVm.startOrResumeLessonRecording() },
+                                            onPauseRecording = { learningPathsVm.pauseLessonRecording() },
+                                            onStopRecording = { learningPathsVm.stopLessonRecording() },
+                                            onTogglePlayback = { learningPathsVm.toggleRecordedPlayback() },
+                                            onSubmitForEvaluation = { learningPathsVm.submitAndEvaluateLesson(programId, dayNumber) }
+                                        )
+                                    }
+                                    composable(
+                                        route = "learning_path_assessment/{programId}/{moduleId}",
+                                        arguments = listOf(
+                                            navArgument("programId") { type = NavType.StringType },
+                                            navArgument("moduleId") { type = NavType.StringType }
+                                        )
+                                    ) { entry ->
+                                        val programId = entry.arguments?.getString("programId").orEmpty()
+                                        val moduleId = entry.arguments?.getString("moduleId").orEmpty()
+                                        val learningPathsUiState by learningPathsVm.uiState.collectAsStateWithLifecycle()
+                                        LearningPathAssessmentScreen(
+                                            programId = programId,
+                                            moduleId = moduleId,
+                                            uiState = learningPathsUiState,
+                                            onPrepareAssessment = { pid, mId -> learningPathsVm.prepareModuleAssessment(pid, mId) },
+                                            onSelectScenarioOption = { qId, idx -> learningPathsVm.selectAssessmentOption(qId, idx) },
+                                            onUpdatePracticalText = { learningPathsVm.updateAssessmentPracticalText(it) },
+                                            onSetConfidence = { learningPathsVm.setAssessmentConfidence(it) },
+                                            onSubmitAssessment = { learningPathsVm.submitModuleAssessment(programId, moduleId) },
+                                            onBackToSyllabus = { navController.popBackStack() }
+                                        )
+                                    }
+                                    composable(
+                                        route = "module_lessons/{slug}",
+                                        arguments = listOf(navArgument("slug") { type = NavType.StringType })
+                                    ) { entry ->
+                                        val slug = entry.arguments?.getString("slug").orEmpty()
+                                        val sharedLessons by mainVm.publishedSharedLessons.collectAsStateWithLifecycle()
+                                        val learningProgressState by mainVm.learningProgress.collectAsStateWithLifecycle()
+                                        val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
+                                        ModuleLessonsScreen(
+                                            moduleSlug = slug,
+                                            sharedLessons = sharedLessons,
+                                            learningProgress = learningProgress,
+                                            onOpenLesson = { lessonId -> navigateTo("lesson_detail/$lessonId") }
+                                        )
+                                    }
+                                    composable(
+                                        route = "lesson_detail/{lessonId}",
+                                        arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
+                                    ) { entry ->
+                                        val lessonId = entry.arguments?.getString("lessonId").orEmpty()
+                                        val sharedLessons by mainVm.publishedSharedLessons.collectAsStateWithLifecycle()
+                                        val learningProgressState by mainVm.learningProgress.collectAsStateWithLifecycle()
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        LessonDetailScreen(
+                                            lessonId = lessonId,
+                                            sharedLessons = sharedLessons,
+                                            learningProgress = learningProgress,
+                                            speakingVm = speakingVm,
+                                            pastSessions = sessions,
+                                            onToggleCompleted = { id, slug, completed, notes ->
+                                                mainVm.toggleLessonCompleted(id, slug, completed, notes)
+                                            },
+                                            onNavigateToLesson = { nextId -> navigateTo("lesson_detail/$nextId") }
+                                        )
+                                    }
                                 }
-                                composable("articulation_lab") {
-                                    PronunciationLabScreen(
-                                        speakingVm = speakingVm,
-                                        ttsHelper = ttsHelper,
-                                        pastSessions = sessions,
-                                        initialFocus = "articulation",
-                                        onOpenAiSettings = { navigateTo("settings") }
-                                    )
-                                }
-                                composable("pronunciation") {
-                                    PronunciationLabScreen(
-                                        speakingVm = speakingVm,
-                                        ttsHelper = ttsHelper,
-                                        pastSessions = sessions,
-                                        initialFocus = "pronunciation",
-                                        onOpenAiSettings = { navigateTo("settings") }
-                                    )
-                                }
-                                composable("voice_training") {
-                                    VoiceTrainingLabScreen(speakingVm = speakingVm, ttsHelper = ttsHelper, pastSessions = sessions)
-                                }
-                                composable("conversation") {
-                                    ConversationSimulatorScreen(
-                                        coachVm = coachVm,
-                                        ttsHelper = ttsHelper,
-                                        userLevel = profile.communicationLevel,
-                                        ttsRate = prefs.ttsRate
-                                    )
-                                }
-                                composable("listening_lab") {
-                                    ListeningShadowingScreen(
-                                        speakingVm = speakingVm,
-                                        ttsHelper = ttsHelper,
-                                        pastSessions = sessions,
-                                        onOpenAiSettings = { navigateTo("settings") }
-                                    )
-                                }
-                                composable("grammar_speaking") {
-                                    GrammarSpeakingScreen(
-                                        speakingVm = speakingVm,
-                                        pastSessions = sessions,
-                                        onOpenAiSettings = { navigateTo("settings") }
-                                    )
-                                }
-                                composable("public_speaking") {
-                                    PublicSpeakingScreen(
-                                        speakingVm = speakingVm,
-                                        pastSessions = sessions,
-                                        onOpenAiSettings = { navigateTo("settings") }
-                                    )
-                                }
-                                composable("real_world_tasks") {
-                                    RealWorldTasksScreen(
-                                        records = realWorldList,
-                                        onSaveTask = { id, title, done, refl -> mainVm.toggleRealWorldTask(id, title, done, refl) }
-                                    )
-                                }
-                                composable(
-                                    route = "module_lessons/{slug}",
-                                    arguments = listOf(navArgument("slug") { type = NavType.StringType })
-                                ) { entry ->
-                                    val slug = entry.arguments?.getString("slug").orEmpty()
-                                    ModuleLessonsScreen(
-                                        moduleSlug = slug,
-                                        sharedLessons = sharedLessons,
-                                        learningProgress = learningProgress,
-                                        onOpenLesson = { lessonId -> navigateTo("lesson_detail/$lessonId") }
-                                    )
-                                }
-                                composable(
-                                    route = "lesson_detail/{lessonId}",
-                                    arguments = listOf(navArgument("lessonId") { type = NavType.StringType })
-                                ) { entry ->
-                                    val lessonId = entry.arguments?.getString("lessonId").orEmpty()
-                                    LessonDetailScreen(
-                                        lessonId = lessonId,
-                                        sharedLessons = sharedLessons,
-                                        learningProgress = learningProgress,
-                                        speakingVm = speakingVm,
-                                        pastSessions = sessions,
-                                        onToggleCompleted = { id, slug, completed, notes ->
-                                            mainVm.toggleLessonCompleted(id, slug, completed, notes)
-                                        },
-                                        onNavigateToLesson = { nextId -> navigateTo("lesson_detail/$nextId") }
-                                    )
-                                }
-                                composable("analytics") {
-                                    AnalyticsScreen(
-                                        profile = profile,
-                                        sessions = sessions,
-                                        dailyActivities = dailyList,
-                                        onNavigateToMentor = { navigateTo("ai_mentor") }
-                                    )
-                                }
-                                composable("ai_mentor") {
-                                    AiMentorScreen(
-                                        coachVm = coachVm,
-                                        profile = profile,
-                                        sessions = sessions,
-                                        feedbackList = feedbackList,
-                                        ttsHelper = ttsHelper,
-                                        initialDraftFromGemini = pendingGeminiDraft,
-                                        onConsumeInitialDraft = { pendingGeminiDraft = null }
-                                    )
-                                }
-                                composable("admin_console") {
-                                    AdminDashboardScreen(
-                                        vm = updateAdminVm,
-                                        isAdmin = isAdmin,
-                                        currentUserId = userId
-                                    )
-                                }
-                                composable("settings") {
-                                    SettingsScreen(
-                                        prefs = prefs,
-                                        userEmail = userEmail,
-                                        isAdmin = isAdmin,
-                                        onSetTheme = { mode -> scope.launch { prefsRepo.setThemeMode(mode) } },
-                                        onSetTtsRate = { rate -> scope.launch { prefsRepo.setTtsRate(rate) } },
-                                        onOpenAdminConsole = { navigateTo("admin_console") },
-                                        onClearHistory = { mainVm.clearSpeakingHistory() },
-                                        onSignOut = { signOut(credentialManager, scope) },
-                                        firstUseTutorialsEnabled = tutorialState.firstUseTutorialsEnabled,
-                                        onToggleFirstUseTutorials = { enabled ->
-                                            scope.launch { tutorialStateManager.setFirstUseTutorialsEnabled(userId, enabled) }
-                                        },
-                                        onReplayTutorials = {
-                                            scope.launch {
-                                                tutorialStateManager.resetUserTutorials(userId)
-                                                navigateTo("dashboard")
+
+                                navigation(startDestination = "vocabulary", route = TabGraphRoutes.VOCABULARY) {
+                                    composable("vocabulary") {
+                                        val vocabState by mainVm.vocabularyEntries.collectAsStateWithLifecycle()
+                                        val vocabEvalState by mainVm.vocabEvalState.collectAsStateWithLifecycle()
+                                        val vocabBuilderState by mainVm.vocabBuilderState.collectAsStateWithLifecycle()
+                                        val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
+                                        val entriesById = remember(vocabEntries) { vocabEntries.associateBy { it.id } }
+                                        VocabularyScreen(
+                                            entries = vocabEntries,
+                                            todayEpochDay = mainVm.todayEpochDay,
+                                            vocabEvalState = vocabEvalState,
+                                            onSpeakWord = { txt -> ttsHelper.speak(txt, prefs.ttsRate) },
+                                            onReviewCard = { seed, existing, ok -> mainVm.reviewVocabularyCard(seed, existing, ok) },
+                                            onEvaluateUsage = { seed, existing, sent -> mainVm.evaluateVocabUsage(seed, existing, sent) },
+                                            onSaveCustomWord = { w, m, l, e, n -> mainVm.saveCustomVocabularyWord(w, m, l, e, n) },
+                                            onClearEval = { mainVm.clearVocabEval() },
+                                            userLevel = vocabBuilderState.userLevel,
+                                            dailyVocabWords = vocabBuilderState.dailyWords,
+                                            completedDailyWordIds = vocabBuilderState.completedWordIds,
+                                            dailyWordScores = vocabBuilderState.wordScores,
+                                            learnedWordIds = vocabBuilderState.learnedWordIds,
+                                            weeklyEligibility = vocabBuilderState.weeklyEligibility,
+                                            learnedWordsForAssessment = vocabBuilderState.learnedWordsForAssessment,
+                                            ttsHelper = ttsHelper,
+                                            onAssessSpokenWord = { seed, existing, transcript, alts, conf ->
+                                                mainVm.assessDailyWordSpeaking(seed, existing, transcript, alts, conf)
+                                            },
+                                            onCompleteWeeklyAssessment = { record, perWordPassed ->
+                                                mainVm.submitWeeklyVocabAssessment(record, perWordPassed, entriesById)
                                             }
-                                        },
-                                        aiSettings = aiSettings,
-                                        capabilityMatrix = capabilityMatrix,
-                                        onSetLocalAiEnabled = { enabled ->
-                                            scope.launch { aiSettingsRepo.setLocalAiEnabled(enabled) }
-                                        },
-                                        onSetLiveTranscriptionEnabled = { enabled ->
-                                            scope.launch { aiSettingsRepo.setLiveTranscriptionEnabled(enabled) }
-                                        },
-                                        onSetLocalSpeechRecEnabled = { enabled ->
-                                            scope.launch { aiSettingsRepo.setLocalSpeechRecognitionEnabled(enabled) }
-                                        },
-                                        onSetLocalAudioAnalysisEnabled = { enabled ->
-                                            scope.launch { aiSettingsRepo.setLocalAudioAnalysisEnabled(enabled) }
-                                        },
-                                        onSetLocalVideoAnalysisEnabled = { enabled ->
-                                            scope.launch { aiSettingsRepo.setLocalVideoAnalysisEnabled(enabled) }
-                                        },
-                                        onSetRecognitionLanguage = { lang ->
-                                            scope.launch { aiSettingsRepo.setSelectedRecognitionLanguage(lang) }
-                                        },
-                                        onSetRecognitionEngine = { engine ->
-                                            scope.launch { aiSettingsRepo.setSelectedRecognitionEngine(engine) }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
-                                composable("profile") {
-                                    UserProfileScreen(
-                                        profile = profile,
-                                        userEmail = userEmail,
-                                        sessions = sessions,
-                                        vocabulary = vocabEntries,
-                                        learningSnapshot = learningSnapshot,
-                                        onSaveProfile = { name, level, goal, mins ->
-                                            mainVm.updateUserProfile(name, level, goal, mins, profile)
-                                        },
-                                        onOpenNotifications = { showNotificationDrawer = true },
-                                        onNavigate = { route -> navigateTo(route) },
-                                        onSignOut = { signOut(credentialManager, scope) }
-                                    )
+
+                                navigation(startDestination = "coach_practice", route = TabGraphRoutes.COACH_PRACTICE) {
+                                    composable("coach_practice") {
+                                        CoachPracticeRoute(
+                                            vm = coachPracticeVm,
+                                            cameraHost = container.phonePracticeEngine,
+                                            onSpeak = { txt -> ttsHelper.speak(txt, prefs.ttsRate) }
+                                        )
+                                    }
                                 }
-                                composable("activity_library") {
-                                    ActivityDiscoveryScreen(
-                                        vm = activityVm,
-                                        profile = profile,
-                                        onOpenActivity = { id -> navigateTo("activity/$id") }
-                                    )
+
+                                navigation(startDestination = "speaking_lab", route = TabGraphRoutes.SPEAKING_LAB) {
+                                    composable("speaking_lab") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        SpeakingLabScreen(
+                                            speakingVm = speakingVm,
+                                            pastSessions = sessions,
+                                            onDeleteSession = { sess -> mainVm.deleteSpeakingSession(sess) },
+                                            onOpenAiSettings = { navigateTo("settings") },
+                                            incomingGeminiFeedback = pendingStudioGeminiFeedback,
+                                            onConsumeIncomingGeminiFeedback = { pendingStudioGeminiFeedback = null }
+                                        )
+                                    }
+                                    composable("challenges") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sharedChallenges by mainVm.sharedChallenges.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        ChallengesScreen(
+                                            speakingVm = speakingVm,
+                                            sharedChallenges = sharedChallenges,
+                                            pastSessions = sessions,
+                                            onOpenAiSettings = { navigateTo("settings") }
+                                        )
+                                    }
+                                    composable("articulation_lab") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        PronunciationLabScreen(
+                                            speakingVm = speakingVm,
+                                            ttsHelper = ttsHelper,
+                                            pastSessions = sessions,
+                                            initialFocus = "articulation",
+                                            onOpenAiSettings = { navigateTo("settings") }
+                                        )
+                                    }
+                                    composable("pronunciation") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        PronunciationLabScreen(
+                                            speakingVm = speakingVm,
+                                            ttsHelper = ttsHelper,
+                                            pastSessions = sessions,
+                                            initialFocus = "pronunciation",
+                                            onOpenAiSettings = { navigateTo("settings") }
+                                        )
+                                    }
+                                    composable("voice_training") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        VoiceTrainingLabScreen(speakingVm = speakingVm, ttsHelper = ttsHelper, pastSessions = sessions)
+                                    }
+                                    composable("conversation") {
+                                        ConversationSimulatorScreen(
+                                            coachVm = coachVm,
+                                            ttsHelper = ttsHelper,
+                                            userLevel = profile.communicationLevel,
+                                            ttsRate = prefs.ttsRate
+                                        )
+                                    }
+                                    composable("listening_lab") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        ListeningShadowingScreen(
+                                            speakingVm = speakingVm,
+                                            ttsHelper = ttsHelper,
+                                            pastSessions = sessions,
+                                            onOpenAiSettings = { navigateTo("settings") }
+                                        )
+                                    }
+                                    composable("grammar_speaking") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        GrammarSpeakingScreen(
+                                            speakingVm = speakingVm,
+                                            pastSessions = sessions,
+                                            onOpenAiSettings = { navigateTo("settings") }
+                                        )
+                                    }
+                                    composable("public_speaking") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        PublicSpeakingScreen(
+                                            speakingVm = speakingVm,
+                                            pastSessions = sessions,
+                                            onOpenAiSettings = { navigateTo("settings") }
+                                        )
+                                    }
+                                    composable("real_world_tasks") {
+                                        val tasksState by mainVm.realWorldTasks.collectAsStateWithLifecycle()
+                                        val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
+                                        RealWorldTasksScreen(
+                                            records = realWorldList,
+                                            onSaveTask = { id, title, done, refl -> mainVm.toggleRealWorldTask(id, title, done, refl) }
+                                        )
+                                    }
                                 }
-                                composable(
-                                    route = "activity_library/{moduleId}",
-                                    arguments = listOf(navArgument("moduleId") { type = NavType.StringType })
-                                ) { entry ->
-                                    val modId = entry.arguments?.getString("moduleId")
-                                    ActivityDiscoveryScreen(
-                                        vm = activityVm,
-                                        profile = profile,
-                                        initialModuleId = modId,
-                                        onOpenActivity = { id -> navigateTo("activity/$id") }
-                                    )
+
+                                navigation(startDestination = "analytics", route = TabGraphRoutes.ANALYTICS) {
+                                    composable("analytics") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val dailyState by mainVm.dailyActivities.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        val dailyList = (dailyState as? UiState.Success)?.data.orEmpty()
+                                        AnalyticsScreen(
+                                            profile = profile,
+                                            sessions = sessions,
+                                            dailyActivities = dailyList,
+                                            onNavigateToMentor = { navigateTo("ai_mentor") }
+                                        )
+                                    }
                                 }
-                                composable(
-                                    route = "activity/{activityId}",
-                                    arguments = listOf(navArgument("activityId") { type = NavType.StringType })
-                                ) { entry ->
-                                    val actId = entry.arguments?.getString("activityId").orEmpty()
-                                    ActivityScreen(
-                                        activityId = actId,
-                                        vm = activityVm,
-                                        ttsHelper = ttsHelper,
-                                        userLevel = profile.communicationLevel,
-                                        onOpenNextActivity = { nextId -> navigateTo("activity/$nextId") },
-                                        onBackToCatalogue = { navigateTo("activity_library") }
-                                    )
+
+                                navigation(startDestination = "ai_mentor", route = TabGraphRoutes.AI_MENTOR) {
+                                    composable("ai_mentor") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val feedbackState by mainVm.speechFeedback.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        val feedbackList = (feedbackState as? UiState.Success)?.data.orEmpty()
+                                        AiMentorScreen(
+                                            coachVm = coachVm,
+                                            profile = profile,
+                                            sessions = sessions,
+                                            feedbackList = feedbackList,
+                                            ttsHelper = ttsHelper,
+                                            initialDraftFromGemini = pendingGeminiDraft,
+                                            onConsumeInitialDraft = { pendingGeminiDraft = null }
+                                        )
+                                    }
                                 }
+
+                                navigation(startDestination = "settings", route = TabGraphRoutes.SETTINGS) {
+                                    composable("settings") {
+                                        val aiSettings by aiSettingsRepo.aiSettingsFlow.collectAsStateWithLifecycle(initialValue = AISettings())
+                                        val capabilityMatrix by remember(capabilityManager, aiSettingsRepo) {
+                                            capabilityManager.observeMatrix(aiSettingsRepo)
+                                        }.collectAsStateWithLifecycle(initialValue = capabilityManager.computeMatrix(AISettings()))
+                                        SettingsScreen(
+                                            prefs = prefs,
+                                            userEmail = userEmail,
+                                            isAdmin = isAdmin,
+                                            onSetTheme = { mode -> scope.launch { prefsRepo.setThemeMode(mode) } },
+                                            onSetTtsRate = { rate -> scope.launch { prefsRepo.setTtsRate(rate) } },
+                                            onOpenAdminConsole = { navigateTo("admin_console") },
+                                            onClearHistory = { mainVm.clearSpeakingHistory() },
+                                            onSignOut = { signOut(credentialManager, scope) },
+                                            firstUseTutorialsEnabled = tutorialState.firstUseTutorialsEnabled,
+                                            onToggleFirstUseTutorials = { enabled ->
+                                                scope.launch { tutorialStateManager.setFirstUseTutorialsEnabled(userId, enabled) }
+                                            },
+                                            onReplayTutorials = {
+                                                scope.launch {
+                                                    tutorialStateManager.resetUserTutorials(userId)
+                                                    navigateTo("dashboard")
+                                                }
+                                            },
+                                            aiSettings = aiSettings,
+                                            capabilityMatrix = capabilityMatrix,
+                                            onSetLocalAiEnabled = { enabled ->
+                                                scope.launch { aiSettingsRepo.setLocalAiEnabled(enabled) }
+                                            },
+                                            onSetLiveTranscriptionEnabled = { enabled ->
+                                                scope.launch { aiSettingsRepo.setLiveTranscriptionEnabled(enabled) }
+                                            },
+                                            onSetLocalSpeechRecEnabled = { enabled ->
+                                                scope.launch { aiSettingsRepo.setLocalSpeechRecognitionEnabled(enabled) }
+                                            },
+                                            onSetLocalAudioAnalysisEnabled = { enabled ->
+                                                scope.launch { aiSettingsRepo.setLocalAudioAnalysisEnabled(enabled) }
+                                            },
+                                            onSetLocalVideoAnalysisEnabled = { enabled ->
+                                                scope.launch { aiSettingsRepo.setLocalVideoAnalysisEnabled(enabled) }
+                                            },
+                                            onSetRecognitionLanguage = { lang ->
+                                                scope.launch { aiSettingsRepo.setSelectedRecognitionLanguage(lang) }
+                                            },
+                                            onSetRecognitionEngine = { engine ->
+                                                scope.launch { aiSettingsRepo.setSelectedRecognitionEngine(engine) }
+                                            }
+                                        )
+                                    }
+                                    composable("admin_console") {
+                                        AdminDashboardScreen(
+                                            vm = updateAdminVm,
+                                            isAdmin = isAdmin,
+                                            currentUserId = userId
+                                        )
+                                    }
+                                }
+
+                                navigation(startDestination = "profile", route = TabGraphRoutes.PROFILE) {
+                                    composable("profile") {
+                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+                                        val vocabState by mainVm.vocabularyEntries.collectAsStateWithLifecycle()
+                                        val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
+                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+                                        val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
+                                        UserProfileScreen(
+                                            profile = profile,
+                                            userEmail = userEmail,
+                                            sessions = sessions,
+                                            vocabulary = vocabEntries,
+                                            learningSnapshot = learningSnapshot,
+                                            onSaveProfile = { name, level, goal, mins ->
+                                                mainVm.updateUserProfile(name, level, goal, mins, profile)
+                                            },
+                                            onOpenNotifications = { showNotificationDrawer = true },
+                                            onNavigate = { route -> navigateTo(route) },
+                                            onSignOut = { signOut(credentialManager, scope) }
+                                        )
+                                    }
+                                }
+
+                                navigation(startDestination = "activity_library", route = TabGraphRoutes.ACTIVITIES) {
+                                    composable("activity_library") {
+                                        ActivityDiscoveryScreen(
+                                            vm = activityVm,
+                                            profile = profile,
+                                            onOpenActivity = { id -> navigateTo("activity/$id") }
+                                        )
+                                    }
+                                    composable(
+                                        route = "activity_library/{moduleId}",
+                                        arguments = listOf(navArgument("moduleId") { type = NavType.StringType })
+                                    ) { entry ->
+                                        val modId = entry.arguments?.getString("moduleId")
+                                        ActivityDiscoveryScreen(
+                                            vm = activityVm,
+                                            profile = profile,
+                                            initialModuleId = modId,
+                                            onOpenActivity = { id -> navigateTo("activity/$id") }
+                                        )
+                                    }
+                                    composable(
+                                        route = "activity/{activityId}",
+                                        arguments = listOf(navArgument("activityId") { type = NavType.StringType })
+                                    ) { entry ->
+                                        val actId = entry.arguments?.getString("activityId").orEmpty()
+                                        ActivityScreen(
+                                            activityId = actId,
+                                            vm = activityVm,
+                                            ttsHelper = ttsHelper,
+                                            userLevel = profile.communicationLevel,
+                                            onOpenNextActivity = { nextId -> navigateTo("activity/$nextId") },
+                                            onBackToCatalogue = { navigateTo("activity_library") }
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
                     }
 
                     TutorialOverlay(
@@ -1413,24 +1661,123 @@ private fun AuthenticatedAppShell(
                         }
                     )
 
-                    NotificationDrawer(
+                    NotificationDrawerHost(
                         visible = showNotificationDrawer,
-                        alerts = notificationStoreState.alerts,
-                        preferences = notificationStoreState.preferences,
+                        notificationManager = notificationManager,
                         onDismiss = { showNotificationDrawer = false },
-                        onMarkRead = { id -> notificationManager.markAsRead(id) },
-                        onMarkUnread = { id -> notificationManager.markAsUnread(id) },
-                        onTogglePin = { id -> notificationManager.togglePinned(id) },
-                        onMarkAllRead = { notificationManager.markAllAsRead() },
-                        onDismissAlert = { id -> notificationManager.dismissAlert(id) },
-                        onClearRead = { notificationManager.clearReadAlerts() },
-                        onUpdatePreferences = { updated -> notificationManager.updatePreferences(updated) },
                         onOpenRoute = { route -> navigateTo(route) }
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SyncEffectsHost(
+    userId: String,
+    profile: UserProfile,
+    mainVm: MainCoachViewModel,
+    learningPathsVm: LearningPathsViewModel,
+    learningProgressManager: LearningProgressManager,
+    notificationManager: NotificationManagerRepository
+) {
+    val enrollState by mainVm.enrollments.collectAsStateWithLifecycle()
+    val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+    val activeAnnouncements by mainVm.activeAnnouncements.collectAsStateWithLifecycle()
+    val learningNotifications by remember(learningProgressManager) {
+        learningProgressManager.state.map { it.notifications }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val learningStreakDays by remember(learningProgressManager) {
+        learningProgressManager.state.map { it.streak.currentStreakDays }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = 0)
+
+    val enrollments = (enrollState as? UiState.Success)?.data.orEmpty()
+    val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+    var baselineSessionCount by remember(userId) { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(userId, profile, enrollments) {
+        learningPathsVm.syncAccountAndEnrollments(
+            userId = userId,
+            profile = profile,
+            remoteEnrollments = enrollments
+        )
+    }
+
+    LaunchedEffect(userId, profile, sessions.size, sessions.firstOrNull()?.id, learningStreakDays) {
+        learningProgressManager.loadForUserAsync(
+            userId = userId,
+            profile = profile,
+            recentSessions = sessions
+        )
+        notificationManager.loadForUserAsync(
+            userId = userId,
+            profile = profile,
+            sessionsCount = sessions.size,
+            streakDays = maxOf(
+                profile.streakDays.toInt(),
+                learningStreakDays
+            )
+        )
+        val priorCount = baselineSessionCount
+        if (priorCount != null && sessions.size > priorCount) {
+            val newest = sessions.firstOrNull()
+            if (newest != null && newest.evaluationStatus == "COMPLETED") {
+                val dimValues = buildList {
+                    val keys = newest.evaluatedDimensionKeys
+                    if (keys.isEmpty() || "fluency" in keys) add(newest.fluencyScore)
+                    if (keys.isEmpty() || "pronunciation" in keys) add(newest.pronunciationScore)
+                    if (keys.isEmpty() || "vocabulary" in keys) add(newest.vocabularyScore)
+                    if (keys.isEmpty() || "grammar" in keys) add(newest.grammarScore)
+                    if ("delivery" in keys || "articulation" in keys) add(newest.articulationScore)
+                }
+                if (dimValues.isNotEmpty()) {
+                    val avg = (dimValues.sum() / dimValues.size).toInt()
+                    notificationManager.recordSessionCompletedAlert(
+                        sessionId = newest.id.ifBlank { "${newest.promptTitle}_${sessions.size}" },
+                        promptTitle = newest.promptTitle,
+                        overallScore = avg
+                    )
+                }
+            }
+        }
+        baselineSessionCount = sessions.size
+    }
+
+    LaunchedEffect(learningNotifications) {
+        notificationManager.syncFromLearningNotifications(learningNotifications)
+    }
+
+    LaunchedEffect(activeAnnouncements) {
+        activeAnnouncements.forEach { ann ->
+            learningProgressManager.ingestAdminAnnouncement(ann)
+            notificationManager.ingestAnnouncement(ann)
+        }
+    }
+}
+
+@Composable
+private fun NotificationDrawerHost(
+    visible: Boolean,
+    notificationManager: NotificationManagerRepository,
+    onDismiss: () -> Unit,
+    onOpenRoute: (String) -> Unit
+) {
+    val notificationStoreState by notificationManager.state.collectAsStateWithLifecycle()
+    NotificationDrawer(
+        visible = visible,
+        alerts = notificationStoreState.alerts,
+        preferences = notificationStoreState.preferences,
+        onDismiss = onDismiss,
+        onMarkRead = { id -> notificationManager.markAsRead(id) },
+        onMarkUnread = { id -> notificationManager.markAsUnread(id) },
+        onTogglePin = { id -> notificationManager.togglePinned(id) },
+        onMarkAllRead = { notificationManager.markAllAsRead() },
+        onDismissAlert = { id -> notificationManager.dismissAlert(id) },
+        onClearRead = { notificationManager.clearReadAlerts() },
+        onUpdatePreferences = { updated -> notificationManager.updatePreferences(updated) },
+        onOpenRoute = onOpenRoute
+    )
 }
 
 private data class SidebarDestination(
@@ -1441,7 +1788,7 @@ private data class SidebarDestination(
 
 @Composable
 private fun SpeakCraftIndigoSidebar(
-    currentRoute: String,
+    currentTabGraph: String,
     onNavigate: (String) -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
@@ -1545,7 +1892,7 @@ private fun SpeakCraftIndigoSidebar(
 
                 // Navigation Destinations
                 destinations.forEach { dest ->
-                    val isSelected = currentRoute == dest.route
+                    val isSelected = currentTabGraph == tabGraphForRoute(dest.route)
                     val itemModifier = Modifier
                         .fillMaxWidth()
                         .defaultMinSize(minHeight = 48.dp)

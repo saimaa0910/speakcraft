@@ -65,6 +65,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +88,8 @@ import com.example.data.model.StreakAndAnalyticsHelper
 import com.example.data.model.UserLearningProgress
 import com.example.data.model.UserProfile
 import com.example.data.model.VocabularyEntry
+import com.example.ui.components.ActiveLearningPathBannerUi
+import com.example.ui.components.ActiveLearningPathDashboardCard
 import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeatureTutorialDialog
@@ -154,12 +160,13 @@ fun DashboardScreen(
     reducedMotion: Boolean = false,
     onCompleteDailyTask: (String) -> Unit = {},
     onOpenProfile: () -> Unit = { onNavigate("settings") },
-    onQuickAskMentor: (String) -> Unit = { onNavigate("ai_mentor") }
+    onQuickAskMentor: (String) -> Unit = { onNavigate("ai_mentor") },
+    activePathSummary: ActiveLearningPathBannerUi? = null
 ) {
     val ext = MaterialTheme.speakCraftColors
-    var reportPeriod by remember { mutableStateOf("Weekly") }
-    var moduleQuery by remember { mutableStateOf("") }
-    var selectedHubGroup by remember { mutableStateOf("All") }
+    var reportPeriod by rememberSaveable { mutableStateOf("Weekly") }
+    var moduleQuery by rememberSaveable { mutableStateOf("") }
+    var selectedHubGroup by rememberSaveable { mutableStateOf("All") }
     var showAllTutorials by remember { mutableStateOf(false) }
 
     if (showAllTutorials) {
@@ -449,7 +456,15 @@ fun DashboardScreen(
                     }
                 }
 
-                // Third Studio Band: My Learning Tracks 4-up strip
+                // Third Studio Band: Active Learning Path & My Learning Tracks 4-up strip
+                item {
+                    ActiveLearningPathDashboardCard(
+                        activeBanner = activePathSummary,
+                        onResumeLesson = { progId, day -> onNavigate("learning_path_lesson/$progId/$day") },
+                        onExploreAllPaths = { onNavigate("learning_paths") }
+                    )
+                }
+
                 item {
                     LearningTracksStrip(
                         tracks = learningTracks,
@@ -543,6 +558,14 @@ fun DashboardScreen(
                     QuickAccessPastelGrid(
                         columns = if (tier.isTabletOrWide) 4 else 2,
                         onNavigate = onNavigate
+                    )
+                }
+
+                item {
+                    ActiveLearningPathDashboardCard(
+                        activeBanner = activePathSummary,
+                        onResumeLesson = { progId, day -> onNavigate("learning_path_lesson/$progId/$day") },
+                        onExploreAllPaths = { onNavigate("learning_paths") }
                     )
                 }
 

@@ -115,10 +115,14 @@ fun NotificationDrawer(
     var selectedFilter by remember { mutableStateOf(NotificationDrawerFilter.ALL) }
     var showPreferences by remember { mutableStateOf(false) }
 
-    val unreadCount = remember(alerts) { alerts.count { !it.isRead } }
-    val hasClearableRead = remember(alerts) { alerts.any { it.isRead && !it.isPinned } }
-    val filteredAlerts = remember(alerts, selectedFilter) {
-        NotificationManagerRepository.filterAlerts(alerts, selectedFilter)
+    val unreadCount = remember(visible, alerts) {
+        if (!visible) 0 else alerts.count { !it.isRead }
+    }
+    val hasClearableRead = remember(visible, alerts) {
+        if (!visible) false else alerts.any { it.isRead && !it.isPinned }
+    }
+    val filteredAlerts = remember(visible, alerts, selectedFilter) {
+        if (!visible) emptyList() else NotificationManagerRepository.filterAlerts(alerts, selectedFilter)
     }
 
     Box(modifier = modifier.fillMaxSize()) {

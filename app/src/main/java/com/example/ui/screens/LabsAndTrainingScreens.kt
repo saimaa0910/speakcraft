@@ -42,6 +42,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,8 +89,14 @@ fun PronunciationLabScreen(
     val defaultCat = if (initialFocus == "articulation" && categories.contains("Difficult Sounds")) {
         "Difficult Sounds"
     } else "All"
-    var selectedCategory by remember(initialFocus) { mutableStateOf(defaultCat) }
-    var activeDrill by remember(initialFocus) {
+    var selectedCategory by rememberSaveable(initialFocus) { mutableStateOf(defaultCat) }
+    var activeDrill by rememberSaveable(
+        initialFocus,
+        stateSaver = Saver(
+            save = { it.id },
+            restore = { id -> drills.firstOrNull { it.id == id } ?: drills.first() }
+        )
+    ) {
         mutableStateOf(drills.firstOrNull { defaultCat == "All" || it.category == defaultCat } ?: drills.first())
     }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
@@ -339,7 +347,12 @@ fun ListeningShadowingScreen(
     val ext = MaterialTheme.speakCraftColors
     val uriHandler = LocalUriHandler.current
     val segments = CurriculumCatalog.shadowingSegments
-    var activeSegment by remember { mutableStateOf(segments.first()) }
+    var activeSegment by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.id },
+            restore = { id -> segments.firstOrNull { it.id == id } ?: segments.first() }
+        )
+    ) { mutableStateOf(segments.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
@@ -543,7 +556,12 @@ fun GrammarSpeakingScreen(
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
     val lessons = CurriculumCatalog.grammarLessons
-    var activeLesson by remember { mutableStateOf(lessons.first()) }
+    var activeLesson by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.id },
+            restore = { id -> lessons.firstOrNull { it.id == id } ?: lessons.first() }
+        )
+    ) { mutableStateOf(lessons.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
@@ -730,7 +748,12 @@ fun PublicSpeakingScreen(
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
     val modules = CurriculumCatalog.publicSpeakingModules
-    var activeModule by remember { mutableStateOf(modules.first()) }
+    var activeModule by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.id },
+            restore = { id -> modules.firstOrNull { it.id == id } ?: modules.first() }
+        )
+    ) { mutableStateOf(modules.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()
     val analysisState by speakingVm.analysisState.collectAsStateWithLifecycle()
@@ -976,8 +999,8 @@ private fun RealWorldTaskCard(
     modifier: Modifier = Modifier
 ) {
     val ext = MaterialTheme.speakCraftColors
-    var completed by remember(saved?.completed) { mutableStateOf(saved?.completed ?: false) }
-    var reflection by remember(saved?.reflection) { mutableStateOf(saved?.reflection.orEmpty()) }
+    var completed by rememberSaveable(taskId, saved?.completed) { mutableStateOf(saved?.completed ?: false) }
+    var reflection by rememberSaveable(taskId, saved?.reflection) { mutableStateOf(saved?.reflection.orEmpty()) }
 
     Card(
         modifier = modifier,

@@ -111,6 +111,7 @@ class LearningPathsViewModel(
     private var latestAiSettings: AISettings = AISettings()
     private var latestProfile: UserProfile? = null
     private var lastSyncedAutoTranscript: String = ""
+    private var lastSyncedSignature: String? = null
 
     init {
         learningProgressManager?.let { manager ->
@@ -186,15 +187,43 @@ class LearningPathsViewModel(
     ) {
         latestProfile = profile
         val cleanUid = userId.ifBlank { "guest" }
+        val signature = buildSyncSignature(cleanUid, profile, remoteEnrollments)
+        if (lastSyncedSignature == signature &&
+            _uiState.value.userId == cleanUid &&
+            _uiState.value.programStats.isNotEmpty()
+        ) {
+            return
+        }
         viewModelScope.launch {
-            persistenceRepository.loadUserState(cleanUid)
             val syncedState = if (remoteEnrollments.isNotEmpty()) {
                 persistenceRepository.mergeRemoteEnrollments(cleanUid, remoteEnrollments)
             } else {
                 persistenceRepository.loadUserState(cleanUid)
             }
+            lastSyncedSignature = signature
             publishUserState(cleanUid, syncedState, profile)
         }
+    }
+
+    private fun buildSyncSignature(
+        cleanUid: String,
+        profile: UserProfile?,
+        remoteEnrollments: List<ProgramEnrollment>
+    ): String {
+        val enrollmentHash = remoteEnrollments.map {
+            "${it.programId}:${it.currentDay}:${it.completedDays.size}:${it.active}"
+        }.hashCode()
+        return listOf(
+            cleanUid,
+            profile?.communicationLevel.orEmpty(),
+            profile?.primaryGoal.orEmpty(),
+            profile?.fluencyScore?.toInt() ?: -1,
+            profile?.pronunciationScore?.toInt() ?: -1,
+            profile?.vocabularyScore?.toInt() ?: -1,
+            profile?.grammarScore?.toInt() ?: -1,
+            profile?.articulationScore?.toInt() ?: -1,
+            enrollmentHash
+        ).joinToString("|")
     }
 
     fun setCategoryFilter(category: String) {
@@ -690,38 +719,41 @@ class LearningPathsViewModel(
         }
     }
 
-    private fun publishUserState(
+    private suspend fun publishUserState(
         userId: String,
         userState: LearningPathsUserState,
         profile: UserProfile?
     ) {
-        val programs = LearningPathCurriculumRegistry.allPrograms
-        val statsMap = programs.associate { program ->
-            program.programId to LearningPathRecommendationEngine.computeProgramStats(
-                program = program,
-                enrollment = userState.enrollments[program.programId]
+        val (statsMap, recs) = withContext(computeDispatcher) {
+            val programs = LearningPathCurriculumRegistry.allPrograms
+            val stats = programs.associate { program ->
+                program.programId to LearningPathRecommendationEngine.computeProgramStats(
+                    program = program,
+                    enrollment = userState.enrollments[program.programId]
+                )
+            }
+
+            val level = LearningLevel.fromLabel(profile?.communicationLevel)
+            val goal = LearningGoal.fromLabel(profile?.primaryGoal)
+            val weakestSkill = profile?.let { p ->
+                listOf(
+                    "Fluency" to p.fluencyScore,
+                    "Pronunciation" to p.pronunciationScore,
+                    "Vocabulary" to p.vocabularyScore,
+                    "Grammar" to p.grammarScore,
+                    "Articulation" to p.articulationScore
+                ).minByOrNull { it.second }?.first
+            }
+
+            val recommendations = LearningPathRecommendationEngine.recommendPrograms(
+                programs = programs,
+                userLevel = level,
+                userGoal = goal,
+                userState = userState,
+                weakestSkillHint = weakestSkill
             )
+            stats to recommendations
         }
-
-        val level = LearningLevel.fromLabel(profile?.communicationLevel)
-        val goal = LearningGoal.fromLabel(profile?.primaryGoal)
-        val weakestSkill = profile?.let { p ->
-            listOf(
-                "Fluency" to p.fluencyScore,
-                "Pronunciation" to p.pronunciationScore,
-                "Vocabulary" to p.vocabularyScore,
-                "Grammar" to p.grammarScore,
-                "Articulation" to p.articulationScore
-            ).minByOrNull { it.second }?.first
-        }
-
-        val recs = LearningPathRecommendationEngine.recommendPrograms(
-            programs = programs,
-            userLevel = level,
-            userGoal = goal,
-            userState = userState,
-            weakestSkillHint = weakestSkill
-        )
 
         _uiState.update {
             it.copy(

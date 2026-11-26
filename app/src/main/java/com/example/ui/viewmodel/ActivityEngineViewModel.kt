@@ -34,10 +34,13 @@ import com.example.data.media.AudioRecorderManager
 import com.example.data.model.UserProfile
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -89,7 +92,8 @@ class ActivityEngineViewModel(
     private val userId: String,
     private val hybridCoordinator: com.example.data.ai.HybridAiCoachCoordinator? = null,
     /** Local learning state: persists attempts/progress across restarts and feeds the daily record. */
-    private val learningProgress: LearningProgressManager? = null
+    private val learningProgress: LearningProgressManager? = null,
+    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     val todayDateKey: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -115,6 +119,19 @@ class ActivityEngineViewModel(
 
     private val _searchFilter = MutableStateFlow(ActivitySearchFilter())
     val searchFilter: StateFlow<ActivitySearchFilter> = _searchFilter.asStateFlow()
+
+    private val _latestProfile = MutableStateFlow<UserProfile?>(null)
+
+    fun updateProfileContext(profile: UserProfile?) {
+        if (_latestProfile.value != profile) {
+            _latestProfile.value = profile
+        }
+    }
+
+    val searchResultsState: StateFlow<List<ActivityDefinition>> = _searchFilter
+        .map { filter -> ActivityCatalogue.searchAndFilter(filter) }
+        .flowOn(computeDispatcher)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ActivityCatalogue.allActivities)
 
     private val _currentPage = MutableStateFlow(1)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
@@ -192,10 +209,67 @@ class ActivityEngineViewModel(
         attemptHistory
     ) { progress, attempts ->
         ActivityProgressAnalyticsEngine.computeSnapshot(progress, attempts, todayDateKey)
-    }.stateIn(
+    }.flowOn(computeDispatcher).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         ActivityProgressAnalyticsEngine.computeSnapshot(emptyList(), emptyList(), todayDateKey)
+    )
+
+    val recommendedActivitiesState: StateFlow<List<ActivityDefinition>> = combine(
+        _latestProfile,
+        progressList,
+        attemptHistory
+    ) { profile, progress, attempts ->
+        activityEngine.recommendNextActivities(
+            currentActivity = null,
+            allProgress = progress,
+            recentAttempts = attempts,
+            profile = profile,
+            limit = 6
+        )
+    }.flowOn(computeDispatcher).stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        emptyList()
+    )
+
+    val dailyPlanState: StateFlow<DailyPracticePlan> = combine(
+        _latestProfile,
+        _selectedDailyMinutes,
+        _customDailyPlan,
+        dailyPlanRecord,
+        progressList,
+        attemptHistory
+    ) { args ->
+        val profile = args[0] as UserProfile?
+        val targetMinutes = args[1] as Int
+        val existingCustom = args[2] as DailyPracticePlan?
+        @Suppress("UNCHECKED_CAST")
+        val savedRecord = args[3] as DailyPracticePlanRecord?
+        @Suppress("UNCHECKED_CAST")
+        val progress = args[4] as List<UserActivityProgress>
+        @Suppress("UNCHECKED_CAST")
+        val attempts = args[5] as List<ActivityAttemptRecord>
+        computeDailyPlan(
+            profile = profile,
+            targetMinutes = targetMinutes,
+            existingCustom = existingCustom,
+            savedRecord = savedRecord,
+            progress = progress,
+            attempts = attempts
+        )
+    }.flowOn(computeDispatcher).stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        DailyPracticeEngine.generatePlan(
+            dateKey = todayDateKey,
+            targetMinutes = 20,
+            profile = null,
+            progressList = emptyList(),
+            recentAttempts = emptyList(),
+            pinnedActivityIds = emptyList(),
+            completedTodayIds = emptySet()
+        )
     )
 
     /** All 10 paths, every pillar computed from real (persisted + live) progress. */
@@ -225,7 +299,15 @@ class ActivityEngineViewModel(
 
     // ==================== ACTIVITY LOADING & LIFECYCLE ====================
 
-    fun loadActivity(activityId: String) {
+    fun loadActivity(activityId: String, forceReset: Boolean = false) {
+        val current = _activeState.value
+        if (!forceReset &&
+            current.activity?.activityId == activityId &&
+            current.stage !is ActivitySessionStage.Invalid
+        ) {
+            // Preserve unfinished responses, checklist progress, dialogue turns, and active/completed state across tab switches.
+            return
+        }
         stopTimer()
         audioRecorder?.stopPlayback()
         if (audioRecorder?.isRecording?.value == true) {
@@ -264,7 +346,7 @@ class ActivityEngineViewModel(
 
     fun retryCurrentActivity() {
         val id = _activeState.value.activity?.activityId ?: return
-        loadActivity(id)
+        loadActivity(id, forceReset = true)
         startActivity()
     }
 
@@ -493,14 +575,29 @@ class ActivityEngineViewModel(
         persistDailyPlan(plan)
     }
 
-    fun buildEffectiveDailyPlan(profile: UserProfile?): DailyPracticePlan {
-        val existingCustom = _customDailyPlan.value
-        val completedToday = attemptHistory.value
+    fun buildEffectiveDailyPlan(profile: UserProfile?): DailyPracticePlan = computeDailyPlan(
+        profile = profile,
+        targetMinutes = _selectedDailyMinutes.value,
+        existingCustom = _customDailyPlan.value,
+        savedRecord = dailyPlanRecord.value,
+        progress = progressList.value,
+        attempts = attemptHistory.value
+    )
+
+    private fun computeDailyPlan(
+        profile: UserProfile?,
+        targetMinutes: Int,
+        existingCustom: DailyPracticePlan?,
+        savedRecord: DailyPracticePlanRecord?,
+        progress: List<UserActivityProgress>,
+        attempts: List<ActivityAttemptRecord>
+    ): DailyPracticePlan {
+        val completedToday = attempts
             .filter { it.dateKey == todayDateKey }
             .map { it.activityId }
             .toSet()
 
-        if (existingCustom != null && existingCustom.targetMinutes == _selectedDailyMinutes.value) {
+        if (existingCustom != null && existingCustom.targetMinutes == targetMinutes) {
             return existingCustom.copy(
                 blocks = existingCustom.blocks.map { blk ->
                     blk.copy(completed = blk.activityId in completedToday)
@@ -508,15 +605,13 @@ class ActivityEngineViewModel(
             )
         }
 
-        val savedRecord = dailyPlanRecord.value
-        val pinnedIds = savedRecord?.pinnedActivityIds.orEmpty()
         return DailyPracticeEngine.generatePlan(
             dateKey = todayDateKey,
-            targetMinutes = _selectedDailyMinutes.value,
+            targetMinutes = targetMinutes,
             profile = profile,
-            progressList = progressList.value,
-            recentAttempts = attemptHistory.value,
-            pinnedActivityIds = pinnedIds,
+            progressList = progress,
+            recentAttempts = attempts,
+            pinnedActivityIds = savedRecord?.pinnedActivityIds.orEmpty(),
             completedTodayIds = completedToday
         )
     }

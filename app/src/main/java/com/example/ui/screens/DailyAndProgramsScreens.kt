@@ -69,8 +69,10 @@ import com.example.data.activity.LearningPathsEngine
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,10 +110,10 @@ fun DailyPracticeScreen(
     onCompleteTask: (taskId: String) -> Unit = {}
 ) {
     val completedIds = todayActivity?.completedStepIds.orEmpty()
-    var reflection by remember(todayActivity?.reflectionText) {
+    var reflection by rememberSaveable(todayActivity?.reflectionText) {
         mutableStateOf(todayActivity?.reflectionText.orEmpty())
     }
-    var confidence by remember(todayActivity?.confidenceRating) {
+    var confidence by rememberSaveable(todayActivity?.confidenceRating) {
         mutableFloatStateOf((todayActivity?.confidenceRating ?: 6L).toFloat())
     }
 
@@ -819,9 +821,9 @@ fun LearningPathsScreen(
     onOpenActivity: (activityId: String) -> Unit = {}
 ) {
     val programs = CurriculumCatalog.structuredPrograms
-    var expandedProgramId by remember { mutableStateOf("30_day_challenge") }
-    var selectedMainTab by remember { mutableStateOf(0) } // 0: 10 Goal-Driven Paths, 1: Structured Programs
-    var selectedDifficultyFilter by remember { mutableStateOf<ActivityDifficulty?>(null) }
+    var expandedProgramId by rememberSaveable { mutableStateOf("30_day_challenge") }
+    var selectedMainTab by rememberSaveable { mutableIntStateOf(0) } // 0: 10 Goal-Driven Paths, 1: Structured Programs
+    var selectedDifficultyFilter by rememberSaveable { mutableStateOf<ActivityDifficulty?>(null) }
 
     val effectiveSummaries = remember(pathSummaries) {
         if (pathSummaries.isNotEmpty()) pathSummaries
@@ -1104,7 +1106,7 @@ private fun DailyRecordCard(
     val days = remember(records, todayDateKey) {
         (listOf(todayDateKey) + DailyRecordBook.daysWithRecords(records)).distinct().take(30)
     }
-    var selectedDay by remember(todayDateKey) { mutableStateOf(todayDateKey) }
+    var selectedDay by rememberSaveable(todayDateKey) { mutableStateOf(todayDateKey) }
     val groups = remember(records, selectedDay) { DailyRecordBook.groupsFor(records, selectedDay) }
 
     Card(

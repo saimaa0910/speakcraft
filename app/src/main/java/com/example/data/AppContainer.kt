@@ -138,7 +138,11 @@ class AppContainer(context: Context) {
     }
 
     val learningProgressManager: com.example.data.learning.LearningProgressManager by lazy {
-        com.example.data.learning.LearningProgressManager(appContext)
+        com.example.data.learning.LearningProgressManager(
+            context = appContext,
+            persistScope = appScope,
+            ioDispatcher = dispatchers.io
+        )
     }
 
     val learningPathPersistenceRepository: com.example.data.learningpaths.LearningPathPersistenceRepository by lazy {
@@ -146,6 +150,10 @@ class AppContainer(context: Context) {
     }
 
     val notificationManager: com.example.data.notifications.NotificationManagerRepository by lazy {
-        com.example.data.notifications.NotificationManagerRepository(appContext)
+        com.example.data.notifications.NotificationManagerRepository(
+            context = appContext,
+            persistScope = appScope,
+            ioDispatcher = dispatchers.io
+        )
     }
 }

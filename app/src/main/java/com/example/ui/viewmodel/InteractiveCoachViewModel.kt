@@ -12,6 +12,8 @@ import com.example.data.model.UiState
 import com.example.data.model.UserProfile
 import com.example.data.preferences.AppPreferencesRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
@@ -35,7 +38,8 @@ class InteractiveCoachViewModel(
     private val appContext: Context? = null,
     private val currentUserId: String = "default",
     private val hybridCoordinator: HybridAiCoachCoordinator? = null,
-    private val prefsRepo: AppPreferencesRepository? = null
+    private val prefsRepo: AppPreferencesRepository? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
@@ -77,8 +81,17 @@ class InteractiveCoachViewModel(
     private val _selectedMentorRole = MutableStateFlow("mentor")
     val selectedMentorRole: StateFlow<String> = _selectedMentorRole.asStateFlow()
 
-    private val _mentorMessages = MutableStateFlow(loadPersistedMentorHistory())
+    private val _mentorMessages = MutableStateFlow(listOf(defaultMentorGreeting))
     val mentorMessages: StateFlow<List<ChatTurn>> = _mentorMessages.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val loaded = withContext(ioDispatcher) { loadPersistedMentorHistory() }
+            if (_mentorMessages.value == listOf(defaultMentorGreeting) && loaded != _mentorMessages.value) {
+                _mentorMessages.value = loaded
+            }
+        }
+    }
 
     private val _isMentorResponding = MutableStateFlow(false)
     val isMentorResponding: StateFlow<Boolean> = _isMentorResponding.asStateFlow()
@@ -131,16 +144,19 @@ class InteractiveCoachViewModel(
     }
 
     private fun persistMentorHistory(turns: List<ChatTurn>) {
-        val file = mentorHistoryFile() ?: return
-        runCatching {
-            val arr = JSONArray()
-            turns.takeLast(40).forEach { turn ->
-                arr.put(JSONObject().apply {
-                    put("isUser", turn.isUser)
-                    put("text", turn.text)
-                })
+        val snapshot = turns.takeLast(40)
+        viewModelScope.launch(ioDispatcher) {
+            val file = mentorHistoryFile() ?: return@launch
+            runCatching {
+                val arr = JSONArray()
+                snapshot.forEach { turn ->
+                    arr.put(JSONObject().apply {
+                        put("isUser", turn.isUser)
+                        put("text", turn.text)
+                    })
+                }
+                file.writeText(arr.toString())
             }
-            file.writeText(arr.toString())
         }
     }
 

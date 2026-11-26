@@ -64,7 +64,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.data.ai.PendingStudioGeminiHandoff
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -154,19 +159,32 @@ fun SpeakingLabScreen(
         )
     }
 
-    var activeTaskType by remember { mutableStateOf(StudioTaskType.DAILY_VIDEO) }
-    var dailyFreeNote by remember { mutableStateOf("") }
-    var customTopic by remember { mutableStateOf(quickTopicPresets.first().second) }
-    var sendToGeminiOnSubmit by remember { mutableStateOf(true) }
+    var activeTaskType by rememberSaveable { mutableStateOf(StudioTaskType.DAILY_VIDEO) }
+    var dailyFreeNote by rememberSaveable { mutableStateOf("") }
+    var customTopic by rememberSaveable { mutableStateOf(quickTopicPresets.first().second) }
+    var sendToGeminiOnSubmit by rememberSaveable { mutableStateOf(true) }
     var geminiStatusMessage by remember { mutableStateOf<String?>(null) }
-    var geminiFeedbackDraft by remember { mutableStateOf("") }
+    var geminiFeedbackDraft by rememberSaveable { mutableStateOf("") }
     var geminiFeedbackHistory by remember(context) {
-        mutableStateOf(PhoneGeminiBridge.loadStudioFeedbackHistory(context))
+        mutableStateOf<List<StudioGeminiFeedbackEntry>>(emptyList())
     }
     var pendingHandoff by remember(context) {
-        mutableStateOf(PhoneGeminiBridge.getPendingStudioHandoff(context))
+        mutableStateOf<PendingStudioGeminiHandoff?>(null)
     }
-    var selectedAuditStage by remember { mutableStateOf("Stage 2: Vocal (Eyes Closed)") }
+    var hasCustomStudioPrompt by remember(context) { mutableStateOf(false) }
+    LaunchedEffect(context) {
+        val loaded = withContext(Dispatchers.IO) {
+            Triple(
+                PhoneGeminiBridge.loadStudioFeedbackHistory(context),
+                PhoneGeminiBridge.getPendingStudioHandoff(context),
+                PhoneGeminiBridge.hasCustomStudioGeminiPrompt(context)
+            )
+        }
+        geminiFeedbackHistory = loaded.first
+        pendingHandoff = loaded.second
+        hasCustomStudioPrompt = loaded.third
+    }
+    var selectedAuditStage by rememberSaveable { mutableStateOf("Stage 2: Vocal (Eyes Closed)") }
     var showCameraDialog by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf<String?>(null) }
     var pendingDeleteSession by remember { mutableStateOf<SpeakingSession?>(null) }
@@ -638,7 +656,6 @@ fun SpeakingLabScreen(
                         )
                     }
 
-                    val hasCustomStudioPrompt = PhoneGeminiBridge.hasCustomStudioGeminiPrompt(context)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1270,11 +1287,17 @@ fun ChallengesScreen(
         (CurriculumCatalog.speakingChallenges + mergedShared).distinctBy { it.id }
     }
 
-    var filterType by remember { mutableStateOf("ALL") }
+    var filterType by rememberSaveable { mutableStateOf("ALL") }
     val filteredChallenges = remember(challenges, filterType) {
         if (filterType == "ALL") challenges else challenges.filter { it.challengeType == filterType }
     }
-    var selectedChallenge by remember { mutableStateOf(challenges.first()) }
+    var selectedChallenge by rememberSaveable(
+        challenges.firstOrNull()?.id,
+        stateSaver = Saver(
+            save = { it.id },
+            restore = { id -> challenges.firstOrNull { it.id == id } ?: challenges.first() }
+        )
+    ) { mutableStateOf(challenges.first()) }
     val isRecording by speakingVm.audioManager.isRecording.collectAsStateWithLifecycle()
     val isPaused by speakingVm.audioManager.isPaused.collectAsStateWithLifecycle()
     val amplitude by speakingVm.audioManager.amplitude.collectAsStateWithLifecycle()

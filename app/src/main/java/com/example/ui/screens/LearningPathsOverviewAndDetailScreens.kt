@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -59,10 +59,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,13 +78,20 @@ import com.example.data.learningpaths.PathDifficultyTier
 import com.example.data.learningpaths.ProgramPracticeEvidence
 import com.example.data.learningpaths.ProgramRecommendation
 import com.example.data.learningpaths.ProgramUserStats
+import com.example.ui.components.DayProgressBeadStrip
 import com.example.ui.components.FeatureGuideStrip
+import com.example.ui.components.SectionHeader
+import com.example.ui.components.StudioGradientHeroCard
+import com.example.ui.components.StudioResponsiveContainer
+import com.example.ui.components.programVisualStyleFor
+import com.example.ui.theme.SpeakCraftSpacing
 import com.example.ui.theme.speakCraftColors
 import com.example.ui.viewmodel.LearningPathsUiState
 
 /**
- * Hub screen displaying all 7 complete Learning Programs with personalized recommendations,
- * search & filters, pre-enroll syllabus preview, enrollment lifecycle controls, and deep navigation.
+ * Hub screen displaying all 7 complete Learning Programs with Studio gradient hero metrics,
+ * personalized recommendations, responsive tablet grid layout, search & filters,
+ * pre-enroll syllabus preview, and full lifecycle management.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -119,7 +128,12 @@ fun LearningPathsOverviewScreen(
                 "Foundational" -> program.difficultyTier == PathDifficultyTier.FOUNDATIONAL
                 "Intermediate" -> program.difficultyTier == PathDifficultyTier.INTERMEDIATE
                 "Advanced" -> program.difficultyTier == PathDifficultyTier.ADVANCED
-                "Specialized" -> program.programId in setOf("vocab_challenge", "pronunciation_program", "public_speaking_program", "interview_program")
+                "Specialized" -> program.programId in setOf(
+                    "vocab_challenge",
+                    "pronunciation_program",
+                    "public_speaking_program",
+                    "interview_program"
+                )
                 else -> true
             }
             val matchesQuery = q.isBlank() ||
@@ -135,202 +149,218 @@ fun LearningPathsOverviewScreen(
     val totalCompletedDays = uiState.programStats.values.sumOf { it.completedDaysCount }
     val activeProgramsCount = uiState.programStats.values.count { it.enrolled && !it.programCompleted }
     val completedProgramsCount = uiState.programStats.values.count { it.programCompleted }
+    val overallFraction = (totalCompletedDays.toFloat() / 280f).coerceIn(0f, 1f)
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag("learning_paths_overview"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            FeatureGuideStrip(featureKey = "learning_paths")
-        }
-
-        if (!uiState.bannerMessage.isNullOrBlank()) {
+    StudioResponsiveContainer(modifier = modifier) { tier, _ ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("learning_paths_overview"),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = ext.pastelMintBg),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                FeatureGuideStrip(featureKey = "learning_paths")
+            }
+
+            if (!uiState.bannerMessage.isNullOrBlank()) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = ext.pastelMintBg),
+                        border = BorderStroke(1.dp, ext.success.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(14.dp)
                     ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = ext.pastelMintInk
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = uiState.bannerMessage,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ext.pastelMintInk,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = onDismissBanner) {
-                            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.pastelMintInk)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = ext.pastelMintInk
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = uiState.bannerMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = ext.pastelMintInk,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = onDismissBanner) {
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.pastelMintInk)
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Hub Hero Overview Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = ext.studioConsoleSurface),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = ext.onStudioConsole,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "7 Complete Learning Programs",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = ext.onStudioConsole
+            // Studio Signature Gradient Hero Card
+            item {
+                StudioGradientHeroCard(
+                    eyebrow = "GUIDED MASTERY CURRICULUM",
+                    eyebrowIcon = Icons.Default.School,
+                    title = "7 Complete Learning Programs",
+                    subtitle = "280 daily lessons & 28 graded checkpoints running 100% offline with inline transcript highlighting and coaching feedback.",
+                    ringProgress = overallFraction,
+                    ringValueText = "${(overallFraction * 100).toInt()}%",
+                    ringLabel = "Mastery",
+                    bottomPills = listOf(
+                        "Active Tracks" to "$activeProgramsCount",
+                        "Days Done" to "$totalCompletedDays / 280",
+                        "Graduated" to "$completedProgramsCount / 7"
+                    )
+                )
+            }
+
+            // Personalized Recommendations Card
+            if (uiState.recommendations.isNotEmpty() && uiState.searchQuery.isBlank() && uiState.selectedCategoryFilter == "All") {
+                item {
+                    RecommendationSpotlightCard(
+                        recommendations = uiState.recommendations,
+                        programStats = uiState.programStats,
+                        onPreview = onPreviewProgram,
+                        onOpenProgramDetail = onOpenProgramDetail,
+                        onOpenLesson = onOpenLesson,
+                        onEnroll = onEnrollProgram
+                    )
+                }
+            }
+
+            // Search & Category Filter Section
+            item {
+                SectionHeader(
+                    title = "Explore Programs",
+                    subtitle = "${filteredPrograms.size} of 7 structured tracks shown"
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = onSearchChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("lp_search_input"),
+                    placeholder = { Text("Search programs, topics, or skills...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotBlank()) {
+                            IconButton(onClick = { onSearchChange("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+                Spacer(Modifier.height(10.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    filters.forEach { chip ->
+                        FilterChip(
+                            selected = uiState.selectedCategoryFilter == chip,
+                            onClick = { onCategoryFilterChange(chip) },
+                            label = { Text(chip) },
+                            modifier = Modifier.testTag("lp_filter_$chip")
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = "280 interactive daily lessons & 28 graded assessments running 100% offline with instant transcript highlights and coaching feedback.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ext.onStudioConsole.copy(alpha = 0.86f)
-                    )
-                    Spacer(Modifier.height(14.dp))
+                }
+            }
+
+            if (filteredPrograms.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No matching learning programs found.",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            TextButton(onClick = {
+                                onSearchChange("")
+                                onCategoryFilterChange("All")
+                            }) {
+                                Text("Show all 7 programs")
+                            }
+                        }
+                    }
+                }
+            } else if (tier.isTabletOrWide) {
+                val rows = filteredPrograms.chunked(2)
+                items(rows, key = { pair -> pair.joinToString("-") { it.programId } }) { rowPrograms ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        StatBadgePill(
-                            label = "Active Tracks",
-                            value = "$activeProgramsCount",
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatBadgePill(
-                            label = "Days Completed",
-                            value = "$totalCompletedDays / 280",
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatBadgePill(
-                            label = "Graduated",
-                            value = "$completedProgramsCount / 7",
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Top Personalized Recommendations Card
-        if (uiState.recommendations.isNotEmpty() && uiState.searchQuery.isBlank() && uiState.selectedCategoryFilter == "All") {
-            item {
-                RecommendationSpotlightCard(
-                    recommendations = uiState.recommendations,
-                    programStats = uiState.programStats,
-                    onPreview = onPreviewProgram,
-                    onOpenProgramDetail = onOpenProgramDetail,
-                    onOpenLesson = onOpenLesson,
-                    onEnroll = onEnrollProgram
-                )
-            }
-        }
-
-        // Search & Filter Controls
-        item {
-            OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = onSearchChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("lp_search_input"),
-                placeholder = { Text("Search programs, topics, or skills...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (uiState.searchQuery.isNotBlank()) {
-                        IconButton(onClick = { onSearchChange("") }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear search")
+                        rowPrograms.forEach { program ->
+                            val stats = uiState.programStats[program.programId]
+                                ?: LearningPathRecommendationEngine.computeProgramStats(program, null)
+                            val unmetPrereqs = LearningPathRecommendationEngine.unmetPrerequisites(
+                                program = program,
+                                allPrograms = uiState.programs,
+                                userState = uiState.userState
+                            )
+                            ProgramCatalogCard(
+                                program = program,
+                                stats = stats,
+                                unmetPrereqs = unmetPrereqs,
+                                adviceText = LearningPathRecommendationEngine.nextActionAdvice(
+                                    program = program,
+                                    enrollment = uiState.userState.enrollments[program.programId]
+                                ),
+                                onPreview = { onPreviewProgram(program.programId) },
+                                onEnroll = { onEnrollProgram(program.programId) },
+                                onContinue = { onOpenLesson(program.programId, stats.nextDayNumber) },
+                                onOpenSyllabus = { onOpenProgramDetail(program.programId) },
+                                onTogglePause = { onTogglePauseProgram(program.programId) },
+                                onRequestUnenroll = { unenrollConfirmProgram = program },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowPrograms.size == 1) {
+                            Spacer(Modifier.weight(1f))
                         }
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp)
-            )
-            Spacer(Modifier.height(10.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                filters.forEach { chip ->
-                    FilterChip(
-                        selected = uiState.selectedCategoryFilter == chip,
-                        onClick = { onCategoryFilterChange(chip) },
-                        label = { Text(chip) },
-                        modifier = Modifier.testTag("lp_filter_$chip")
+                }
+            } else {
+                items(filteredPrograms, key = { it.programId }) { program ->
+                    val stats = uiState.programStats[program.programId]
+                        ?: LearningPathRecommendationEngine.computeProgramStats(program, null)
+                    val unmetPrereqs = LearningPathRecommendationEngine.unmetPrerequisites(
+                        program = program,
+                        allPrograms = uiState.programs,
+                        userState = uiState.userState
+                    )
+                    ProgramCatalogCard(
+                        program = program,
+                        stats = stats,
+                        unmetPrereqs = unmetPrereqs,
+                        adviceText = LearningPathRecommendationEngine.nextActionAdvice(
+                            program = program,
+                            enrollment = uiState.userState.enrollments[program.programId]
+                        ),
+                        onPreview = { onPreviewProgram(program.programId) },
+                        onEnroll = { onEnrollProgram(program.programId) },
+                        onContinue = { onOpenLesson(program.programId, stats.nextDayNumber) },
+                        onOpenSyllabus = { onOpenProgramDetail(program.programId) },
+                        onTogglePause = { onTogglePauseProgram(program.programId) },
+                        onRequestUnenroll = { unenrollConfirmProgram = program }
                     )
                 }
-            }
-        }
-
-        if (filteredPrograms.isEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "No matching learning programs found.",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        TextButton(onClick = {
-                            onSearchChange("")
-                            onCategoryFilterChange("All")
-                        }) {
-                            Text("Show all 7 programs")
-                        }
-                    }
-                }
-            }
-        } else {
-            items(filteredPrograms, key = { it.programId }) { program ->
-                val stats = uiState.programStats[program.programId]
-                    ?: LearningPathRecommendationEngine.computeProgramStats(program, null)
-                val unmetPrereqs = LearningPathRecommendationEngine.unmetPrerequisites(
-                    program = program,
-                    allPrograms = uiState.programs,
-                    userState = uiState.userState
-                )
-                ProgramCatalogCard(
-                    program = program,
-                    stats = stats,
-                    unmetPrereqs = unmetPrereqs,
-                    adviceText = LearningPathRecommendationEngine.nextActionAdvice(
-                        program = program,
-                        enrollment = uiState.userState.enrollments[program.programId]
-                    ),
-                    onPreview = { onPreviewProgram(program.programId) },
-                    onEnroll = { onEnrollProgram(program.programId) },
-                    onContinue = { onOpenLesson(program.programId, stats.nextDayNumber) },
-                    onOpenSyllabus = { onOpenProgramDetail(program.programId) },
-                    onTogglePause = { onTogglePauseProgram(program.programId) },
-                    onRequestUnenroll = { unenrollConfirmProgram = program }
-                )
             }
         }
     }
@@ -380,33 +410,6 @@ fun LearningPathsOverviewScreen(
 }
 
 @Composable
-private fun StatBadgePill(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.14f),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.speakCraftColors.onStudioConsole
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.speakCraftColors.onStudioConsole.copy(alpha = 0.8f)
-            )
-        }
-    }
-}
-
-@Composable
 private fun RecommendationSpotlightCard(
     recommendations: List<ProgramRecommendation>,
     programStats: Map<String, ProgramUserStats>,
@@ -418,37 +421,64 @@ private fun RecommendationSpotlightCard(
     val ext = MaterialTheme.speakCraftColors
     val top = recommendations.first()
     val stats = programStats[top.program.programId]
+    val topStyle = programVisualStyleFor(top.program.programId, ext)
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = ext.pastelLavenderBg),
-        border = BorderStroke(1.dp, ext.indigo.copy(alpha = 0.25f)),
-        shape = RoundedCornerShape(18.dp)
+        colors = CardDefaults.cardColors(containerColor = topStyle.containerColor),
+        border = BorderStroke(1.dp, topStyle.accentColor.copy(alpha = 0.28f)),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = ext.pastelLavenderInk, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "RECOMMENDED FOR YOU · ${top.priorityTag.uppercase()}",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = ext.pastelLavenderInk
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = topStyle.accentColor, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "RECOMMENDED · ${top.priorityTag.uppercase()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = topStyle.accentColor
+                    )
+                }
+                SmallPillTag(
+                    text = "${top.matchScore}% Match",
+                    bg = Color.White.copy(alpha = 0.55f),
+                    fg = topStyle.accentColor
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = top.program.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = ext.pastelLavenderInk
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = top.reason,
-                style = MaterialTheme.typography.bodySmall,
-                color = ext.pastelLavenderInk.copy(alpha = 0.88f)
-            )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(topStyle.icon, contentDescription = null, tint = topStyle.accentColor, modifier = Modifier.size(22.dp))
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = top.program.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = topStyle.accentColor
+                    )
+                    Text(
+                        text = top.reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = topStyle.accentColor.copy(alpha = 0.88f)
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (stats?.enrolled == true) {
                     Button(onClick = { onOpenLesson(top.program.programId, stats.nextDayNumber) }) {
@@ -470,7 +500,7 @@ private fun RecommendationSpotlightCard(
             }
             if (recommendations.size > 1) {
                 Spacer(Modifier.height(10.dp))
-                HorizontalDivider(color = ext.pastelLavenderInk.copy(alpha = 0.14f))
+                HorizontalDivider(color = topStyle.accentColor.copy(alpha = 0.14f))
                 Spacer(Modifier.height(8.dp))
                 recommendations.drop(1).forEach { alt ->
                     Row(
@@ -478,20 +508,21 @@ private fun RecommendationSpotlightCard(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { onOpenProgramDetail(alt.program.programId) }
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "${alt.program.title} (${alt.program.durationDays}d)",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = ext.pastelLavenderInk,
+                            color = topStyle.accentColor,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = alt.priorityTag,
+                            text = "${alt.priorityTag} →",
                             style = MaterialTheme.typography.labelSmall,
-                            color = ext.pastelLavenderInk.copy(alpha = 0.78f)
+                            fontWeight = FontWeight.SemiBold,
+                            color = topStyle.accentColor.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -512,32 +543,50 @@ private fun ProgramCatalogCard(
     onContinue: () -> Unit,
     onOpenSyllabus: () -> Unit,
     onTogglePause: () -> Unit,
-    onRequestUnenroll: () -> Unit
+    onRequestUnenroll: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val ext = MaterialTheme.speakCraftColors
+    val style = programVisualStyleFor(program.programId, ext)
     val containerColor = when {
-        stats.programCompleted -> ext.pastelMintBg.copy(alpha = 0.6f)
+        stats.programCompleted -> ext.pastelMintBg.copy(alpha = 0.55f)
         stats.enrolled && !stats.paused -> MaterialTheme.colorScheme.surface
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
+        else -> MaterialTheme.colorScheme.surface
     }
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .testTag("lp_program_card_${program.programId}"),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(
             width = if (stats.enrolled) 1.5.dp else 1.dp,
-            color = if (stats.programCompleted) ext.success else ext.cardBorderSubtle
+            color = if (stats.programCompleted) ext.success else if (stats.enrolled) style.accentColor.copy(alpha = 0.4f) else ext.cardBorderSubtle
         ),
-        shape = RoundedCornerShape(18.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (stats.enrolled) 2.dp else 1.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    shape = CircleShape,
+                    color = style.containerColor,
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = style.icon,
+                            contentDescription = null,
+                            tint = style.accentColor,
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
+                }
+
                 Column(modifier = Modifier.weight(1f)) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -545,8 +594,8 @@ private fun ProgramCatalogCard(
                     ) {
                         SmallPillTag(
                             text = "${program.durationDays} Days · ${program.modules.size} Modules",
-                            bg = ext.pastelSkyBg,
-                            fg = ext.pastelSkyInk
+                            bg = style.badgeBg,
+                            fg = style.badgeInk
                         )
                         SmallPillTag(
                             text = program.difficultyTier.label,
@@ -567,13 +616,12 @@ private fun ProgramCatalogCard(
                             )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = program.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = program.subtitle,
                         style = MaterialTheme.typography.bodySmall,
@@ -582,11 +630,11 @@ private fun ProgramCatalogCard(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = program.overview,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f)
             )
 
             Spacer(Modifier.height(10.dp))
@@ -596,7 +644,7 @@ private fun ProgramCatalogCard(
             ) {
                 program.primarySkillFocus.forEach { focus ->
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
@@ -624,7 +672,9 @@ private fun ProgramCatalogCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = if (stats.programCompleted) ext.success else style.accentColor,
+                    trackColor = style.containerColor
                 )
                 Spacer(Modifier.height(6.dp))
                 Row(
@@ -649,15 +699,27 @@ private fun ProgramCatalogCard(
                 Text(
                     text = adviceText,
                     style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
                 )
             } else {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "~${program.estimatedDailyMinutes} min/day · ${program.recommendedLevelRange}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Timer,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "~${program.estimatedDailyMinutes} min/day · ${program.recommendedLevelRange}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -729,20 +791,37 @@ private fun ProgramPreviewDialog(
     onEnroll: () -> Unit,
     onOpenSyllabus: () -> Unit
 ) {
+    val ext = MaterialTheme.speakCraftColors
+    val style = programVisualStyleFor(program.programId, ext)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column {
-                Text(
-                    text = program.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${program.durationDays} Days · ${program.difficultyTier.label} · ~${program.estimatedDailyMinutes} min/day",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = style.containerColor,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(style.icon, contentDescription = null, tint = style.accentColor, modifier = Modifier.size(20.dp))
+                    }
+                }
+                Column {
+                    Text(
+                        text = program.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${program.durationDays} Days · ${program.difficultyTier.label} · ~${program.estimatedDailyMinutes} min/day",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = style.accentColor
+                    )
+                }
             }
         },
         text = {
@@ -832,6 +911,7 @@ fun LearningPathDetailScreen(
     }
 
     val ext = MaterialTheme.speakCraftColors
+    val style = programVisualStyleFor(program.programId, ext)
     val enrollment = uiState.userState.enrollments[programId]
     val stats = uiState.programStats[programId]
         ?: LearningPathRecommendationEngine.computeProgramStats(program, enrollment)
@@ -848,7 +928,7 @@ fun LearningPathDetailScreen(
         )
     } else emptyList()
 
-    var expandedModuleId by remember(programId) {
+    var expandedModuleId by rememberSaveable(programId) {
         mutableStateOf(
             program.modules.firstOrNull { mod ->
                 stats.nextDayNumber in mod.dayStart..mod.dayEnd
@@ -856,214 +936,155 @@ fun LearningPathDetailScreen(
         )
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag("lp_detail_screen"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("All Programs")
-                }
-            }
-        }
-
-        // Program Header & Objectives Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = ext.studioConsoleSurface),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "${program.durationDays}-Day Curriculum · ${program.difficultyTier.label}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ext.onStudioConsole.copy(alpha = 0.8f)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = program.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = ext.onStudioConsole
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = program.overview,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ext.onStudioConsole.copy(alpha = 0.9f)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress = { stats.completionFraction },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "${stats.completedDaysCount}/${stats.totalDays} Days Done",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = ext.onStudioConsole,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${stats.passedModulesCount}/${stats.totalModulesCount} Assessments",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = ext.onStudioConsole
-                        )
-                        if (stats.averageLessonScore > 0) {
-                            Text(
-                                text = "Avg Score: ${stats.averageLessonScore}%",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = ext.onStudioConsole
-                            )
-                        }
-                        if (stats.totalPracticeSeconds > 0) {
-                            Text(
-                                text = "${(stats.totalPracticeSeconds / 60).coerceAtLeast(1)}m practiced",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = ext.onStudioConsole
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (!stats.enrolled) {
-                            Button(onClick = { onEnroll(program.programId) }) {
-                                Text("Enroll & Start Day 1")
-                            }
-                        } else {
-                            Button(onClick = { onOpenLesson(program.programId, stats.nextDayNumber) }) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Practice Day ${stats.nextDayNumber}")
-                            }
-                            OutlinedButton(
-                                onClick = { onTogglePause(program.programId) },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = ext.onStudioConsole),
-                                border = BorderStroke(1.dp, ext.onStudioConsole.copy(alpha = 0.5f))
-                            ) {
-                                Text(if (stats.paused) "Resume Track" else "Pause Track")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Learning Objectives & Completion Criteria
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Program Learning Objectives",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    program.learningObjectives.forEach { obj ->
-                        Text("• $obj", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Graduation Criteria: ${program.completionCriteria.description}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        // Practice outside lessons that counts toward this program (drills, Coach Practice, daily tasks)
-        uiState.practiceEvidence[programId]?.let { evidence ->
-            item { ProgramPracticeEvidenceCard(evidence = evidence) }
-        }
-
-        // Advisory Prerequisites Banner
-        if (unmetPrereqs.isNotEmpty()) {
+    StudioResponsiveContainer(modifier = modifier) { _, _ ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("lp_detail_screen"),
+            contentPadding = PaddingValues(SpeakCraftSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = ext.pastelPeachBg),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = "Recommended Foundation (Advisory)",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = ext.pastelPeachInk
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "Completing ${unmetPrereqs.joinToString(" or ") { it.title }} beforehand accelerates results, though every lesson stays open now.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ext.pastelPeachInk
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            unmetPrereqs.forEach { pre ->
-                                TextButton(onClick = { onOpenProgram(pre.programId) }) {
-                                    Text("View ${pre.title}")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("All Programs")
+                    }
+                }
+            }
+
+            // Signature Studio Gradient Program Hero
+            item {
+                val practiceMinsText = if (stats.totalPracticeSeconds > 0) {
+                    "${(stats.totalPracticeSeconds / 60).coerceAtLeast(1)}m"
+                } else "~${program.estimatedDailyMinutes}m/d"
+
+                StudioGradientHeroCard(
+                    eyebrow = "${program.durationDays}-DAY PATH · ${program.difficultyTier.label.uppercase()}",
+                    eyebrowIcon = style.icon,
+                    title = program.title,
+                    subtitle = program.overview,
+                    ringProgress = stats.completionFraction,
+                    ringValueText = "${(stats.completionFraction * 100).toInt()}%",
+                    ringLabel = "Complete",
+                    bottomPills = listOf(
+                        "Days Done" to "${stats.completedDaysCount}/${stats.totalDays}",
+                        "Checkpoints" to "${stats.passedModulesCount}/${stats.totalModulesCount}",
+                        "Avg Score" to if (stats.averageLessonScore > 0) "${stats.averageLessonScore}%" else "—",
+                        "Practice" to practiceMinsText
+                    ),
+                    actionsContent = {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (!stats.enrolled) {
+                                Button(
+                                    onClick = { onEnroll(program.programId) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = ext.heroOverlayStart
+                                    )
+                                ) {
+                                    Text("Enroll & Start Day 1", fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Button(
+                                    onClick = { onOpenLesson(program.programId, stats.nextDayNumber) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = ext.heroOverlayStart
+                                    )
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Practice Day ${stats.nextDayNumber}", fontWeight = FontWeight.Bold)
+                                }
+                                OutlinedButton(
+                                    onClick = { onTogglePause(program.programId) },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f))
+                                ) {
+                                    Text(if (stats.paused) "Resume Track" else "Pause Track")
                                 }
                             }
                         }
                     }
-                }
+                )
             }
-        }
 
-        // Graduated Celebration & Follow-on Recommendations
-        if (stats.programCompleted) {
+            // Interactive Swipeable Daily Timeline Strip
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = ext.pastelMintBg),
-                    border = BorderStroke(1.5.dp, ext.success),
-                    shape = RoundedCornerShape(18.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, ext.cardBorderSubtle),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = ext.pastelMintInk)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "Program Completed — Mastery Earned!",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = ext.pastelMintInk
-                            )
-                        }
+                    DayProgressBeadStrip(
+                        totalDays = program.durationDays,
+                        completedDays = enrollment?.completedDays?.toSet().orEmpty(),
+                        nextDayNumber = stats.nextDayNumber,
+                        onSelectDay = { day -> onOpenLesson(program.programId, day) },
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+            }
+
+            // Learning Objectives & Completion Criteria
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = "Average Score: ${stats.averageLessonScore}% · ${stats.passedModulesCount}/${stats.totalModulesCount} Assessments Passed.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ext.pastelMintInk
+                            text = "Program Learning Objectives",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
                         )
-                        if (followOnPrograms.isNotEmpty()) {
+                        program.learningObjectives.forEach { obj ->
+                            Text("• $obj", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Graduation Criteria: ${program.completionCriteria.description}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Practice outside lessons that counts toward this program (drills, Coach Practice, daily tasks)
+            uiState.practiceEvidence[programId]?.let { evidence ->
+                item { ProgramPracticeEvidenceCard(evidence = evidence) }
+            }
+
+            // Advisory Prerequisites Banner
+            if (unmetPrereqs.isNotEmpty()) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = ext.pastelPeachBg),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                text = "Recommended Next Learning Path:",
+                                text = "Recommended Foundation (Advisory)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = ext.pastelMintInk
+                                color = ext.pastelPeachInk
                             )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Completing ${unmetPrereqs.joinToString(" or ") { it.title }} beforehand accelerates results, though every lesson stays open now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ext.pastelPeachInk
+                            )
+                            Spacer(Modifier.height(6.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                followOnPrograms.forEach { nextProg ->
-                                    Button(onClick = { onOpenProgram(nextProg.programId) }) {
-                                        Text(nextProg.title)
-                                        Spacer(Modifier.width(4.dp))
-                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                                unmetPrereqs.forEach { pre ->
+                                    TextButton(onClick = { onOpenProgram(pre.programId) }) {
+                                        Text("View ${pre.title}")
                                     }
                                 }
                             }
@@ -1071,73 +1092,121 @@ fun LearningPathDetailScreen(
                     }
                 }
             }
-        }
 
-        // Modules Accordion List (All Modules + Individual Virtualized Lessons 1..N + Module Checkpoints)
-        program.modules.forEach { module ->
-            val moduleCompletedDays = module.lessons.count { lesson ->
-                enrollment?.completedDays?.contains(lesson.dayNumber) == true
-            }
-            val moduleAssessmentRec = enrollment?.moduleAssessments?.get(module.moduleId)
-            val isExpanded = expandedModuleId == module.moduleId
-            val assessmentPassed = moduleAssessmentRec?.passed == true
-            val bestAssessmentScore = moduleAssessmentRec?.bestCombinedScore ?: 0
-
-            item(key = "${module.moduleId}_header") {
-                ModuleHeaderCard(
-                    module = module,
-                    completedCount = moduleCompletedDays,
-                    assessmentPassed = assessmentPassed,
-                    bestAssessmentScore = bestAssessmentScore,
-                    expanded = isExpanded,
-                    onToggleExpand = {
-                        expandedModuleId = if (isExpanded) null else module.moduleId
-                    }
-                )
-            }
-
-            if (isExpanded) {
-                item(key = "${module.moduleId}_objectives") {
+            // Graduated Celebration & Follow-on Recommendations
+            if (stats.programCompleted) {
+                item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
-                        shape = RoundedCornerShape(12.dp)
+                        colors = CardDefaults.cardColors(containerColor = ext.pastelMintBg),
+                        border = BorderStroke(1.5.dp, ext.success),
+                        shape = RoundedCornerShape(18.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, contentDescription = null, tint = ext.pastelMintInk)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Program Completed — Mastery Earned!",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ext.pastelMintInk
+                                )
+                            }
                             Text(
-                                text = "Module Objectives:",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
+                                text = "Average Score: ${stats.averageLessonScore}% · ${stats.passedModulesCount}/${stats.totalModulesCount} Assessments Passed.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ext.pastelMintInk
                             )
-                            module.learningObjectives.forEach { obj ->
-                                Text("• $obj", style = MaterialTheme.typography.bodySmall)
+                            if (followOnPrograms.isNotEmpty()) {
+                                Text(
+                                    text = "Recommended Next Learning Path:",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ext.pastelMintInk
+                                )
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    followOnPrograms.forEach { nextProg ->
+                                        Button(onClick = { onOpenProgram(nextProg.programId) }) {
+                                            Text(nextProg.title)
+                                            Spacer(Modifier.width(4.dp))
+                                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            }
 
-                items(module.lessons, key = { it.lessonId }) { lesson ->
-                    val rec = enrollment?.dayRecords?.get(lesson.dayNumber)
-                    val isDone = enrollment?.completedDays?.contains(lesson.dayNumber) == true
-                    LessonRowCard(
-                        lesson = lesson,
-                        completed = isDone,
-                        bestScore = rec?.bestScore ?: 0,
-                        attempts = rec?.attempts ?: 0,
-                        onOpen = { onOpenLesson(program.programId, lesson.dayNumber) },
-                        onToggleQuick = { onToggleDayCompleteQuick(program.programId, lesson.dayNumber) }
+            // Modules Accordion List (Discrete Virtualized LazyColumn Items)
+            program.modules.forEach { module ->
+                val moduleCompletedDays = module.lessons.count { lesson ->
+                    enrollment?.completedDays?.contains(lesson.dayNumber) == true
+                }
+                val moduleAssessmentRec = enrollment?.moduleAssessments?.get(module.moduleId)
+                val isExpanded = expandedModuleId == module.moduleId
+                val assessmentPassed = moduleAssessmentRec?.passed == true
+                val bestAssessmentScore = moduleAssessmentRec?.bestCombinedScore ?: 0
+
+                item(key = "${module.moduleId}_header") {
+                    ModuleHeaderCard(
+                        module = module,
+                        completedCount = moduleCompletedDays,
+                        assessmentPassed = assessmentPassed,
+                        bestAssessmentScore = bestAssessmentScore,
+                        expanded = isExpanded,
+                        accentColor = style.accentColor,
+                        onToggleExpand = {
+                            expandedModuleId = if (isExpanded) null else module.moduleId
+                        }
                     )
                 }
 
-                item(key = "${module.moduleId}_assessment") {
-                    ModuleAssessmentLauncherCard(
-                        module = module,
-                        assessmentPassed = assessmentPassed,
-                        bestAssessmentScore = bestAssessmentScore,
-                        onOpenAssessment = { onOpenAssessment(program.programId, module.moduleId) }
-                    )
+                if (isExpanded) {
+                    item(key = "${module.moduleId}_objectives") {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Module Objectives:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                module.learningObjectives.forEach { obj ->
+                                    Text("• $obj", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+
+                    items(module.lessons, key = { it.lessonId }) { lesson ->
+                        val rec = enrollment?.dayRecords?.get(lesson.dayNumber)
+                        val isDone = enrollment?.completedDays?.contains(lesson.dayNumber) == true
+                        LessonRowCard(
+                            lesson = lesson,
+                            completed = isDone,
+                            isNextRecommended = !isDone && lesson.dayNumber == stats.nextDayNumber,
+                            bestScore = rec?.bestScore ?: 0,
+                            attempts = rec?.attempts ?: 0,
+                            onOpen = { onOpenLesson(program.programId, lesson.dayNumber) },
+                            onToggleQuick = { onToggleDayCompleteQuick(program.programId, lesson.dayNumber) }
+                        )
+                    }
+
+                    item(key = "${module.moduleId}_assessment") {
+                        ModuleAssessmentLauncherCard(
+                            module = module,
+                            assessmentPassed = assessmentPassed,
+                            bestAssessmentScore = bestAssessmentScore,
+                            onOpenAssessment = { onOpenAssessment(program.programId, module.moduleId) }
+                        )
+                    }
                 }
             }
         }
@@ -1152,6 +1221,7 @@ private fun ModuleHeaderCard(
     assessmentPassed: Boolean,
     bestAssessmentScore: Int,
     expanded: Boolean,
+    accentColor: Color,
     onToggleExpand: () -> Unit
 ) {
     val ext = MaterialTheme.speakCraftColors
@@ -1160,9 +1230,10 @@ private fun ModuleHeaderCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("lp_module_card_${module.moduleId}"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(
-            width = 1.dp,
-            color = if (assessmentPassed) ext.success else ext.cardBorderSubtle
+            width = if (expanded) 1.5.dp else 1.dp,
+            color = if (assessmentPassed) ext.success else if (expanded) accentColor.copy(alpha = 0.55f) else ext.cardBorderSubtle
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -1225,7 +1296,11 @@ private fun ModuleAssessmentLauncherCard(
         colors = CardDefaults.cardColors(
             containerColor = if (module.assessment.isCapstone) ext.pastelLavenderBg else ext.pastelGoldBg
         ),
-        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(
+            1.dp,
+            if (module.assessment.isCapstone) ext.indigo.copy(alpha = 0.3f) else ext.warning.copy(alpha = 0.35f)
+        ),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -1273,6 +1348,7 @@ private fun ModuleAssessmentLauncherCard(
 private fun LessonRowCard(
     lesson: LearningPathLesson,
     completed: Boolean,
+    isNextRecommended: Boolean,
     bestScore: Int,
     attempts: Int,
     onOpen: () -> Unit,
@@ -1282,27 +1358,46 @@ private fun LessonRowCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onOpen)
             .testTag("lp_lesson_row_${lesson.dayNumber}"),
-        color = if (completed) ext.pastelMintBg.copy(alpha = 0.48f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        border = BorderStroke(1.dp, if (completed) ext.success.copy(alpha = 0.45f) else ext.cardBorderSubtle),
-        shape = RoundedCornerShape(12.dp)
+        color = when {
+            completed -> ext.pastelMintBg.copy(alpha = 0.45f)
+            isNextRecommended -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.24f)
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        },
+        border = BorderStroke(
+            width = if (isNextRecommended) 1.5.dp else 1.dp,
+            color = when {
+                completed -> ext.success.copy(alpha = 0.45f)
+                isNextRecommended -> MaterialTheme.colorScheme.primary
+                else -> ext.cardBorderSubtle
+            }
+        ),
+        shape = RoundedCornerShape(14.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (completed) ext.success else MaterialTheme.colorScheme.primaryContainer
+                shape = RoundedCornerShape(10.dp),
+                color = when {
+                    completed -> ext.success
+                    isNextRecommended -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.primaryContainer
+                }
             ) {
                 Text(
                     text = "D${lesson.dayNumber}",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (completed) ext.onSuccess else MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    color = when {
+                        completed -> ext.onSuccess
+                        isNextRecommended -> MaterialTheme.colorScheme.onPrimary
+                        else -> MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp)
                 )
             }
             Spacer(Modifier.width(10.dp))
@@ -1314,9 +1409,9 @@ private fun LessonRowCard(
                 )
                 Text(
                     text = "${lesson.exerciseType.label} · ${lesson.estimatedMinutes} min" +
-                        if (attempts > 0) " · Best $bestScore%" else "",
+                        if (isNextRecommended) " · Up Next" else if (attempts > 0) " · Best $bestScore%" else "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (isNextRecommended) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onToggleQuick) {
@@ -1333,8 +1428,8 @@ private fun LessonRowCard(
 @Composable
 internal fun SmallPillTag(
     text: String,
-    bg: androidx.compose.ui.graphics.Color,
-    fg: androidx.compose.ui.graphics.Color
+    bg: Color,
+    fg: Color
 ) {
     Surface(
         color = bg,

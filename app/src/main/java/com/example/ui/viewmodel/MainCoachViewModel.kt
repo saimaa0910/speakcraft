@@ -33,6 +33,8 @@ import com.example.data.model.VocabSeed
 import com.example.data.model.VocabularyEntry
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,9 +43,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -68,7 +72,9 @@ class MainCoachViewModel(
     private val currentUserId: String,
     private val hybridCoordinator: HybridAiCoachCoordinator? = null,
     /** Local learning state: daily set, daily record and learning-path progress (survives restarts). */
-    private val learningProgressManager: LearningProgressManager? = null
+    private val learningProgressManager: LearningProgressManager? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val effectiveCoordinator: HybridAiCoachCoordinator by lazy {
@@ -154,7 +160,7 @@ class MainCoachViewModel(
         val dailyList = (dState as? UiState.Success)?.data.orEmpty()
         val today = dailyList.firstOrNull { it.dateKey == todayDateKey }
         RecommendationEngine.recommendNextAction(profile, sessions, progress, today)
-    }.stateIn(
+    }.flowOn(computeDispatcher).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
         RecommendationEngine.recommendNextAction(null, emptyList(), emptyList(), null)
@@ -184,7 +190,7 @@ class MainCoachViewModel(
             profile = profile,
             completedTodayIds = today?.completedStepIds.orEmpty().toSet()
         )
-    }.stateIn(
+    }.flowOn(computeDispatcher).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
         DailyAdaptiveCurriculumEngine.generateDailyPackage(todayDateKey, LearningLevel.INTERMEDIATE)
@@ -251,7 +257,7 @@ class MainCoachViewModel(
             weeklyEligibility = eligibility,
             learnedWordsForAssessment = learnedSeeds
         )
-    }.stateIn(
+    }.flowOn(computeDispatcher).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
         DailyVocabBuilderUiState()
@@ -261,7 +267,11 @@ class MainCoachViewModel(
         if (learningProgressManager != null) {
             viewModelScope.launch {
                 currentLearningLevel.collect { level ->
-                    learningProgressManager.ensureDailyVocabulary(level)
+                    if (learningProgressManager.state.value.userId.isNotBlank()) {
+                        withContext(ioDispatcher) {
+                            learningProgressManager.ensureDailyVocabulary(level)
+                        }
+                    }
                 }
             }
         }

@@ -16,6 +16,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.learningpaths.LearningPathCurriculumRegistry
 import com.example.data.learningpaths.LearningPathPersistenceRepository
 import com.example.data.model.UserProfile
+import com.example.ui.components.ActiveLearningPathBannerUi
+import com.example.ui.components.ActiveLearningPathDashboardCard
 import com.example.ui.screens.LearningPathAssessmentScreen
 import com.example.ui.screens.LearningPathDetailScreen
 import com.example.ui.screens.LearningPathLessonScreen
@@ -253,5 +255,49 @@ class LearningPathsUiComposeTest {
 
         composeRule.onNodeWithTag(listTag).performScrollToNode(hasTestTag("lp_assessment_result_card"))
         composeRule.onNodeWithTag("lp_assessment_result_card").assertIsDisplayed()
+    }
+
+    @Test
+    fun dashboard_active_path_card_triggers_resume_and_browse_cleanly() {
+        var resumedProgram = ""
+        var resumedDay = -1
+        var browsed = false
+
+        composeRule.setContent {
+            SpeakCraftTheme {
+                androidx.compose.foundation.layout.Column {
+                    ActiveLearningPathDashboardCard(
+                        activeBanner = null,
+                        onResumeLesson = { _, _ -> },
+                        onExploreAllPaths = { browsed = true }
+                    )
+                    ActiveLearningPathDashboardCard(
+                        activeBanner = ActiveLearningPathBannerUi(
+                            programId = "30_day_challenge",
+                            programTitle = "30-Day Communication Challenge",
+                            completedDaysCount = 5,
+                            totalDays = 30,
+                            nextDayNumber = 6,
+                            nextLessonTitle = "Deliberate Pace & Micro-Pauses",
+                            completionFraction = 5f / 30f
+                        ),
+                        onResumeLesson = { p, d ->
+                            resumedProgram = p
+                            resumedDay = d
+                        },
+                        onExploreAllPaths = {}
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("280 Guided Lessons & Capstones").assertIsDisplayed()
+        composeRule.onNodeWithText("Browse").performClick()
+        assertTrue(browsed)
+
+        composeRule.onNodeWithText("30-Day Communication Challenge").assertIsDisplayed()
+        composeRule.onNodeWithText("Day 6").performClick()
+        assertEquals("30_day_challenge", resumedProgram)
+        assertEquals(6, resumedDay)
     }
 }
