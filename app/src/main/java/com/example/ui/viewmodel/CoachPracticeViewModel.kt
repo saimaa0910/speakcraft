@@ -182,7 +182,18 @@ class CoachPracticeViewModel(
                 _state.update {
                     it.copy(session = PracticeSessionState.Done(r), selfCheckAnswers = emptyMap(), attemptsThisVisit = it.attemptsThisVisit + 1)
                 }
-                _state.value.activity?.let { onAttemptCompleted(PracticeCompletion.fromAttempt(it, r.outcome.evaluation, clock())) }
+                _state.value.activity?.let {
+                    onAttemptCompleted(
+                        PracticeCompletion.fromAttempt(
+                            activity = it,
+                            evaluation = r.outcome.evaluation,
+                            timestampMs = clock(),
+                            localMediaPath = r.replayFile?.absolutePath.orEmpty(),
+                            hasVideo = r.replayHasVideo,
+                            durationSeconds = ((r.outcome.features.durationMs + 500L) / 1000L).toInt()
+                        )
+                    )
+                }
             }.onFailure { e ->
                 _state.update { it.copy(session = PracticeSessionState.Failed("Something went wrong while analysing: ${e.message ?: "unknown error"}")) }
             }

@@ -242,6 +242,18 @@ class LearningPathsViewModel(
         _uiState.update { it.copy(bannerMessage = null) }
     }
 
+    fun clearDayAudioRecording(programId: String, dayNumber: Int) {
+        val uid = _uiState.value.userId
+        val existingPath = _uiState.value.userState.enrollments[programId]?.dayRecords?.get(dayNumber)?.lastAudioPath
+        viewModelScope.launch {
+            if (!existingPath.isNullOrBlank()) {
+                audioManager?.deleteFile(existingPath)
+            }
+            val updated = persistenceRepository.clearDayAudioRecording(uid, programId, dayNumber)
+            publishUserState(uid, updated, latestProfile)
+        }
+    }
+
     fun enrollInProgram(programId: String) {
         val program = LearningPathCurriculumRegistry.getProgram(programId) ?: return
         val uid = _uiState.value.userId

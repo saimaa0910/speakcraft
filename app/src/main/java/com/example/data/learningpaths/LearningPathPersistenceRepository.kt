@@ -164,6 +164,22 @@ class LearningPathPersistenceRepository(
         )
     }
 
+    suspend fun clearDayAudioRecording(
+        userId: String,
+        programId: String,
+        dayNumber: Int
+    ): LearningPathsUserState = mutateUserState(userId) { current ->
+        val existing = current.enrollments[programId] ?: return@mutateUserState current
+        val dayRecord = existing.dayRecords[dayNumber] ?: return@mutateUserState current
+        if (dayRecord.lastAudioPath.isNullOrBlank()) return@mutateUserState current
+        val clearedDay = dayRecord.copy(lastAudioPath = null, audioDurationSeconds = 0)
+        val updatedEnrollment = existing.copy(dayRecords = existing.dayRecords + (dayNumber to clearedDay))
+        current.copy(
+            enrollments = current.enrollments + (programId to updatedEnrollment),
+            lastUpdatedEpochMs = System.currentTimeMillis()
+        )
+    }
+
     suspend fun saveLessonReflectionNote(
         userId: String,
         program: LearningPathProgram,

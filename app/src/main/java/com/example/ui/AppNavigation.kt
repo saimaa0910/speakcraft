@@ -226,7 +226,7 @@ internal fun tabGraphForRoute(route: String): String {
         clean == "vocabulary" -> TabGraphRoutes.VOCABULARY
         clean == "ai_mentor" -> TabGraphRoutes.AI_MENTOR
         clean == "analytics" -> TabGraphRoutes.ANALYTICS
-        clean == "profile" -> TabGraphRoutes.PROFILE
+        clean == "profile" || clean == "profile_recordings" -> TabGraphRoutes.PROFILE
         clean == "settings" || clean == "admin_console" -> TabGraphRoutes.SETTINGS
         else -> TabGraphRoutes.DASHBOARD
     }
@@ -368,6 +368,7 @@ private val routeTitles = mapOf(
     "ai_mentor" to "AI Mentor",
     "settings" to "Settings",
     "profile" to "My Profile",
+    "profile_recordings" to "My Recordings",
     "admin_console" to "Admin Console",
     "activity_library" to "Activity Engine (150)"
 )
@@ -1105,6 +1106,15 @@ private fun AuthenticatedAppShell(
                                         val dailyList = (dailyState as? UiState.Success)?.data.orEmpty()
                                         val learningProgress = (learningProgressState as? UiState.Success)?.data.orEmpty()
                                         val realWorldList = (tasksState as? UiState.Success)?.data.orEmpty()
+                                        val lpRecordingsCount by remember(learningPathsVm) {
+                                            learningPathsVm.uiState
+                                                .map { state ->
+                                                    state.userState.enrollments.values.sumOf { enr ->
+                                                        enr.dayRecords.values.count { !it.lastAudioPath.isNullOrBlank() }
+                                                    }
+                                                }
+                                                .distinctUntilChanged()
+                                        }.collectAsStateWithLifecycle(initialValue = 0)
 
                                         DashboardScreen(
                                             profile = profile,
@@ -1132,7 +1142,8 @@ private fun AuthenticatedAppShell(
                                                 )
                                                 navigateTo("ai_mentor")
                                             },
-                                            activePathSummary = activePathBanner
+                                            activePathSummary = activePathBanner,
+                                            extraRecordingsCount = lpRecordingsCount
                                         )
                                     }
                                 }
@@ -1358,7 +1369,8 @@ private fun AuthenticatedAppShell(
                                             onDeleteSession = { sess -> mainVm.deleteSpeakingSession(sess) },
                                             onOpenAiSettings = { navigateTo("settings") },
                                             incomingGeminiFeedback = pendingStudioGeminiFeedback,
-                                            onConsumeIncomingGeminiFeedback = { pendingStudioGeminiFeedback = null }
+                                            onConsumeIncomingGeminiFeedback = { pendingStudioGeminiFeedback = null },
+                                            onOpenProfileRecordings = { navigateTo("profile_recordings") }
                                         )
                                     }
                                     composable("challenges") {
@@ -1539,22 +1551,36 @@ private fun AuthenticatedAppShell(
 
                                 navigation(startDestination = "profile", route = TabGraphRoutes.PROFILE) {
                                     composable("profile") {
-                                        val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
-                                        val vocabState by mainVm.vocabularyEntries.collectAsStateWithLifecycle()
-                                        val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
-                                        val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
-                                        val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
-                                        UserProfileScreen(
+                                        ProfileRouteHost(
+                                            initialTab = 0,
                                             profile = profile,
                                             userEmail = userEmail,
-                                            sessions = sessions,
-                                            vocabulary = vocabEntries,
-                                            learningSnapshot = learningSnapshot,
+                                            mainVm = mainVm,
+                                            learningPathsVm = learningPathsVm,
+                                            learningProgressManager = learningProgressManager,
+                                            audioManager = container.audioRecorderManager,
                                             onSaveProfile = { name, level, goal, mins ->
                                                 mainVm.updateUserProfile(name, level, goal, mins, profile)
                                             },
                                             onOpenNotifications = { showNotificationDrawer = true },
-                                            onNavigate = { route -> navigateTo(route) },
+                                            onNavigate = navigateTo,
+                                            onSignOut = { signOut(credentialManager, scope) }
+                                        )
+                                    }
+                                    composable("profile_recordings") {
+                                        ProfileRouteHost(
+                                            initialTab = 1,
+                                            profile = profile,
+                                            userEmail = userEmail,
+                                            mainVm = mainVm,
+                                            learningPathsVm = learningPathsVm,
+                                            learningProgressManager = learningProgressManager,
+                                            audioManager = container.audioRecorderManager,
+                                            onSaveProfile = { name, level, goal, mins ->
+                                                mainVm.updateUserProfile(name, level, goal, mins, profile)
+                                            },
+                                            onOpenNotifications = { showNotificationDrawer = true },
+                                            onNavigate = navigateTo,
                                             onSignOut = { signOut(credentialManager, scope) }
                                         )
                                     }
@@ -1671,6 +1697,73 @@ private fun AuthenticatedAppShell(
             }
         }
     }
+}
+
+@Composable
+private fun ProfileRouteHost(
+    initialTab: Int,
+    profile: UserProfile,
+    userEmail: String,
+    mainVm: MainCoachViewModel,
+    learningPathsVm: LearningPathsViewModel,
+    learningProgressManager: LearningProgressManager,
+    audioManager: com.example.data.media.AudioRecorderManager,
+    onSaveProfile: (displayName: String, level: String, primaryGoal: String, dailyGoalMinutes: Long) -> Unit,
+    onOpenNotifications: () -> Unit,
+    onNavigate: (String) -> Unit,
+    onSignOut: () -> Unit
+) {
+    val sessionsState by mainVm.speakingSessions.collectAsStateWithLifecycle()
+    val vocabState by mainVm.vocabularyEntries.collectAsStateWithLifecycle()
+    val learningSnapshot by learningProgressManager.state.collectAsStateWithLifecycle()
+    val learningPathsState by remember(learningPathsVm) {
+        learningPathsVm.uiState.map { it.userState }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = com.example.data.learningpaths.LearningPathsUserState())
+    val isPlaying by audioManager.isPlaying.collectAsStateWithLifecycle()
+    val playingPath by audioManager.playingFilePath.collectAsStateWithLifecycle()
+
+    val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+    val vocabEntries = (vocabState as? UiState.Success)?.data.orEmpty()
+
+    UserProfileScreen(
+        profile = profile,
+        userEmail = userEmail,
+        sessions = sessions,
+        vocabulary = vocabEntries,
+        learningSnapshot = learningSnapshot,
+        onSaveProfile = onSaveProfile,
+        onOpenNotifications = onOpenNotifications,
+        onNavigate = onNavigate,
+        onSignOut = onSignOut,
+        initialTab = initialTab,
+        learningPathsState = learningPathsState,
+        playingMediaPath = if (isPlaying) playingPath else null,
+        onTogglePlayMedia = { path ->
+            if (isPlaying && playingPath == path) {
+                audioManager.stopPlayback()
+            } else {
+                audioManager.playFile(path, muted = false)
+            }
+        },
+        onStopPlayback = { audioManager.stopPlayback() },
+        onDeleteRecordedSession = { rec ->
+            when {
+                rec.backedSpeakingSession != null -> mainVm.deleteSpeakingSession(rec.backedSpeakingSession)
+                rec.backedPracticeRecordingId != null -> {
+                    learningProgressManager.deletePracticeRecording(rec.backedPracticeRecordingId)
+                    audioManager.deleteFile(rec.localMediaPath)
+                }
+                rec.backedLearningPathKey != null -> {
+                    val (progId, day) = rec.backedLearningPathKey
+                    learningPathsVm.clearDayAudioRecording(progId, day)
+                }
+                rec.backedActivityAttemptId != null -> {
+                    learningProgressManager.deleteActivityAttemptMedia(rec.backedActivityAttemptId)
+                    audioManager.deleteFile(rec.localMediaPath)
+                }
+            }
+        }
+    )
 }
 
 @Composable

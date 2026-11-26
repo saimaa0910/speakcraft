@@ -34,7 +34,6 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -82,7 +81,6 @@ import com.example.data.ai.PhoneGeminiBridge
 import com.example.data.ai.StudioGeminiFeedbackEntry
 import com.example.data.ai.StudioTaskType
 import com.example.data.evaluation.CoachEvaluationState
-import com.example.data.evaluation.LabAttemptEvaluator
 import com.example.data.evaluation.LabPracticeTarget
 import com.example.data.media.InAppCameraVideoDialog
 import com.example.data.model.CurriculumCatalog
@@ -92,8 +90,6 @@ import com.example.data.model.SpeakingSession
 import com.example.data.model.UiState
 import com.example.ui.components.CloudSyncWarningBanner
 import com.example.ui.components.CoachEvaluationStatusCard
-import com.example.ui.components.ConfirmDestructiveDialog
-import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.ErrorRecoveryCard
 import com.example.ui.components.FeatureGuideStrip
 import com.example.ui.components.FeedbackReportCard
@@ -116,15 +112,17 @@ private fun formatStudioDuration(seconds: Int): String {
     return String.format("%02d:%02d", safe / 60, safe % 60)
 }
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SpeakingLabScreen(
     speakingVm: SpeakingAndLabsViewModel,
-    pastSessions: List<SpeakingSession>,
-    onDeleteSession: (SpeakingSession) -> Unit,
+    pastSessions: List<SpeakingSession> = emptyList(),
+    onDeleteSession: (SpeakingSession) -> Unit = {},
     onOpenAiSettings: () -> Unit = {},
     incomingGeminiFeedback: String? = null,
-    onConsumeIncomingGeminiFeedback: () -> Unit = {}
+    onConsumeIncomingGeminiFeedback: () -> Unit = {},
+    onOpenProfileRecordings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val ext = MaterialTheme.speakCraftColors
@@ -187,7 +185,6 @@ fun SpeakingLabScreen(
     var selectedAuditStage by rememberSaveable { mutableStateOf("Stage 2: Vocal (Eyes Closed)") }
     var showCameraDialog by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf<String?>(null) }
-    var pendingDeleteSession by remember { mutableStateOf<SpeakingSession?>(null) }
 
     val activePromptTitle = if (activeTaskType == StudioTaskType.DAILY_VIDEO) {
         dailyFreeNote.trim().ifBlank { "Daily Video Recording (Open Speak)" }
@@ -271,19 +268,6 @@ fun SpeakingLabScreen(
                 showCameraDialog = false
                 cameraError = msg
             }
-        )
-    }
-
-    pendingDeleteSession?.let { sessToDelete ->
-        ConfirmDestructiveDialog(
-            title = "Delete Recording?",
-            message = "This permanently removes \"${sessToDelete.promptTitle}\" and its local audio/video clip.",
-            confirmLabel = "Delete",
-            onConfirm = {
-                onDeleteSession(sessToDelete)
-                pendingDeleteSession = null
-            },
-            onDismiss = { pendingDeleteSession = null }
         )
     }
 
@@ -778,135 +762,36 @@ fun SpeakingLabScreen(
             }
         }
 
-        val sessionCardItem: @Composable (SpeakingSession) -> Unit = { sess ->
-            val idx = pastSessions.indexOf(sess)
-            val priorForCompare = pastSessions.getOrNull(idx + 1)
-            val playingThis = isPlaying && playingPath == sess.localMediaPath && sess.localMediaPath.isNotBlank()
-
+        val recordingsArchiveCardContent: @Composable () -> Unit = {
             Card(
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
+                modifier = Modifier.fillMaxWidth().testTag("studio_profile_recordings_card")
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(sess.promptTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        if (sess.localMediaPath.isNotBlank()) {
-                            IconButton(
-                                onClick = {
-                                    if (playingThis) speakingVm.audioManager.stopPlayback()
-                                    else speakingVm.playSavedOrCurrentMedia(sess.localMediaPath, muted = false)
-                                },
-                                modifier = Modifier.defaultMinSize(
-                                    minWidth = SpeakCraftSpacing.minTouchTarget,
-                                    minHeight = SpeakCraftSpacing.minTouchTarget
-                                )
-                            ) {
-                                Icon(
-                                    if (playingThis) Icons.Default.Stop else Icons.Default.PlayArrow,
-                                    contentDescription = if (playingThis) "Stop saved recording" else "Play saved recording"
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = { pendingDeleteSession = sess },
-                            modifier = Modifier
-                                .defaultMinSize(
-                                    minWidth = SpeakCraftSpacing.minTouchTarget,
-                                    minHeight = SpeakCraftSpacing.minTouchTarget
-                                )
-                                .testTag("delete_session_${sess.id}")
-                        ) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = "Delete recording", tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // Engine-evaluated sessions have no legacy skill scores: show only what was measured.
-                        val pills = if (LabAttemptEvaluator.isEngineEvaluated(sess)) {
-                            listOfNotNull(
-                                "On-device feedback",
-                                if (sess.wordsPerMinute > 0L) "${sess.wordsPerMinute} WPM" else "Audio only".takeIf { sess.transcript.isBlank() }
-                            )
-                        } else {
-                            listOf(
-                                "Fluency ${sess.fluencyScore}",
-                                if (sess.pronunciationAssessable) "Pron ${sess.pronunciationScore}" else "Pron N/A",
-                                "Articulation ${sess.articulationScore}",
-                                "${sess.wordsPerMinute} WPM"
-                            )
-                        }
-                        pills.forEach { badge ->
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
-                            ) {
-                                Text(
-                                    text = badge,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                    val comparable = priorForCompare != null &&
-                        !LabAttemptEvaluator.isEngineEvaluated(sess) && !LabAttemptEvaluator.isEngineEvaluated(priorForCompare)
-                    if (comparable && priorForCompare != null) {
-                        val deltaFlu = sess.fluencyScore - priorForCompare.fluencyScore
-                        Surface(
-                            color = (if (deltaFlu >= 0) ext.success else MaterialTheme.colorScheme.error).copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                text = "Compared with prior: Fluency ${if (deltaFlu >= 0) "+$deltaFlu" else "$deltaFlu"}, WPM ${sess.wordsPerMinute - priorForCompare.wordsPerMinute}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (deltaFlu >= 0) ext.success else MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
+                Column(
+                    modifier = Modifier.padding(SpeakCraftSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        sess.overallAssessment,
+                        text = "Saved Recordings Library",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "All past recorded audio and video sessions across the app are shown in Profile -> Recordings.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (sess.localMediaPath.isNotBlank() || sess.promptTitle.isNotBlank()) {
-                        OutlinedButton(
-                            onClick = {
-                                val file = sess.localMediaPath.takeIf { it.isNotBlank() }?.let(::File)
-                                val inferredTask = if (sess.promptTitle.startsWith("Daily Video", ignoreCase = true)) {
-                                    StudioTaskType.DAILY_VIDEO
-                                } else {
-                                    StudioTaskType.SELECT_TOPIC
-                                }
-                                val res = PhoneGeminiBridge.sendStudioRecordingToGeminiApp(
-                                    context = context,
-                                    mediaFile = file,
-                                    isVideo = sess.mediaType.contains("video", ignoreCase = true) ||
-                                        sess.localMediaPath.endsWith(".mp4", ignoreCase = true),
-                                    taskType = inferredTask,
-                                    taskTitle = sess.promptTitle,
-                                    transcript = sess.transcript,
-                                    durationSeconds = sess.durationSeconds.toInt()
-                                )
-                                pendingHandoff = PhoneGeminiBridge.getPendingStudioHandoff(context)
-                                geminiStatusMessage = res.userMessage
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Send Saved Clip to Gemini App")
-                        }
+                    OutlinedButton(
+                        onClick = onOpenProfileRecordings,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = SpeakCraftSpacing.minTouchTarget)
+                            .testTag("studio_open_profile_recordings_button")
+                    ) {
+                        Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("View Saved Recordings in Profile")
                     }
                 }
             }
@@ -1164,24 +1049,13 @@ fun SpeakingLabScreen(
                                     null -> Unit
                                 }
                             }
-                            geminiFeedbackCardContent()
                         }
                         Column(
                             modifier = Modifier.weight(0.9f),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            SectionHeader("Past Recorded Sessions", "Play saved audio, compare progress & manage clips")
-                            if (pastSessions.isEmpty()) {
-                                EmptyStateCard(
-                                    title = "No saved recordings yet",
-                                    message = "Record your first 30–60 second response to unlock AI speech diagnostics and progress tracking.",
-                                    icon = Icons.Default.Mic
-                                )
-                            } else {
-                                pastSessions.take(10).forEach { sess ->
-                                    sessionCardItem(sess)
-                                }
-                            }
+                            geminiFeedbackCardContent()
+                            recordingsArchiveCardContent()
                         }
                     }
                 }
@@ -1241,21 +1115,7 @@ fun SpeakingLabScreen(
                 }
 
                 item {
-                    SectionHeader("Past Recorded Sessions", "Play saved audio, compare progress & manage clips")
-                }
-
-                if (pastSessions.isEmpty()) {
-                    item {
-                        EmptyStateCard(
-                            title = "No saved recordings yet",
-                            message = "Record your first 30–60 second response above to unlock AI speech diagnostics and progress tracking.",
-                            icon = Icons.Default.Mic
-                        )
-                    }
-                } else {
-                    items(pastSessions.take(10), key = { it.id.ifBlank { it.promptTitle + it.durationSeconds } }) { sess ->
-                        sessionCardItem(sess)
-                    }
+                    recordingsArchiveCardContent()
                 }
             }
         }

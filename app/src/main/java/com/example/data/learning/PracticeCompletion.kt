@@ -29,14 +29,23 @@ data class PracticeCompletion(
     /** Pass/fail as reported by the engine, only for templates that have a pass mark. */
     val passed: Boolean? = null,
     /** Why the attempt was inconclusive (e.g. `TOO_SHORT`); null for valid attempts. */
-    val inconclusiveReason: String? = null
+    val inconclusiveReason: String? = null,
+    /** Local recorded audio/video replay path on this device, if captured. */
+    val localMediaPath: String = "",
+    val hasVideo: Boolean = false,
+    val durationSeconds: Int = 0,
+    val summary: String = "",
+    val transcript: String = ""
 ) {
     companion object {
         /** Builds the completion for a finished attempt from the engine result, copying values as they are. */
         fun fromAttempt(
             activity: PracticeActivity,
             evaluation: AttemptEvaluationResult,
-            timestampMs: Long
+            timestampMs: Long,
+            localMediaPath: String = "",
+            hasVideo: Boolean = false,
+            durationSeconds: Int = 0
         ): PracticeCompletion = when (evaluation) {
             is AttemptEvaluationResult.Valid -> PracticeCompletion(
                 attemptId = evaluation.attemptId,
@@ -50,7 +59,12 @@ data class PracticeCompletion(
                 issueCodes = evaluation.issues.map { it.code.name }.distinct(),
                 strengthCode = evaluation.feedback.strength.code.name,
                 score = evaluation.score,
-                passed = evaluation.passed
+                passed = evaluation.passed,
+                localMediaPath = localMediaPath,
+                hasVideo = hasVideo,
+                durationSeconds = durationSeconds,
+                summary = evaluation.feedback.strength.message.ifBlank { evaluation.feedback.strength.title },
+                transcript = evaluation.transcriptText
             )
             is AttemptEvaluationResult.Inconclusive -> PracticeCompletion(
                 attemptId = evaluation.attemptId,
@@ -61,7 +75,11 @@ data class PracticeCompletion(
                 timestampMs = timestampMs,
                 evaluationVersion = evaluation.evaluationVersion,
                 valid = false,
-                inconclusiveReason = evaluation.reason.name
+                inconclusiveReason = evaluation.reason.name,
+                localMediaPath = localMediaPath,
+                hasVideo = hasVideo,
+                durationSeconds = durationSeconds,
+                summary = evaluation.reason.userMessage
             )
         }
     }

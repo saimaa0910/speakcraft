@@ -208,6 +208,6 @@ class PhonePracticeEngine(
     private companion object {
         const val TAG = "PhonePracticeEngine"
         const val KEY_PIPE_DEMOTED = "pipe_demoted"
-        const val KEEP_ATTEMPTS = 3
+        const val KEEP_ATTEMPTS = 50
     }
 }

@@ -67,9 +67,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -161,7 +158,8 @@ fun DashboardScreen(
     onCompleteDailyTask: (String) -> Unit = {},
     onOpenProfile: () -> Unit = { onNavigate("settings") },
     onQuickAskMentor: (String) -> Unit = { onNavigate("ai_mentor") },
-    activePathSummary: ActiveLearningPathBannerUi? = null
+    activePathSummary: ActiveLearningPathBannerUi? = null,
+    extraRecordingsCount: Int = 0
 ) {
     val ext = MaterialTheme.speakCraftColors
     var reportPeriod by rememberSaveable { mutableStateOf("Weekly") }
@@ -224,6 +222,11 @@ fun DashboardScreen(
                 "Your personalized $targetMin-minute communication practice plan is ready."
         }
     }
+
+    val totalRecordingsCount = sessions.size +
+        (learningSnapshot?.practiceRecordings?.size ?: 0) +
+        (learningSnapshot?.activityAttempts?.count { it.recordedMediaPath.isNotBlank() } ?: 0) +
+        extraRecordingsCount
 
     val filteredSessions = remember(sessions, reportPeriod) {
         StreakAndAnalyticsHelper.filterSessionsByPeriod(sessions, reportPeriod)
@@ -407,9 +410,10 @@ fun DashboardScreen(
                             DashboardKpiStrip(
                                 practiceHours = practiceHoursFormatted,
                                 wordsLearned = "$wordsLearnedCount",
-                                recordings = "${sessions.size}",
+                                recordings = "$totalRecordingsCount",
                                 lessonsCompleted = "$completedLessons / $totalCoreLessons",
-                                fourUpRow = true
+                                fourUpRow = true,
+                                onOpenRecordings = { onNavigate("profile_recordings") }
                             )
                         }
 
@@ -506,9 +510,10 @@ fun DashboardScreen(
                     DashboardKpiStrip(
                         practiceHours = practiceHoursFormatted,
                         wordsLearned = "$wordsLearnedCount",
-                        recordings = "${sessions.size}",
+                        recordings = "$totalRecordingsCount",
                         lessonsCompleted = "$completedLessons / $totalCoreLessons",
-                        fourUpRow = tier.isTabletOrWide
+                        fourUpRow = tier.isTabletOrWide,
+                        onOpenRecordings = { onNavigate("profile_recordings") }
                     )
                 }
 
@@ -579,48 +584,14 @@ fun DashboardScreen(
                 }
             }
 
-            // Recent Recordings & Pronunciation Trend
-            if (tier.isExpandedTablet && sessions.isNotEmpty()) {
-                val latest = sessions.first()
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(SpeakCraftSpacing.lg),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        LatestRecordingSummaryCard(
-                            latest = latest,
-                            onOpenSpeakingLab = { onNavigate("speaking_lab") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        DashboardTrendCard(
-                            reportPeriod = reportPeriod,
-                            filteredCount = filteredSessions.size,
-                            scores = assessablePronScores,
-                            onSelectPeriod = { reportPeriod = it },
-                            modifier = Modifier.weight(1.25f)
-                        )
-                    }
-                }
-            } else {
-                if (sessions.isNotEmpty()) {
-                    val latest = sessions.first()
-                    item {
-                        LatestRecordingSummaryCard(
-                            latest = latest,
-                            onOpenSpeakingLab = { onNavigate("speaking_lab") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-                item {
-                    DashboardTrendCard(
-                        reportPeriod = reportPeriod,
-                        filteredCount = filteredSessions.size,
-                        scores = assessablePronScores,
-                        onSelectPeriod = { reportPeriod = it }
-                    )
-                }
+            // Pronunciation & Clarity Trend (past recorded sessions live exclusively in Profile -> Recordings)
+            item {
+                DashboardTrendCard(
+                    reportPeriod = reportPeriod,
+                    filteredCount = filteredSessions.size,
+                    scores = assessablePronScores,
+                    onSelectPeriod = { reportPeriod = it }
+                )
             }
 
             // Interactive Tutorials Strip + Browse All 24 Feature Guides
@@ -753,7 +724,8 @@ private fun DashboardKpiStrip(
     wordsLearned: String,
     recordings: String,
     lessonsCompleted: String,
-    fourUpRow: Boolean
+    fourUpRow: Boolean,
+    onOpenRecordings: () -> Unit = {}
 ) {
     val ext = MaterialTheme.speakCraftColors
     if (fourUpRow) {
@@ -786,13 +758,17 @@ private fun DashboardKpiStrip(
             StudioMetricCard(
                 label = "Recordings",
                 value = recordings,
-                pillText = "↑ Improve fluency",
+                pillText = "View in Profile",
                 icon = Icons.Default.Mic,
                 iconBg = ext.pastelPeriwinkleBg,
                 iconTint = ext.pastelPeriwinkleInk,
                 pillBg = ext.pastelMintBg,
                 pillInk = ext.pastelMintInk,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .clickable(onClick = onOpenRecordings)
+                    .testTag("dashboard_recordings_kpi_card")
             )
             StudioMetricCard(
                 label = "Lessons Completed",
@@ -836,13 +812,17 @@ private fun DashboardKpiStrip(
                 StudioMetricCard(
                     label = "Recordings",
                     value = recordings,
-                    pillText = "↑ Improve fluency",
+                    pillText = "View in Profile",
                     icon = Icons.Default.Mic,
                     iconBg = ext.pastelPeriwinkleBg,
                     iconTint = ext.pastelPeriwinkleInk,
                     pillBg = ext.pastelMintBg,
                     pillInk = ext.pastelMintInk,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable(onClick = onOpenRecordings)
+                        .testTag("dashboard_recordings_kpi_card")
                 )
                 StudioMetricCard(
                     label = "Lessons Completed",
@@ -856,75 +836,6 @@ private fun DashboardKpiStrip(
                     modifier = Modifier.weight(1f)
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun LatestRecordingSummaryCard(
-    latest: SpeakingSession,
-    onOpenSpeakingLab: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val ext = MaterialTheme.speakCraftColors
-    Card(
-        onClick = onOpenSpeakingLab,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = ext.infoContainer
-                ) {
-                    Text(
-                        "Latest Recording Review",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ext.info,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            if (com.example.data.evaluation.LabAttemptEvaluator.isEngineEvaluated(latest)) {
-                                if (latest.wordsPerMinute > 0L) "${latest.wordsPerMinute} WPM • On-device feedback" else "On-device feedback"
-                            } else {
-                                "${latest.wordsPerMinute} WPM • Fluency ${latest.fluencyScore}"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Open Speaking Lab",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-            Text(latest.promptTitle, style = MaterialTheme.typography.titleMedium)
-            Text(
-                latest.overallAssessment,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3
-            )
         }
     }
 }

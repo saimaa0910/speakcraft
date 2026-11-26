@@ -551,7 +551,8 @@ class LearningProgressManager(
             passed = attempt.passed,
             aiEvaluated = attempt.aiEvaluated,
             wordsPerMinute = attempt.wordsPerMinute.toInt(),
-            fillerCount = attempt.fillerCount.toInt()
+            fillerCount = attempt.fillerCount.toInt(),
+            recordedMediaPath = attempt.recordedMediaPath
         )
         val withProgress = start.copy(
             activityProgress = start.activityProgress + (activity.activityId to progress),
@@ -662,9 +663,59 @@ class LearningProgressManager(
                 "evaluationVersion" to completion.evaluationVersion
             )
         )
-        val withPractice = start.copy(techniquePractice = updatedPractice)
+        val savedRec = completion.localMediaPath.takeIf { it.isNotBlank() }?.let { mediaPath ->
+            SavedPracticeRecording(
+                id = completion.attemptId,
+                activityId = completion.activityId,
+                title = completion.title,
+                templateId = completion.templateId,
+                timestampMs = now,
+                durationSeconds = completion.durationSeconds,
+                localMediaPath = mediaPath,
+                hasVideo = completion.hasVideo,
+                valid = completion.valid,
+                score = completion.score,
+                passed = completion.passed,
+                summary = completion.summary.ifBlank { detail },
+                transcript = completion.transcript
+            )
+        }
+        val withPractice = start.copy(
+            techniquePractice = updatedPractice,
+            practiceRecordings = if (savedRec != null) {
+                (listOf(savedRec) + start.practiceRecordings.filterNot { it.id == savedRec.id }).take(100)
+            } else {
+                start.practiceRecordings
+            }
+        )
         commitState(ingestEvent(withPractice, event, listOf(record)) ?: withPractice)
         return true
+    }
+
+    /** Removes a Coach Practice recording reference from local state. */
+    fun deletePracticeRecording(recordingId: String) {
+        val current = _state.value
+        val updated = current.practiceRecordings.filterNot { it.id == recordingId }
+        if (updated.size != current.practiceRecordings.size) {
+            commitState(current.copy(practiceRecordings = updated, lastUpdatedAtMs = clockMs()))
+        }
+    }
+
+    /** Clears the local recorded media reference from an Activity Engine attempt. */
+    fun deleteActivityAttemptMedia(attemptId: String) {
+        val current = _state.value
+        var changed = false
+        val updated = current.activityAttempts.map { att ->
+            if (att.id == attemptId && att.recordedMediaPath.isNotBlank()) {
+                changed = true
+                att.copy(recordedMediaPath = "")
+            } else {
+                att
+            }
+        }
+        if (changed) {
+            commitState(current.copy(activityAttempts = updated, lastUpdatedAtMs = clockMs()))
+        }
     }
 
     /** A step of the daily routine checklist was ticked (self-reported; once per step per day). */

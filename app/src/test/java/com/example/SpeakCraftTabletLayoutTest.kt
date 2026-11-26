@@ -170,7 +170,7 @@ class SpeakCraftTabletLayoutTest {
     }
 
     @Test
-    fun `speaking lab on tablet shows 2-pane studio with recent recordings beside capture controls`() {
+    fun `speaking lab on tablet shows 2-pane studio without inline past recorded sessions`() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val db = ensureFirestore()
         val speakingVm = SpeakingAndLabsViewModel(
@@ -191,11 +191,12 @@ class SpeakCraftTabletLayoutTest {
         }
         composeRule.waitForIdle()
 
+        composeRule.onNodeWithText("Past Recorded Sessions").assertDoesNotExist()
         val prompt = composeRule.onNodeWithTag("speaking_prompt_input").assertIsDisplayed().getBoundsInRoot()
-        val pastSessionsHeader = composeRule.onNodeWithText("Past Recorded Sessions").assertIsDisplayed().getBoundsInRoot()
+        val archiveCard = composeRule.onNodeWithTag("studio_profile_recordings_card").assertIsDisplayed().getBoundsInRoot()
         assertTrue(
-            "Expected capture studio left (${prompt.left}) < Past Recorded Sessions pane (${pastSessionsHeader.left})",
-            prompt.left < pastSessionsHeader.left
+            "Expected capture studio left (${prompt.left}) < right archive/feedback pane (${archiveCard.left})",
+            prompt.left < archiveCard.left
         )
     }
 

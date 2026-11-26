@@ -486,5 +486,7 @@ data class PersistedLearningSnapshot(
     /** Vocabulary Builder: all words passed via speaking assessment (feeds the 7-day AI Quiz). */
     val learnedVocabularyLog: List<LearnedWordRecord> = emptyList(),
     /** Vocabulary Builder: completed 7-day cumulative AI Quiz assessments. */
-    val weeklyAssessments: List<WeeklyVocabularyAssessmentRecord> = emptyList()
+    val weeklyAssessments: List<WeeklyVocabularyAssessmentRecord> = emptyList(),
+    /** Coach Practice recordings archived locally for User Profile -> Recordings tab. */
+    val practiceRecordings: List<SavedPracticeRecording> = emptyList()
 )

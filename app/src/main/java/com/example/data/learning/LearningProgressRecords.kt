@@ -189,7 +189,26 @@ data class LocalActivityAttempt(
     val passed: Boolean = false,
     val aiEvaluated: Boolean = false,
     val wordsPerMinute: Int = 0,
-    val fillerCount: Int = 0
+    val fillerCount: Int = 0,
+    val recordedMediaPath: String = ""
+)
+
+/** One recorded Coach Practice attempt saved locally for replay in User Profile -> Recordings. */
+@Serializable
+data class SavedPracticeRecording(
+    val id: String,
+    val activityId: String,
+    val title: String,
+    val templateId: String = "",
+    val timestampMs: Long = 0L,
+    val durationSeconds: Int = 0,
+    val localMediaPath: String = "",
+    val hasVideo: Boolean = false,
+    val valid: Boolean = true,
+    val score: Int? = null,
+    val passed: Boolean? = null,
+    val summary: String = "",
+    val transcript: String = ""
 )
 
 /** Coach Practice evidence for one technique (techniques pillar). Counts only what the engine reported. */
